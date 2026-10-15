@@ -591,7 +591,9 @@ function addEvt(label,cat,items,opts){
   opts=opts||{};
   var id=opts.id||uuid(),t=Date.now();
   if(opts.id)delEvt(opts.id,true);
-  L().evts.push({id:id,label:label,cat:cat,ts:t});
+  var ev={id:id,label:label,cat:cat,ts:t};
+  if(opts.lk)ev.lk=opts.lk;
+  L().evts.push(ev);
   items.forEach(function(it){L().entries.push({id:uuid(),evt:id,name:it.name,d:it.d,cat:cat,note:it.note||label,ts:t});});
   if(!opts.quiet)saveLedger();
   return id;
@@ -1029,36 +1031,54 @@ function viewBowl(){
   var h='<h2 class="h2" style="margin-top:6px">🎳 볼링 · 5인 협동 팀전</h2>'+banner()+
    '<div class="card"><div class="kv"><b>인원</b><span>10명 · 5:5 팀전</span><b>라운드</b><span>총 2라운드 (1세트 · 2세트)</span></div></div>'+
    teamCard('bowl1','1세트 팀')+teamCard('bowl2','2세트 팀');
-  if(S.admin)h+=bowlTeamAdmin();
+  if(S.admin)h+=bowlAdmin();
   ['bowl1','bowl2'].forEach(function(k){if(res[k]&&res[k].win)h+='<div class="card"><b>🏆 '+GAME[k]+' 승리팀</b><div class="chips" style="margin-top:6px">'+res[k].win.map(function(n){return '<span class="chip'+(n===S.me?' me':'')+'">'+esc(n)+'</span>';}).join('')+'</div></div>';});
   h+='<h3 class="h3">게임 규칙</h3><div class="card"><ol style="margin:0;padding-left:20px"><li>팀원별 최소 3회 ~ 최대 5회 투구.</li><li>동일 인물 연속 투구 금지.</li><li>투구 순서는 자유롭게 결정.</li><li>최종 볼링 점수가 높은 팀 승리.</li></ol><p class="small mut" style="margin-top:6px">전체 투구 수가 부족하면 최소 투구 횟수를 조정해요.</p></div>'+
-   '<h3 class="h3">기본 점수</h3>'+baseTable('1 / 2 / 2 / 3 / 3');
-  if(S.admin)h+=bowlSetAdmin();
-  h+='<h3 class="h3">🍀 럭키 찬스</h3><div class="card"><p>스트라이크 또는 스페어를 성공하면 <b>1회 추첨</b>!</p><table class="tbl"><tr><th>카드</th><th>효과</th></tr><tr><td>팀 보너스</td><td>팀원 전원 +1점</td></tr><tr><td>개인 보너스</td><td>본인 +1점</td></tr><tr><td>행운 나눔</td><td>원하는 팀원 1명에게 +1점</td></tr></table>'+
-   '<ul class="dots"><li>성공한 투구자가 직접 추첨.</li><li>팀별 라운드당 최대 2회까지 인정.</li><li>추첨한 카드는 다시 넣어요.</li></ul></div>';
-  if(S.admin)h+=tool('🍀 럭키 찬스 뽑기','스트라이크/스페어가 나오면 눌러서 카드를 뽑고, 뽑힌 카드에 맞게 점수 받을 사람을 선택해 바로 반영해요.','<button class="btn hot block" data-act="luckyOpen">🍀 럭키 찬스 뽑기 열기</button>');
-  h+='<h3 class="h3">🔁 팀 변경 · 스카우트 &amp; 방출</h3><div class="card"><p><b>1라운드:</b> 무작위 추첨으로 5:5 팀 구성.</p><p style="margin-top:6px"><b>2라운드:</b></p><ol style="margin:4px 0 0;padding-left:20px"><li>패배팀이 승리팀에서 원하는 팀원 1명 스카우트.</li><li>패배팀에서 무작위로 1명 방출.</li><li>두 사람의 팀을 교환해 2라운드 진행.</li></ol></div>';
-  if(S.admin)h+=tool('🎲 방출 추첨','패배팀 5명을 선택하면 그중 1명을 무작위로 뽑아 폰에 공개해요.',
-    '<p class="small">패배팀 선택 ('+(S.ui.outSel||[]).length+'/5)</p>'+chipsMulti(PLAYERS,'ui.outSel',5)+'<button class="btn hot block" data-act="tOut">방출 1명 추첨하고 폰에 공개</button>');
+   '<h3 class="h3">기본 점수</h3>'+baseTable('1 / 2 / 2 / 3 / 3')+
+   '<h3 class="h3">🍀 럭키 찬스</h3><div class="card"><p>스트라이크 또는 스페어를 성공하면 <b>1회 추첨</b>!</p><table class="tbl"><tr><th>카드</th><th>효과</th></tr><tr><td>팀 보너스</td><td>팀원 전원 +1점</td></tr><tr><td>개인 보너스</td><td>본인 +1점</td></tr><tr><td>행운 나눔</td><td>우리 팀에서 한 명을 지목해 +1점</td></tr></table>'+
+   '<ul class="dots"><li>성공한 투구자가 직접 추첨.</li><li>팀별 라운드당 최대 2회까지 인정.</li><li>추첨한 카드는 다시 넣어요.</li></ul></div>'+
+   '<h3 class="h3">🔁 팀 변경 · 스카우트 &amp; 방출</h3><div class="card"><p><b>1라운드:</b> 무작위 추첨으로 5:5 팀 구성.</p><p style="margin-top:6px"><b>2라운드:</b></p><ol style="margin:4px 0 0;padding-left:20px"><li>패배팀이 승리팀에서 원하는 팀원 1명 스카우트.</li><li>패배팀에서 무작위로 1명 방출.</li><li>두 사람의 팀을 교환해 2라운드 진행.</li></ol></div>';
   return h;
 }
-function bowlTeamAdmin(){
+function bowlAdmin(){
   var mt=S.ui.mt;
-  return tool('🛠 1세트 팀 랜덤 추첨','10명을 무작위 5:5로 나눠 폰에 공개해요.',teamBlock('bowl1')+'<button class="btn hot block" data-act="tBowl1">추첨하고 폰에 공개</button>')+
-    tool('✍️ 팀 직접 편성 (2세트 등)','선택한 5명이 A팀, 나머지 5명이 B팀이 돼요.',
+  return '<h2 class="h2">🛠 볼링 진행 (관리자)</h2>'+bowlSet('bowl1')+bowlSet('bowl2')+
+    '<details class="pl"><summary>✍️ 팀 직접 편성 (비상용)</summary><div class="bd"><p class="small mut">선택한 5명이 A팀, 나머지 5명이 B팀이 돼요.</p>'+
       '<div class="chips"><button class="chip'+(mt.key==='bowl1'?' on':'')+'" data-act="sel" data-k="ui.mt.key" data-v="bowl1">1세트</button><button class="chip'+(mt.key==='bowl2'?' on':'')+'" data-act="sel" data-k="ui.mt.key" data-v="bowl2">2세트</button></div>'+
-      '<p class="small" style="margin-top:8px">A팀 선택 ('+mt.sel.length+'/5)</p>'+chipsMulti(PLAYERS,'ui.mt.sel',5)+'<button class="btn block" style="margin-top:8px" data-act="mtSave">'+GAME[mt.key]+' 팀 저장하고 공개</button>');
+      '<p class="small" style="margin-top:8px">A팀 선택 ('+mt.sel.length+'/5)</p>'+chipsMulti(PLAYERS,'ui.mt.sel',5)+'<button class="btn block" style="margin-top:8px" data-act="mtSave">'+GAME[mt.key]+' 팀 저장하고 공개</button></div></details>';
 }
-function bowlSetAdmin(){
-  var h='';
-  ['bowl1','bowl2'].forEach(function(k){
-    var saved=hasEvt('base:'+k),sel=S.ui.ws[k]||[];
-    h+=tool('🏁 '+GAME[k]+' 결과 입력','승리팀 5명을 선택하고 저장하면 기본 점수(승리 3·3·4·4·5 / 패배 1·2·2·3·3)가 자동으로 나눠져 반영돼요.',
-      '<p class="small">승리팀 선택 ('+sel.length+'/5)</p>'+chipsMulti(PLAYERS,'ui.ws.'+k,5)+
-      '<button class="btn hot block" data-act="saveSet" data-v="'+k+'">'+(saved?'다시 저장 (기존 점수 교체)':'저장하고 점수 반영')+'</button>'+
-      (saved?'<p class="small" style="margin-top:8px"><b>반영됨</b> · '+evtPoints('base:'+k).map(function(e){return esc(e.name)+' '+e.d;}).join(' · ')+'</p>':''));
-  });
-  return h;
+function bowlSet(key){
+  var n=key==='bowl1'?1:2,t=team(key),res=S.pub.results&&S.pub.results[key],sc=S.ui.scout||{};
+  var h='<div class="card tool"><h3>🎳 '+n+'세트'+(res?' <span class="tag good">종료</span>':'')+'</h3>';
+  if(key==='bowl1'){
+    h+='<p class="mut small">10명을 무작위 5:5로 나눠서 폰에 공개해요.</p>'+teamBlock('bowl1')+
+      '<button class="btn '+(t?'ghost':'hot')+' block" data-act="tBowl1">'+(t?'🎲 1세트 팀 다시 추첨':'🎲 1세트 팀 랜덤 추첨 · 폰에 공개')+'</button>';
+  }else{
+    var r1=S.pub.results&&S.pub.results.bowl1,t1=team('bowl1');
+    if(!t){
+      if(!r1||r1.team==null||!t1)h+='<p class="mut small">1세트 승리팀을 선택하면 2세트 팀 뽑기를 시작할 수 있어요.</p>';
+      else{
+        var wi=r1.team,li=1-wi,ln=t1.groups[li].n,wn=t1.groups[wi].n;
+        if(sc.stage==='pick')h+='<div class="note">🔁 <b>'+esc(ln)+'(패배팀)</b>이 영입할 선수를 골라주세요.<br><span class="small">'+esc(wn)+'(승리팀)에서 한 명을 누르면 패배팀 방출자가 랜덤으로 정해져요 🥁</span></div><div class="chips">'+
+          t1.groups[wi].m.map(function(nm){return '<button class="chip" data-act="scoutPick" data-v="'+esc(nm)+'">'+esc(nm)+'</button>';}).join('')+'</div>';
+        else if(sc.stage==='drawing')h+='<div class="note">🥁 방출자를 추첨하는 중이에요… 잠시 후 2세트 팀이 정해져요.</div>';
+        else h+='<p class="mut small">패배팀('+esc(ln)+')이 승리팀에서 1명을 영입하고, 패배팀에서 1명이 랜덤으로 방출돼요.</p><button class="btn hot block" data-act="scoutStart">🔁 2세트 팀 뽑기 시작 · 폰에 공개</button>';
+      }
+    }else{
+      h+=teamBlock('bowl2');
+      if(!res)h+='<button class="btn ghost block" style="margin-top:6px" data-act="bowl2Reset">↩ 2세트 팀 다시 뽑기</button>';
+    }
+  }
+  if(t){
+    h+='<p class="small" style="margin-top:14px"><b>🏁 '+n+'세트 결과</b> — 승리팀을 선택하면 기본 점수(승리 3·3·4·4·5 / 패배 1·2·2·3·3)가 자동으로 반영돼요.</p><div class="row">'+
+      t.groups.map(function(g,gi){return '<button class="btn '+(res&&res.team===gi?'good':'ghost')+'" data-act="bowlWin" data-v="'+key+':'+gi+'">'+esc(g.n)+' 승리</button>';}).join('')+'</div>';
+    if(res&&hasEvt('base:'+key))h+='<p class="small" style="margin-top:8px"><b>반영됨</b> · '+evtPoints('base:'+key).map(function(e){return esc(e.name)+' '+e.d;}).join(' · ')+'</p>';
+    if(!res){
+      h+='<button class="btn hot block" style="margin-top:12px" data-act="luckyOpen" data-v="'+key+'">🍀 럭키 찬스 뽑기</button><p class="small mut" style="margin-top:6px">'+
+        t.groups.map(function(g,gi){return esc(g.n)+' '+luckyCount(key,gi)+'/2회';}).join(' · ')+' (팀별 세트당 최대 2회)</p>';
+    }
+  }
+  return h+'</div>';
 }
 
 /* =============== PC방 (오버워치) =============== */
@@ -1266,6 +1286,16 @@ function ltSave(){
   if(!['A','B','C'].every(function(k){return lt[k].length===3;}))return toast('A·B·C팀에 3명씩 선택하세요');
   setTeams('lunch',['A','B','C'].map(function(k){return {n:k+'팀',m:lt[k].slice()};}),'앉은 자리대로 팀이 정해졌어요! '+HOST+' 님이 진행해요','🍽️ 점심 팀 발표');
 }
+function setTeamsQuiet(key,groups){
+  var T=clone(S.pub.teams)||{sets:{},current:null};T.sets=T.sets||{};
+  T.sets[key]={groups:groups};T.current=key;S.pub.teams=T;saveTeams();
+}
+function clearBowl(){
+  var R=clone(S.pub.results)||{};delete R.bowl1;delete R.bowl2;S.pub.results=R;saveResults();
+  var T=clone(S.pub.teams);if(T&&T.sets){delete T.sets.bowl2;S.pub.teams=T;}
+  L().evts.filter(function(e){return e.cat==='bowl';}).forEach(function(e){delEvt(e.id,true);});
+  saveLedger();S.ui.scout=null;
+}
 function tBowl1(){
   var pl=shuffle(PLAYERS);
   setTeams('bowl1',[{n:'A팀',m:pl.slice(0,5)},{n:'B팀',m:pl.slice(5,10)}],'1세트 팀이 정해졌어요!','🎳 볼링 1세트 팀');
@@ -1277,13 +1307,6 @@ function mtSave(){
   setTeams(mt.key,[{n:'A팀',m:mt.sel.slice()},{n:'B팀',m:rest}],'팀이 정해졌어요!','🎳 '+GAME[mt.key]+' 팀');
   mt.sel=[];
 }
-function tOut(){
-  var sel=S.ui.outSel||[];
-  if(sel.length!==5)return toast('패배팀 5명을 선택하세요');
-  var out=sel[rnd(5)];
-  announce('pick','🎲 방출 추첨',{names:[out],note:'방출 대상이 정해졌어요!'},'🎳 방출 추첨 결과: '+out+' 님 방출!!!!');
-  S.ui.outSel=[];
-}
 function tPick(){
   var pool=PLAYERS.filter(function(n){return S.ui.gpool[n]!==false;});
   if(pool.length<S.ui.gn)return toast('뽑을 인원보다 후보가 적어요');
@@ -1291,32 +1314,109 @@ function tPick(){
   announce('pick','🎯 추첨 결과',{names:names,note:'두근두근…'},'🎯 추첨 결과: '+names.join(', '));
 }
 
-/* =============== 관리자: 볼링 세트 결과 / 럭키 찬스 =============== */
-function saveSet(key){
-  var win=(S.ui.ws[key]||[]).slice();
-  if(win.length!==5)return toast('승리팀 5명을 선택하세요');
-  var lose=PLAYERS.filter(function(n){return win.indexOf(n)<0;}),assign={},items=[];
+/* =============== 관리자: 볼링 세트 결과 / 스카우트·방출 / 럭키 찬스 =============== */
+function bowlResult(key,gi){
+  var t=team(key);if(!t)return toast('먼저 팀을 만들어 주세요');
+  var win=t.groups[gi].m.slice(),lose=t.groups[1-gi].m.slice(),assign={},items=[];
   var wv=shuffle(BOWL_WIN),lv=shuffle(BOWL_LOSE);
   win.forEach(function(n,i){assign[n]=wv[i];items.push({name:n,d:wv[i],note:GAME[key]+' 승리 기본 점수'});});
   lose.forEach(function(n,i){assign[n]=lv[i];items.push({name:n,d:lv[i],note:GAME[key]+' 패배 기본 점수'});});
   addEvt(GAME[key]+' 기본 점수','bowl',items,{id:'base:'+key});
-  var R=clone(S.pub.results)||{};R[key]={win:win};S.pub.results=R;saveResults();
-  announce('private','✉️ '+GAME[key]+' 점수 봉투',{assign:assign,unit:'점',fmt:'plain',label:'기본 점수'},'🎳 '+GAME[key]+' 결과! 승리팀: '+win.join(', '));
+  var R=clone(S.pub.results)||{};R[key]={win:win,team:gi};S.pub.results=R;saveResults();
+  announce('private','✉️ '+GAME[key]+' 점수 봉투',{assign:assign,unit:'점',fmt:'plain',label:'기본 점수'},
+    '🎳 '+GAME[key]+' 결과!!!! '+t.groups[gi].n+' 승리! ('+win.join(', ')+')');
+  S.ui.scout=null;
 }
-var LK={team:{t:'팀 보너스',d:'팀원 전원 +1점',need:5},self:{t:'개인 보너스',d:'본인 +1점',need:1},share:{t:'행운 나눔',d:'원하는 팀원 1명에게 +1점',need:1}};
+function scoutStart(){
+  var t=team('bowl1'),r1=S.pub.results&&S.pub.results.bowl1;
+  if(!t||!r1||r1.team==null)return toast('1세트 승리팀을 먼저 선택하세요');
+  var ln=t.groups[1-r1.team].n,wn=t.groups[r1.team].n;
+  S.ui.scout={stage:'pick'};
+  announce('announce','🔁 2세트 팀 뽑기',{emoji:'🔁',lines:[ln+'(패배팀)이 '+wn+'(승리팀)에서 한 명을 영입해요!','패배팀 영입할 선수를 골라주세요']},
+    '🔁 2세트 팀 뽑기! '+ln+'(패배팀)이 영입할 선수를 고르고 있어요');
+}
+function scoutPick(target){
+  var t=team('bowl1'),r1=S.pub.results&&S.pub.results.bowl1;
+  if(!t||!r1||r1.team==null)return toast('1세트 승리팀을 먼저 선택하세요');
+  if(S.ui.scout&&S.ui.scout.stage==='drawing')return;
+  var wi=r1.team,li=1-wi;
+  if(t.groups[wi].m.indexOf(target)<0)return toast('승리팀 선수를 선택하세요');
+  var lose=t.groups[li].m.slice(),out=lose[rnd(lose.length)],g=clone(t.groups);
+  g[li].m=g[li].m.filter(function(n){return n!==out;}).concat([target]);
+  g[wi].m=g[wi].m.filter(function(n){return n!==target;}).concat([out]);
+  var ln=t.groups[li].n;
+  S.ui.scout={stage:'drawing',target:target,out:out};
+  announce('draw','🥁 방출 추첨!',{intro:ln+'이(가) '+target+' 님을 영입했어요! 패배팀에서 방출되는 사람은… 두구두구 누구!',pool:lose,
+    slots:[{label:'영입',name:target,spin:false},{label:'방출',name:out,spin:true}],note:out+' 님 방출! '+target+' ↔ '+out+' 팀 교환'},null);
+  setTimeout(function(){
+    setTeamsQuiet('bowl2',g);
+    sysChat('🥁 방출 추첨 결과: '+out+' 님 방출!!!! ('+target+' ↔ '+out+' 팀 교환) · 2세트 팀 → '+g.map(function(x){return x.n+' ('+x.m.join(', ')+')';}).join(' / '));
+    S.ui.scout={stage:'done'};render(true);
+  },4500);
+}
+function bowl2Reset(){
+  var R=clone(S.pub.results)||{};delete R.bowl2;S.pub.results=R;saveResults();
+  var T=clone(S.pub.teams);if(T&&T.sets){delete T.sets.bowl2;if(T.current==='bowl2')T.current='bowl1';S.pub.teams=T;saveTeams();}
+  L().evts.filter(function(e){return e.id==='base:bowl2'||(e.lk&&e.lk.indexOf('bowl2:')===0);}).forEach(function(e){delEvt(e.id,true);});
+  saveLedger();S.ui.scout=null;toast('2세트 팀을 초기화했어요');
+}
+var LK={team:{t:'팀 보너스',d:'팀원 전원 +1점'},self:{t:'개인 보너스',d:'본인 +1점'},share:{t:'행운 나눔',d:'우리 팀에서 한 명 지목 +1점'}};
+function luckyCount(key,ti){return L().evts.filter(function(e){return e.lk===key+':'+ti;}).length;}
+function luckyReason(){
+  var m=S.modal,t=team(m.key);
+  if(!m.thrower)return toast('누가 핀을 쓰러뜨렸는지 선택하세요');
+  var ti=teamOf(m.key,m.thrower);
+  if(ti<0)return toast('이 세트 팀에 없는 사람이에요');
+  if(luckyCount(m.key,ti)>=2)return toast(t.groups[ti].n+'은 이 세트 럭키 찬스를 2회 모두 썼어요');
+  announce('announce','🎳 럭키 찬스!',{emoji:'🎳',lines:[m.thrower+' 님이 핀을 모두 쓰러뜨렸어요!','스트라이크 / 스페어 성공!','🍀 럭키 찬스를 뽑아요']},
+    '🎳 '+m.thrower+' 님이 핀을 모두 쓰러뜨렸어요!!!! (스트라이크/스페어) 🍀 럭키 찬스 획득!');
+  m.stage=1;
+}
 function luckyDraw(){
-  var m=S.modal,k=['team','self','share'][rnd(3)],who=m.thrower?m.thrower+' 님이 ':'';
-  m.kind=k;m.sel=[];
-  announce('announce','🍀 럭키 찬스!',{emoji:'🍀',lines:[who+'스트라이크/스페어 성공!','럭키 카드: '+LK[k].t,LK[k].d]},'🍀 '+who+'스트라이크/스페어 성공!!!! 럭키 카드 → '+LK[k].t+' ('+LK[k].d+')');
+  var m=S.modal,k=['team','self','share'][rnd(3)];
+  m.kind=k;m.rec=null;m.stage=2;
+  announce('announce','🍀 럭키 카드!',{emoji:'🍀',lines:[m.thrower+' 님이 뽑은 카드','→ '+LK[k].t,LK[k].d]},
+    '🍀 '+m.thrower+' 님의 럭키 카드 → '+LK[k].t+' ('+LK[k].d+')');
+}
+function luckyRandom(){
+  var m=S.modal,ti=teamOf(m.key,m.thrower),mates=team(m.key).groups[ti].m.filter(function(n){return n!==m.thrower;});
+  m.rec=mates[rnd(mates.length)];
 }
 function luckyApply(){
-  var m=S.modal,k=LK[m.kind];
-  if(!k||m.sel.length!==k.need)return toast(k.need+'명을 선택하세요');
-  addEvt('럭키 찬스 · '+k.t+(m.thrower?' ('+m.thrower+')':'')+' → '+m.sel.join(', '),'bowl',m.sel.map(function(n){return {name:n,d:1,note:'럭키 찬스 '+k.t};}));
-  announce('pick','🍀 럭키 찬스 보너스!',{names:m.sel.slice(),note:k.t+' · 각각 +1점!'},'🍀 럭키 찬스 점수 반영! '+m.sel.join(', ')+' 각 +1점');
+  var m=S.modal,t=team(m.key),ti=teamOf(m.key,m.thrower),mates=t.groups[ti].m,names;
+  if(m.kind==='team')names=mates.slice();
+  else if(m.kind==='self')names=[m.thrower];
+  else{
+    if(!m.rec||m.rec===m.thrower||mates.indexOf(m.rec)<0)return toast('점수를 받을 팀원을 지목하세요');
+    names=[m.rec];
+  }
+  var k=LK[m.kind];
+  addEvt('럭키 찬스 · '+GAME[m.key]+' · '+k.t+' ('+m.thrower+') → '+names.join(', '),'bowl',names.map(function(n){return {name:n,d:1,note:'럭키 찬스 '+k.t};}),{lk:m.key+':'+ti});
+  var who=m.kind==='team'?t.groups[ti].n+' 팀원 전원 ':m.kind==='share'?m.thrower+' 님이 지목한 ':'';
+  announce('pick','🍀 럭키 찬스 보너스!',{names:names,note:who+'각 +1점!'},'🍀 럭키 찬스 점수 반영! '+who+names.join(', ')+' 각 +1점');
   S.modal=null;
 }
-
+function luckyModal(){
+  var m=S.modal,t=team(m.key),h='<div class="ov"><div class="box" data-stop="1"><h3>🍀 럭키 찬스 · '+esc(GAME[m.key])+'</h3>';
+  if(!t)return h+'<p>먼저 팀을 만들어 주세요.</p><button class="btn ghost block" data-act="modalClose">닫기</button></div></div>';
+  var all=t.groups.reduce(function(a,g){return a.concat(g.m);},[]);
+  if(m.stage===0){
+    h+='<p class="small">① 핀을 모두 쓰러뜨린 사람을 선택하세요.</p>'+chipsSel(all,'modal.thrower',m.thrower)+
+      '<p class="small mut" style="margin-top:6px">'+t.groups.map(function(g,gi){return esc(g.n)+' '+luckyCount(m.key,gi)+'/2회';}).join(' · ')+'</p>'+
+      '<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="modalClose">취소</button><button class="btn hot" style="flex:1" data-act="luckyReason">🎳 핀을 모두 쓰러뜨렸어요! (공개)</button></div>';
+  }else if(m.stage===1){
+    h+='<div class="note">🎳 <b>'+esc(m.thrower)+'</b> 님이 핀을 모두 쓰러뜨렸어요!<br><span class="small">모두의 폰에 알림이 갔어요. 이제 럭키 카드를 뽑아요.</span></div>'+
+      '<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="modalClose">닫기</button><button class="btn hot" style="flex:1" data-act="luckyDraw">🍀 럭키 카드 뽑기 · 폰에 공개</button></div>';
+  }else{
+    var ti=teamOf(m.key,m.thrower),mates=t.groups[ti].m,k=LK[m.kind];
+    h+='<div class="note"><b>'+k.t+'</b> — '+k.d+'</div>';
+    if(m.kind==='team')h+='<p class="small">받는 사람 (팀원 전원)</p><div class="chips">'+mates.map(function(n){return '<span class="chip on">'+esc(n)+'</span>';}).join('')+'</div>';
+    else if(m.kind==='self')h+='<p class="small">받는 사람</p><div class="chips"><span class="chip on">'+esc(m.thrower)+'</span></div>';
+    else h+='<p class="small">'+esc(m.thrower)+' 님이 지목한 팀원을 선택하거나 랜덤으로 뽑아요.</p>'+chipsSel(mates,'modal.rec',m.rec,m.thrower)+'<button class="btn ghost" style="margin-top:8px" data-act="luckyRandom">🎲 랜덤 지목</button>';
+    h+='<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="modalClose">닫기</button><button class="btn hot" style="flex:1" data-act="luckyApply"'+((m.kind==='share'&&!m.rec)?' disabled':'')+'>+1점 반영 · 폰에 공개</button></div>';
+  }
+  return h+'</div></div>';
+}
 /* =============== 관리자: PC방 =============== */
 function owDraw(key){
   var st=A().state.stage=A().state.stage||{};
@@ -1642,17 +1742,6 @@ async function resetAll(){
 }
 
 /* =============== 모달 =============== */
-function luckyModal(){
-  var m=S.modal,k=m.kind&&LK[m.kind],h='<div class="ov"><div class="box" data-stop="1"><h3>🍀 럭키 찬스 뽑기</h3>';
-  if(!k){
-    h+='<p class="small">스트라이크/스페어를 성공한 사람을 고르면 채팅 알림에 이름이 나와요. (선택 사항)</p>'+chipsSel(PLAYERS,'modal.thrower',m.thrower)+
-      '<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="modalClose">취소</button><button class="btn hot" style="flex:1" data-act="luckyDraw">🍀 카드 뽑기 · 폰에 공개</button></div>';
-  }else{
-    h+='<div class="note"><b>'+k.t+'</b> — '+k.d+'</div><p class="small">점수를 받을 사람을 선택하세요 ('+m.sel.length+'/'+k.need+')</p>'+chipsMulti(PLAYERS,'modal.sel',k.need)+
-      '<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="modalClose">닫기</button><button class="btn hot" style="flex:1" data-act="luckyApply"'+(m.sel.length===k.need?'':' disabled')+'>선택한 '+k.need+'명에게 +1점 반영</button></div>';
-  }
-  return h+'</div></div>';
-}
 function renderModal(){
   var el=$('#modal');if(!el)return;
   var m=S.modal;
@@ -1747,14 +1836,21 @@ async function handle(act,v,t){
       u.manual.note='';toast('반영했어요');break;
     case 'delEvt':{var id=v;ask('이 점수 기록을 삭제할까요?',function(){delEvt(id);if(id.indexOf('pw:')===0){var hid=id.slice(3),U=clone(S.pub.used)||{};if(U.used&&U.used[hid]){delete U.used[hid];S.pub.used=U;saveUsed();}}render(true);});return;}
     case 'ltSave':ltSave();break;
-    case 'tBowl1':tBowl1();break;
+    case 'tBowl1':{
+      var hasB=!!team('bowl1')||L().evts.some(function(e){return e.cat==='bowl';});
+      if(hasB){ask('1세트 팀을 다시 추첨하면 지금까지의 볼링 팀·결과·점수가 모두 지워져요. 다시 추첨할까요?',function(){clearBowl();tBowl1();render(true);});return;}
+      tBowl1();break;}
+    case 'bowlWin':{var bw=v.split(':');bowlResult(bw[0],+bw[1]);break;}
+    case 'scoutStart':scoutStart();break;
+    case 'scoutPick':{var sp=v;ask(sp+' 님을 영입할까요? 패배팀 방출자가 랜덤으로 정해져요.',function(){scoutPick(sp);render(true);});return;}
+    case 'bowl2Reset':ask('2세트 팀과 2세트 점수를 초기화할까요?',function(){bowl2Reset();render(true);});return;
     case 'mtSave':mtSave();break;
-    case 'tOut':tOut();break;
     case 'gn':u.gn=+v;break;
     case 'tPick':tPick();break;
-    case 'saveSet':saveSet(v);break;
-    case 'luckyOpen':S.modal={type:'lucky',thrower:null,kind:null,sel:[]};break;
+    case 'luckyOpen':S.modal={type:'lucky',key:v,stage:0,thrower:null,kind:null,rec:null};break;
+    case 'luckyReason':luckyReason();break;
     case 'luckyDraw':luckyDraw();break;
+    case 'luckyRandom':luckyRandom();break;
     case 'luckyApply':luckyApply();break;
     case 'owDraw':owDraw(v);break;
     case 'owBet':owBet(t.getAttribute('data-r'),t.getAttribute('data-n'),v);break;
