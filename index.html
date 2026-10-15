@@ -327,11 +327,24 @@ details.pl .bd{padding:0 12px 12px}
 .lt2 .qline{flex-basis:100%;font-weight:700;font-size:15px;line-height:1.45}
 .qtag{display:inline-block;padding:1px 9px;border-radius:999px;background:var(--hot);color:#1a0d05;font-size:12px;font-weight:700;margin-right:4px}
 
+/* v5: 점수 봉투 5장 연출, 점심 결과, 저장 표시 */
+.cards5{position:relative;height:122px;margin:6px 0}
+.cards5 .cd{width:18%;height:122px}
+.cards5 .cf.front .num{font-family:var(--f-d);font-size:36px;line-height:1}
+.cards5 .cf.front small{font-size:12px}
+.cards5 .cf.back{font-size:34px}
+.lres{margin:6px 0}
+.lr{display:flex;justify-content:space-between;align-items:center;padding:7px 4px;border-bottom:1.5px solid var(--line);font-size:15px}
+#busy{position:fixed;top:calc(env(safe-area-inset-top,0px) + 62px);right:10px;z-index:40;display:none;padding:7px 13px;border-radius:999px;background:var(--hot);color:#1a0d05;font-weight:700;font-size:13px;box-shadow:0 3px 0 rgba(0,0,0,.25);max-width:80vw}
+#busy.show{display:block}
+#busy.done{background:var(--good);color:#04251c}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="busy"></div>
 <div id="vote"></div>
 <div id="modal"></div>
 <div id="pop"></div>
@@ -372,7 +385,6 @@ var SCHEDULE=[
   ['18:00~18:20','최종 1등부터 선물 선택','🏆','award']
 ];
 var MENU=[
-  {id:'chat',t:'채팅',i:'💬'},
   {id:'home',t:'전체 일정',i:'🗓️'},
   {id:'power',t:'초능력 뽑기',i:'🔮'},
   {id:'lunch',t:'점심 미니게임',i:'🍽️'},
@@ -611,10 +623,18 @@ function adminOff(){A().unsub.forEach(function(u){try{u();}catch(e){}});A().unsu
 
 /* =============== 저장 큐 =============== */
 var Qp=Promise.resolve();
+var busyT=null;
+function updateBusy(){
+  var el=$('#busy');if(!el)return;
+  if(!S.admin){el.className='';return;}
+  clearTimeout(busyT);
+  if(S.busy>0){el.className='show';el.textContent='⏳ 서버에 저장 중… ('+S.busy+'건) 잠시만 기다려 주세요';}
+  else if(el.className.indexOf('show')>=0){el.className='show done';el.textContent='✅ 저장 완료';busyT=setTimeout(function(){el.className='';},1500);}
+}
 function enqueue(fn){
-  S.busy++;
+  S.busy++;updateBusy();
   Qp=Qp.then(fn).catch(function(e){console.error(e);toast('저장 실패: '+((e&&(e.message||e.code))||'알 수 없는 오류'));})
-    .then(function(){S.busy--;});
+    .then(function(){S.busy--;updateBusy();});
   return Qp;
 }
 function put(path,data){var d=clone(data);return enqueue(function(){return S.db.doc(path).set(d);});}
@@ -920,8 +940,8 @@ function layout(){
 }
 function menuItems(){
   var m=MENU.slice();
-  if(S.admin)m.push({id:'score',t:'점수 입력',i:'🧮',adm:true});
   m.push({id:'mine',t:'내 점수',i:'🧾'});
+  if(S.admin)m.push({id:'score',t:'관리자모드',i:'🛠',adm:true});
   return m;
 }
 function drawer(){
@@ -1488,17 +1508,35 @@ function renderPop(){
       else{
         var v=p.assign[S.me],pl=p.pool&&p.pool[S.me],bn=(p.bonus&&p.bonus[S.me])||0;
         inner=outcomeHead(p)+'<p>'+esc(S.me)+' 님의 '+esc(p.label||'결과')+'</p>';
+        P.env=null;
         if(pl){
-          var used1=false;
-          inner+='<p class="small mut" style="margin-bottom:2px">이번 팀 점수 봉투 '+(pl.kind==='win'?'(승리팀)':'(패배팀)')+'</p><div class="envs">'+pl.vals.map(function(x){var pk=(!used1&&x===v);if(pk)used1=true;return '<span class="env'+(pk?' pick':'')+'">'+x+'</span>';}).join('')+'</div>'+
-            '<p class="small" style="margin-top:2px">▲ 내가 뽑은 점수</p><div class="bigtxt '+(pl.tier==='high'?'plus':pl.tier==='low'?'minus':'')+'">'+v+'점</div>'+
+          var pi=pl.vals.indexOf(v);
+          var fin='<p class="small" style="margin-top:2px">▲ 내가 뽑은 점수</p><div class="bigtxt '+(pl.tier==='high'?'plus':pl.tier==='low'?'minus':'')+'">'+v+'점</div>'+
             (bn?'<p class="win"><b>🔮 승부 예측 성공 +'+bn+'</b> → 합계 '+(v+bn)+'점</p>':'')+
             (pl.tier==='high'?'<p class="quote">“표정 관리를 잘하세요. 당신의 점수를 노릴 수도 있어요 👀”</p>':pl.tier==='low'?'<p class="quote">“주변을 잘 둘러보세요. 누구 표정이 밝은지… 👀”</p>':'')+
-            (pl.kind==='win'?'<p class="win" style="margin-top:8px"><b>🎉 승리 축하해요! 수고했어요!</b></p>':'<p style="margin-top:8px;font-weight:700">💪 아쉽지만 수고했어요! 다음엔 꼭 이겨요!</p>');
-        }else inner+='<div class="bigtxt '+(v>0?'plus':v<0?'minus':'')+'">'+(p.fmt==='plain'?v:fmt(v))+(p.unit||'')+'</div>';
-        inner+='<p class="small mut" style="margin-top:6px">다른 사람에게 점수를 알려주지 마세요 🤫</p>';
+            (pl.kind==='win'?'<p class="win" style="margin-top:8px"><b>🎉 승리 축하해요! 수고했어요!</b></p>':'<p style="margin-top:8px;font-weight:700">💪 아쉽지만 수고했어요! 다음엔 꼭 이겨요!</p>')+
+            '<p class="small mut" style="margin-top:6px">다른 사람에게 점수를 알려주지 마세요 🤫</p>';
+          P.env={pick:pi<0?0:pi,html:fin,n:pl.vals.length};
+          inner+='<p class="small mut" style="margin-bottom:2px">이번 팀 점수 봉투 '+(pl.kind==='win'?'(승리팀)':'(패배팀)')+' · '+pl.vals.length+'장</p>'+
+            '<div class="cards5" id="cards5">'+pl.vals.map(function(x,i){return '<div class="cd" data-i="'+i+'" style="left:'+(i*20)+'%"><div class="cdi"><div class="cf front"><b class="num">'+x+'</b><small>점</small></div><div class="cf back">?</div></div></div>';}).join('')+'</div>'+
+            '<p class="small mut" id="estep" style="margin-top:6px">이번 팀 점수 봉투는 이 '+pl.vals.length+'장이에요!</p><div id="envres" style="min-height:90px;margin-top:6px"></div>';
+        }else inner+='<div class="bigtxt '+(v>0?'plus':v<0?'minus':'')+'">'+(p.fmt==='plain'?v:fmt(v))+(p.unit||'')+'</div><p class="small mut" style="margin-top:6px">다른 사람에게 점수를 알려주지 마세요 🤫</p>';
       }
       break;
+    case 'lunchres':{
+      big=true;
+      var me=(p.by||{})[S.me];
+      if(!S.me)inner='<p class="mut">참가자로 로그인하면 내 결과를 볼 수 있어요.</p>';
+      else if(!me)inner='<p class="mut">이번 결과 대상이 아니에요.</p>';
+      else if(me.host)inner='<div class="outc win">⚖️ <b>'+esc(HOST)+' 님은 나머지 9명의 평균 점수를 받아요</b></div><div class="bigtxt plus">'+fmt(me.total)+'점</div><p class="small mut">점심 미니게임 획득 점수</p>';
+      else{
+        var okc=me.rounds.filter(function(r){return r.s==='ok';}).length;
+        inner='<div class="outc '+(okc>0?'win':'lose')+'">🍽️ <b>'+esc(me.team)+'</b> 점심 결과</div><div class="lres">'+
+          me.rounds.map(function(r){return '<div class="lr"><span>'+esc(r.l)+'</span><b class="'+(r.s==='ok'?'win':r.s==='no'?'lose':'')+'">'+(r.s==='ok'?'✅ 성공':r.s==='no'?'❌ 실패':'➖ 기록 없음')+'</b></div>';}).join('')+'</div>'+
+          '<p class="small mut" style="margin:8px 0 0">점심 미니게임 획득 점수</p><div class="bigtxt '+(me.total>0?'plus':'')+'">'+fmt(me.total)+'점</div>'+
+          '<p style="font-weight:700">'+(me.total>=3?'🎉 대단해요! 최고의 팀워크예요!':me.total>0?'👏 수고했어요! 점심 맛있게 드세요 :)':'😅 이번엔 아쉬웠지만 괜찮아요! 점심 맛있게 드세요 :)')+'</p>';
+      }
+      break;}
     case 'cards':
       big=true;
       inner='<p class="pop-note" style="margin:0 0 10px">'+esc(p.intro||'')+'</p><div class="cards3" id="cards3">'+(p.cards||[]).map(function(c,i){
@@ -1516,15 +1554,58 @@ function renderPop(){
       big=true;
       inner=(p.emoji?'<div class="emo">'+p.emoji+'</div>':'')+'<div class="lines">'+(p.lines||[]).map(function(l){return '<p>'+esc(l)+'</p>';}).join('')+'</div>'+(p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'');
   }
-  el.innerHTML='<div class="ov" data-act="popClose"><div class="box'+(big?' big':'')+'" data-stop="1"><h3>'+esc(ev.title||'')+'</h3>'+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+(p.go?'<button class="btn block hot" style="margin-top:14px" data-act="popGo" data-v="'+esc(p.go)+'">'+esc(p.goLabel||'이동')+'</button>':'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button>')+'</div></div>';
+  el.innerHTML='<div class="ov" data-act="popClose"><div class="box'+(big?' big':'')+'" data-stop="1"><h3>'+esc(ev.title||'')+'</h3>'+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+(p.go?'<button class="btn block hot" style="margin-top:14px" data-act="popGo" data-v="'+esc(p.go)+'">'+esc(p.goLabel||'이동')+'</button>':(p.wait?'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 기다려 주세요… 곧 이어서 진행돼요</button>':'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button>'))+'</div></div>';
+  P.locked=!!(p.wait&&!p.go);
+  if(P.locked)setTimeout(function(){unlockPop(ev.id);},p.waitMs||15000);
   if(ev.kind==='dice')rollDice(ev);
   if(ev.kind==='draw')runDraw(ev);
   if(ev.kind==='cards')runCards(ev);
+  if(ev.kind==='private'&&P.open&&P.env)runEnvs(ev);
+}
+function unlockPop(id){
+  if(S.pop&&S.pop.ev.id===id&&S.pop.locked){
+    S.pop.locked=false;
+    var b=$('#pop .waitbtn');
+    if(b)b.outerHTML='<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button>';
+  }
 }
 function outcomeHead(p){
   var pl=p.pool&&p.pool[S.me];
   if(!pl||!p.winName)return '';
   return pl.kind==='win'?'<div class="outc win">🏆 <b>'+esc(p.winName)+' 승리!</b><br>승리팀 점수 봉투를 뽑아요</div>':'<div class="outc lose">😅 <b>'+esc(p.loseName||'')+'</b>은 아쉽게 패배…<br>패배팀 점수 봉투를 뽑아요</div>';
+}
+function runEnvs(ev){
+  var env=S.pop&&S.pop.env;if(!env)return;
+  var n=env.n,slots=[],i;
+  for(i=0;i<n;i++)slots[i]=i;
+  function ok(){return S.pop&&S.pop.ev.id===ev.id;}
+  function el(k){return document.querySelector('#cards5 .cd[data-i="'+k+'"]');}
+  function place(){for(var s=0;s<n;s++){var c=el(slots[s]);if(c)c.style.left=(s*20)+'%';}}
+  function step(t,txt){setTimeout(function(){if(!ok())return;var e=$('#estep');if(e)e.textContent=txt;},t);}
+  step(1700,'봉투를 뒤집어요… 🔄');
+  setTimeout(function(){if(!ok())return;for(var k=0;k<n;k++){var c=el(k);if(c)c.classList.add('flip');}},1800);
+  step(2500,'섞는 중… 🌀');
+  for(var t=2600;t<=5000;t+=300){(function(tt){setTimeout(function(){
+    if(!ok())return;
+    var a=rnd(n),b=rnd(n);if(a===b)b=(b+1)%n;
+    var x=slots[a];slots[a]=slots[b];slots[b]=x;place();
+  },tt);})(t);}
+  step(5100,'내 봉투는 어떤 걸까요? 👀');
+  var last=-1;
+  for(var u=5200;u<=6500;u+=180){(function(tt){setTimeout(function(){
+    if(!ok())return;
+    var r=rnd(n);if(r===last)r=(r+1)%n;last=r;
+    document.querySelectorAll('#cards5 .cd').forEach(function(c){c.classList.remove('scan');});
+    var c=el(slots[r]);if(c)c.classList.add('scan');
+  },tt);})(u);}
+  setTimeout(function(){
+    if(!ok())return;
+    document.querySelectorAll('#cards5 .cd').forEach(function(c){c.classList.remove('scan');c.classList.add('dim');});
+    var pk=el(env.pick);
+    if(pk){pk.classList.remove('dim');pk.classList.remove('flip');pk.classList.add('chosen');}
+    var e=$('#estep');if(e)e.textContent='뽑혔어요! 🎉';
+    var r=$('#envres');if(r)r.innerHTML=env.html;
+  },6700);
 }
 function runCards(ev){
   var p=ev.payload||{},n=(p.cards||[]).length,slots=[],i,alive=true;
@@ -1716,14 +1797,14 @@ function luckyPick(name){
   if(luckyCount(m.key,ti)>=2)return toast(t.groups[ti].n+'은 이 세트 럭키 찬스를 2회 모두 썼어요');
   m.thrower=name;m.stage=1;m.token=uuid();m.kind=null;m.rec=null;
   var tok=m.token;
-  announce('announce','🎳 럭키 찬스!',{emoji:'🎳',lines:[name+' 님이 핀을 모두 쓰러뜨렸어요!','스트라이크 / 스페어 성공!','🍀 곧 럭키 카드를 뽑아요!']},
+  announce('announce','🎳 럭키 찬스!',{emoji:'🎳',lines:[name+' 님이 핀을 모두 쓰러뜨렸어요!','스트라이크 / 스페어 성공!','🍀 곧 럭키 카드를 뽑아요!'],wait:true,waitMs:9000},
     '🎳 '+name+' 님이 핀을 모두 쓰러뜨렸어요!!!! (스트라이크/스페어) 🍀 럭키 찬스 획득!');
   setTimeout(function(){if(luckyActive(tok))luckyDraw();},3800);
 }
 function luckyDraw(){
   var m=S.modal,ids=['team','self','share'],k=ids[rnd(3)],tok=m.token;
   m.kind=k;m.rec=null;m.stage=2;
-  announce('cards','🍀 럭키 카드 추첨!',{intro:m.thrower+' 님의 럭키 카드를 뽑아요!',cards:ids.map(function(id){return {id:id,t:LK[id].t,d:LK[id].d,e:LK[id].e};}),pick:ids.indexOf(k),who:m.thrower},
+  announce('cards','🍀 럭키 카드 추첨!',{intro:m.thrower+' 님의 럭키 카드를 뽑아요!',cards:ids.map(function(id){return {id:id,t:LK[id].t,d:LK[id].d,e:LK[id].e};}),pick:ids.indexOf(k),who:m.thrower,wait:true,waitMs:(k==='share'?60000:13000)},
     '🍀 '+m.thrower+' 님의 럭키 카드 추첨!! → '+LK[k].t+' ('+LK[k].d+')');
   setTimeout(function(){
     if(!luckyActive(tok))return;
@@ -2320,7 +2401,7 @@ async function handle(act,v,t){
       catch(er){toast('요청 실패: '+(er.message||er.code));}
       break;
     case 'replay':if(S.pub.live)showPop(S.pub.live);return;
-    case 'popClose':closePop();return;
+    case 'popClose':if(S.pop&&S.pop.locked)return;closePop();return;
     case 'privOpen':if(S.pop){S.pop.open=true;renderPop();}return;
     case 'modalClose':S.modal=null;break;
     case 'confirmYes':{var fn=S.modal&&S.modal.fn;S.modal=null;render(true);if(fn)fn();return;}
@@ -2337,7 +2418,7 @@ async function handle(act,v,t){
     case 'ltSave':ltSave();break;
     case 'tBowl1':{
       var hasB=!!team('bowl1')||L().evts.some(function(e){return e.cat==='bowl';});
-      if(hasB){ask('이미 1세트 팀을 뽑았어요! 정말 다시 뽑을까요? (지금까지의 볼링 팀·결과·점수가 모두 지워져요)',function(){clearBowl();tBowl1();render(true);});return;}
+      if(hasB){ask('이미 1세트 팀을 뽑았어요! 정말 다시 뽑을까요? (지금까지의 볼링 팀·결과·점수가 모두 지워져요)',function(){toast('다시 뽑는 중… 서버에 저장하느라 몇 초 걸릴 수 있어요');clearBowl();tBowl1();render(true);});return;}
       tBowl1();break;}
     case 'bowlWin':{var bw=v.split(':');bowlResult(bw[0],+bw[1]);break;}
     case 'scoutStart':scoutStart();break;
@@ -2372,7 +2453,14 @@ async function handle(act,v,t){
     case 'lunchHost':{
       var sc=hostScore();
       addEvt('점심 '+HOST+' 평균 점수 ('+sc+'점)','lunch',[{name:HOST,d:sc,note:'점심 · 나머지 평균(반올림)'}],{id:'lunch:host'});
-      toast(HOST+' '+sc+'점 지급');break;}
+      var by={},T0=calc(),tl=team('lunch');
+      if(tl)tl.groups.forEach(function(g,gi){
+        var rounds=lunchRounds().map(function(r){return {l:rLabel(r),s:lunchState(r,gi)};});
+        g.m.forEach(function(n){by[n]={team:g.n,rounds:rounds,total:T0[n].cats.lunch};});
+      });
+      by[HOST]={host:true,total:T0[HOST].cats.lunch};
+      announce('lunchres','🍽️ 점심 결과 발표!',{by:by,go:'mine',goLabel:'🧾 내 점수 보기'},'🍽️ 점심 결과 발표!!!! 각자 팝업에서 우리 팀의 성공/실패와 획득 점수를 확인하세요');
+      toast(HOST+' '+sc+'점 지급 · 모두에게 결과를 알렸어요');break;}
     case 'drawOpen':{
       var f=clone(S.pub.flags)||{},turnOn=!f.drawOpen;
       if(turnOn){   // 열기 전에 남아 있는 옛 뽑기 요청을 모두 지워요 → 열자마자 저절로 배정되는 일이 없어요
