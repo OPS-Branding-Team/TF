@@ -371,6 +371,7 @@ function rnd(n){
   }catch(e){return Math.floor(Math.random()*n);}
 }
 function shuffle(arr){var a=arr.slice();for(var i=a.length-1;i>0;i--){var j=rnd(i+1);var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
 function heroOf(id){return HEROES.filter(function(h){return h.id===id;})[0];}
 async function sha(s){
   if(!window.crypto||!crypto.subtle)throw new Error('보안 연결(https) 주소로 접속해야 로그인할 수 있어요');
@@ -400,7 +401,8 @@ var S={
   ui:{pin:'',loginName:null,err:'',busy:false,setupMsg:'',
       manual:{name:null,d:1,note:''},gpool:{},gn:3,focus:null,gifts:null,chat:'',asNotice:false,
       use:{inc:null,target:null,mode:null,evt:null},ws:{bowl1:[],bowl2:[]},lt:{A:[],B:[],C:[]},mt:{key:'bowl2',sel:[]},outSel:[],owbet:{ow1:{},ow2:{}}},
-  handledUse:{},broadcast:true,modal:null,pop:null,busy:0,dealing:false,dealAgain:false,seenLive:false,lastLive:null,pending:false
+  handledUse:{},sid:null,passive:false,resetting:false,epoch:0,
+  broadcast:true,modal:null,pop:null,busy:0,dealing:false,dealAgain:false,seenLive:false,lastLive:null,pending:false
 };
 function A(){return S.adm;}
 function L(){return S.adm.ledger;}
@@ -419,12 +421,21 @@ function mkDb(fs){
     };
   }
   return {
+    transact:function(p,fn){
+      var ref=fs.doc(p);
+      return fs.runTransaction(async function(tx){
+        var s=await tx.get(ref),next=fn(s.exists?s.data():null);
+        if(next!==undefined)tx.set(ref,next);
+        return next;
+      });
+    },
     doc:function(p){return wrapDoc(fs.doc(p));},
     collection:function(p){
       return {path:p,
         onSnapshot:function(n,e){return fs.collection(p).onSnapshot(function(q){n({docs:q.docs.map(snapWrap)});},e);},
         recent:function(n,cb,e){return fs.collection(p).orderBy('ts','desc').limit(n).onSnapshot(function(q){cb({docs:q.docs.map(snapWrap)});},e);},
         add:function(d){return fs.collection(p).add(d);},
+        list:async function(){var q=await fs.collection(p).get();return q.docs.map(function(d){return d.id;});},
         doc:function(id){return wrapDoc(fs.doc(p+'/'+id));}};
     }
   };
@@ -442,6 +453,7 @@ function connMsg(){
 window.addEventListener('error',function(e){S.jsErr=e.message;});
 async function init(){
   S.setup=(location.hash==='#setup');
+  try{S.sid=sessionStorage.getItem('tfsid')||uuid();sessionStorage.setItem('tfsid',S.sid);}catch(e){S.sid=uuid();}
   render(true);
   var fbc=cfg().firebase||{};
   if(!window.firebase){S.libMissing=true;S.ready=true;render(true);return;}
@@ -449,6 +461,7 @@ async function init(){
   try{
     firebase.initializeApp(fbc);
     var auth=firebase.auth();
+    try{if(auth.setPersistence&&firebase.auth.Auth&&firebase.auth.Auth.Persistence)await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);}catch(e){console.error(e);}
     var u=await Promise.race([
       new Promise(function(res){var off=auth.onAuthStateChanged(function(x){off();res(x);});}),
       new Promise(function(_,rej){setTimeout(function(){rej({code:'timeout'});},10000);})
@@ -473,15 +486,15 @@ function startSubs(){
     var m={};s.docs.forEach(function(d){m[d.id]=d.data();});
     S.players=m;
     var mine=m[S.uid];S.me=mine?mine.name:null;
+    syncDeal(true);
     var isA=(S.me===HOST);
     if(isA&&!S.admin){S.admin=true;A().retry=0;adminSubs();}
     if(!isA&&S.admin){S.admin=false;adminOff();if(S.view==='score')S.view='home';}
     render();adminTick();
   },subErr);
   db.doc('deal/'+S.uid).onSnapshot(function(s){
-    var had=!!S.deal;
-    S.deal=s.exists?clone(s.data()):null;
-    if(S.deal&&!had&&Date.now()-(S.deal.ts||0)<30000)showPop({id:'deal'+S.deal.ts,kind:'mydeal',title:'나의 초능력',payload:{hero:S.deal.hero}});
+    S.dealRaw=s.exists?clone(s.data()):null;
+    syncDeal(true);
     render();
   },subErr);
   db.doc('myscore/'+S.uid).onSnapshot(function(s){
@@ -499,6 +512,11 @@ function startSubs(){
     onChat();
   },subErr);
 }
+function syncDeal(announce){
+  var had=!!S.deal;
+  S.deal=(S.dealRaw&&S.dealRaw.name===S.me)?S.dealRaw:null;     // 다른 사람 이름의 카드는 내 카드로 보여주지 않아요
+  if(announce&&S.deal&&!had&&Date.now()-(S.deal.ts||0)<30000)showPop({id:'deal'+S.deal.ts,kind:'mydeal',title:'나의 초능력',payload:{hero:S.deal.hero}});
+}
 function handlePub(m){
   var live=m.live;
   if(S.busy>0){
@@ -513,6 +531,14 @@ function handlePub(m){
   S.seenLive=true;
   render();
 }
+var hbT=null;
+function acquireLock(force){
+  if(!S.db)return;
+  S.db.transact('adminonly/lock',function(cur){
+    if(!force&&cur&&cur.sid!==S.sid&&Date.now()-(cur.ts||0)<25000)return undefined;
+    return {sid:S.sid,ts:Date.now()};
+  }).then(function(r){if(r&&r.sid===S.sid&&S.passive){S.passive=false;render(true);adminTick();}}).catch(function(e){console.error(e);});
+}
 function adminSubs(){
   if(!S.db||A().unsub.length)return;
   var fail=function(e){
@@ -523,22 +549,29 @@ function adminSubs(){
     var m={};s.docs.forEach(function(d){m[d.id]=clone(d.data());});
     A().content=m.content||null;A().loaded.main=true;A().retry=0;
     if(S.busy===0){
-      A().state=m.state||{assign:{}};A().state.assign=A().state.assign||{};A().state.stage=A().state.stage||{};
+      var asg0=(A().state&&A().state.assign)||{};
+      A().state=m.state||{};A().state.assign=asg0;A().state.stage=A().state.stage||{};
       A().ledger=m.ledger||{evts:[],entries:[]};
       A().ledger.evts=A().ledger.evts||[];A().ledger.entries=A().ledger.entries||[];
     }
+    A().state.assign=(m.assign&&m.assign.map)||{};
+    var lk=m.lock||null,fresh=!!(lk&&lk.sid!==S.sid&&Date.now()-(lk.ts||0)<25000);
+    S.passive=fresh;
+    if(!fresh&&(!lk||lk.sid!==S.sid))acquireLock(false);
     render();adminTick();
   },fail));
+  clearInterval(hbT);hbT=setInterval(function(){if(S.admin&&!S.passive)acquireLock(false);},8000);
   A().unsub.push(S.db.collection('deal').onSnapshot(function(s){
     var m={};s.docs.forEach(function(d){m[d.id]=d.data();});
     A().deals=m;A().loaded.deals=true;adminTick();
   },fail));
 }
-function adminOff(){A().unsub.forEach(function(u){try{u();}catch(e){}});A().unsub=[];A().loaded={};}
+function adminOff(){A().unsub.forEach(function(u){try{u();}catch(e){}});A().unsub=[];A().loaded={};clearInterval(hbT);S.passive=false;}
 
 /* =============== 저장 큐 =============== */
 var Qp=Promise.resolve();
 function enqueue(fn){
+  if(S.admin&&S.passive){toast('다른 기기에서 관리자 중이에요. 이 화면은 읽기 전용이에요');return Promise.resolve();}
   S.busy++;
   Qp=Qp.then(fn).catch(function(e){console.error(e);toast('저장 실패: '+((e&&(e.message||e.code))||'알 수 없는 오류'));})
     .then(function(){S.busy--;});
@@ -546,7 +579,18 @@ function enqueue(fn){
 }
 function put(path,data){var d=clone(data);return enqueue(function(){return S.db.doc(path).set(d);});}
 function saveLedger(){var r=put('adminonly/ledger',L());schedSync();return r;}
-function saveState(){return put('adminonly/state',A().state);}
+function saveState(){var s=clone(A().state);delete s.assign;return put('adminonly/state',s);}
+/* 초능력 배정은 전용 문서에서 트랜잭션으로만 바꿔요 (여러 화면이 동시에 배정해도 서로 덮어쓰지 않아요) */
+async function assignTx(fn){
+  var out,fin=null;
+  await S.db.transact('adminonly/assign',function(cur){
+    var base=(cur&&cur.map)||{},before=JSON.stringify(base),map=clone(base);
+    out=fn(map);fin=map;
+    return (cur&&JSON.stringify(map)===before)?undefined:{map:map};   // 바뀐 게 없으면 저장하지 않아요
+  });
+  if(fin)A().state.assign=fin;
+  return out;
+}
 function saveTeams(){return put('public/teams',S.pub.teams);}
 function saveUsed(){return put('public/used',S.pub.used);}
 function saveFlags(){return put('public/flags',S.pub.flags||{});}
@@ -557,7 +601,7 @@ function saveResults(){return put('public/results',S.pub.results||{});}
 function postChat(kind,text,name){
   return S.db.collection('chat').add({kind:kind,text:text,name:name||S.me||'',ts:Date.now()}).catch(function(e){toast('전송 실패: '+(e.message||e.code));});
 }
-function sysChat(text){if(S.admin&&S.broadcast&&S.db)postChat('sys',text,'알림');}
+function sysChat(text){if(S.admin&&!S.passive&&S.broadcast&&S.db)postChat('sys',text,'알림');}
 function chatUnread(){
   if(S.view==='chat')return 0;
   return S.chat.filter(function(m){return m.ts>S.chatSeen&&m.name!==S.me;}).length;
@@ -677,58 +721,59 @@ function showPop(ev){S.pop={ev:ev,open:false};renderPop();}
 function closePop(){S.pop=null;renderPop();}
 
 /* =============== 초능력 카드 자동 지급 (관리자 화면) =============== */
-function adminTick(){if(S.admin){reconcileDeals();processUses();schedSync();}}
+function adminTick(){if(S.admin&&!S.passive&&!S.resetting){reconcileDeals();processUses();schedSync();}}
 async function reconcileDeals(){
   if(S.dealing){S.dealAgain=true;return;}
   var a=A();
-  if(!S.db||!a.content||!a.loaded.main||!a.loaded.deals||!a.state)return;
+  if(S.passive||S.resetting||!S.db||!a.content||!a.loaded.main||!a.loaded.deals||!a.state)return;
   S.dealing=true;
   try{
     // 관리자(이유정)에게는 메르시를 무조건 배정 (나머지 9명은 랜덤)
-    var mh=holderOf('mercy');
-    if(mh!==HOST){
-      var prevH=a.state.assign[HOST];
-      if(mh){if(prevH)a.state.assign[mh]=prevH;else delete a.state.assign[mh];}
-      a.state.assign[HOST]='mercy';
-      await saveState();
-    }
+    await assignTx(function(map){
+      var mh=null;Object.keys(map).forEach(function(k){if(map[k]==='mercy')mh=k;});
+      if(mh!==HOST){
+        var prev=map[HOST];
+        if(mh){if(prev)map[mh]=prev;else delete map[mh];}
+        map[HOST]='mercy';
+      }
+    });
     do{
       S.dealAgain=false;
-      var ep=S.epoch||0;            // 초기화(리셋)가 일어나면 번호가 바뀌어요
+      var ep=S.epoch||0;
       var uids=Object.keys(S.players);
       for(var i=0;i<uids.length;i++){
-        if(ep!==(S.epoch||0)){S.dealAgain=true;break;}    // 중간에 초기화됨 → 처음부터 다시
+        if(S.resetting||S.passive||ep!==(S.epoch||0)){S.dealAgain=!S.resetting&&!S.passive;break;}
         var uid=uids[i],p=S.players[uid];
         if(!p)continue;
-        if(!p.drawReq&&!a.state.assign[p.name])continue;
-        var hero=a.state.assign[p.name];
         var open=S.pub.flags&&S.pub.flags.drawOpen;
-        if(!hero){
-          if(!open)continue;
-          var taken=Object.keys(a.state.assign).map(function(k){return a.state.assign[k];});
+        if(!p.drawReq&&!a.state.assign[p.name])continue;
+        var hero=await assignTx(function(map){
+          if(map[p.name])return map[p.name];
+          if(!open)return null;
+          var taken=Object.keys(map).map(function(k){return map[k];});
           var pool=HEROES.map(function(h){return h.id;}).filter(function(id){return taken.indexOf(id)<0;});
-          if(!pool.length)continue;
-          hero=pool[rnd(pool.length)];
-          a.state.assign[p.name]=hero;
-          await saveState();
-          if(ep!==(S.epoch||0)){S.dealAgain=true;break;}
-        }
+          if(!pool.length)return null;
+          var h2=pool[rnd(pool.length)];map[p.name]=h2;return h2;
+        });
+        if(!hero)continue;
+        if(S.resetting||ep!==(S.epoch||0)){S.dealAgain=!S.resetting;break;}
         var dl=a.deals[uid];
         if(!dl||dl.hero!==hero||dl.name!==p.name){
-          if(a.state.assign[p.name]!==hero)continue;       // 쓰기 직전에 배정이 바뀌었으면 건너뜀
           var det=a.content.powers[hero]&&a.content.powers[hero].detail||[];
           var rec={name:p.name,hero:hero,detail:det,ts:Date.now()};
           await S.db.doc('deal/'+uid).set(rec);
           a.deals[uid]=rec;
         }
       }
-      // 현재 배정과 맞지 않는 옛 카드는 모두 삭제 (초기화 이전 카드가 되살아나는 것을 막아요)
-      var dk=Object.keys(a.deals);
-      for(var j=0;j<dk.length;j++){
-        var d2=a.deals[dk[j]];
-        if(d2&&a.state.assign[d2.name]!==d2.hero){
-          try{await S.db.doc('deal/'+dk[j]).delete();}catch(er){console.error(er);}
-          delete a.deals[dk[j]];
+      if(!S.resetting&&!S.passive){
+        var dk=Object.keys(a.deals);
+        for(var j=0;j<dk.length;j++){
+          var d2=a.deals[dk[j]];
+          var pl2=S.players[dk[j]];
+          if(d2&&(a.state.assign[d2.name]!==d2.hero||!pl2||pl2.name!==d2.name)){
+            try{await S.db.doc('deal/'+dk[j]).delete();}catch(er){console.error(er);}
+            delete a.deals[dk[j]];
+          }
         }
       }
     }while(S.dealAgain);
@@ -743,12 +788,13 @@ function schedSync(){
   clearTimeout(syncT);syncT=setTimeout(syncScores,700);
 }
 function syncScores(){
-  if(!S.db||!S.admin||!A().loaded.main)return;
+  if(!S.db||!S.admin||S.passive||S.resetting||!A().loaded.main)return;
   Object.keys(S.players).forEach(function(uid){
     var p=S.players[uid];if(!p||!p.name)return;
     var items=L().entries.filter(function(e){return e.name===p.name;}).map(function(e){return {l:e.note,d:e.d,c:e.cat,t:e.ts};});
     var key=JSON.stringify([p.name,items]);
     if(syncCache[uid]===key)return;
+    if(!items.length&&syncCache[uid]===undefined)return;
     syncCache[uid]=key;
     var total=items.reduce(function(a,x){return a+x.d;},0);
     enqueue(function(){return S.db.doc('myscore/'+uid).set({name:p.name,total:total,items:items,ts:Date.now()});});
@@ -835,7 +881,7 @@ function loginBar(){
 }
 function adminBar(){
   if(!S.admin)return '';
-  var a=A(),h='<div class="abar"><label class="tgl" data-act="bc"><span class="sw'+(S.broadcast?' on':'')+'"></span>📡 폰·채팅 실시간 공개 '+(S.broadcast?'ON':'OFF')+'</label>'+
+  var a=A(),h=(S.passive?'<div class="note" style="border-color:var(--bad)"><b>⚠️ 다른 기기(또는 다른 탭)에서 관리자 화면이 켜져 있어요.</b><br>두 곳에서 동시에 쓰면 점수와 초능력이 꼬일 수 있어서 이 화면은 <b>읽기 전용</b>이에요.<br><button class="btn hot" style="margin-top:8px" data-act="lockTake">이 기기에서 관리자 하기</button></div>':'')+'<div class="abar"><label class="tgl" data-act="bc"><span class="sw'+(S.broadcast?' on':'')+'"></span>📡 폰·채팅 실시간 공개 '+(S.broadcast?'ON':'OFF')+'</label>'+
     '<span class="small '+(a.content?'':'warn')+'">'+(a.content?'비밀 데이터 연결됨':'⚠️ 비밀 데이터 없음')+'</span></div>';
   if(!a.content&&a.loaded.main)h+='<div class="note"><b>비밀 데이터가 아직 없어요.</b> seed.json을 올려주세요.</div>'+seedCard();
   return h;
@@ -881,7 +927,8 @@ async function doLogin(){
 async function doLogout(){
   S.menu=false;
   try{await S.db.doc('players/'+S.uid).delete();}catch(e){}
-  S.me=null;S.deal=null;S.admin=false;adminOff();S.ui.loginName=null;S.view='home';render(true);
+  closePop();S.modal=null;
+  S.me=null;S.deal=null;S.dealRaw=null;S.admin=false;adminOff();S.ui.loginName=null;S.view='home';render(true);
 }
 function viewSetup(){
   return '<div class="card tool"><h3>🛠 초기 설정 (한 번만)</h3><p class="small mut">행사 준비 때 딱 한 번만 하는 화면이에요. 참가자 PIN이 들어있는 seed.json 파일을 선택하면 PIN이 암호화되어 서버에 등록돼요. 이미 등록돼 있으면 실패해요.</p><input type="file" id="pinfile" accept=".json,application/json">'+(S.ui.setupMsg?'<p class="'+(S.ui.setupOk?'win':'err')+'" style="margin-top:10px">'+esc(S.ui.setupMsg)+'</p>':'')+'<button class="btn ghost block" style="margin-top:14px" data-act="setupDone">처음 화면으로</button></div>';
@@ -1037,12 +1084,24 @@ function lunchAdmin(){
 }
 
 /* =============== 초능력 =============== */
+function dealIssues(){
+  var as=A().state.assign||{},iss=[],hn=function(id){var x=heroOf(id);return x?x.hero:'없음';};
+  Object.keys(S.players).forEach(function(uid){
+    var p=S.players[uid];if(!p)return;
+    var want=as[p.name],dl=A().deals&&A().deals[uid],has=dl&&dl.name===p.name;
+    if(want&&(!has||dl.hero!==want))iss.push(p.name+' — 저장된 배정: '+hn(want)+' / 폰 카드: '+(has?hn(dl.hero):'없음'));
+    if(!want&&dl)iss.push(p.name+' — 배정은 없는데 카드가 남아 있어요');
+  });
+  Object.keys(A().deals||{}).forEach(function(uid){if(!S.players[uid])iss.push('로그인 정보가 없는 카드 1장');});
+  return iss;
+}
 function powerAdminTop(){
   var f=S.pub.flags||{},as=A().state.assign;
   var undrawn=PLAYERS.filter(function(n){return !as[n];});
   return '<div class="card"><label class="tgl" data-act="drawOpen"><span class="sw'+(f.drawOpen?' on':'')+'"></span>초능력 뽑기 '+(f.drawOpen?'열림':'닫힘')+'</label>'+
     '<p class="small mut" style="margin-top:6px">열면 참가자 폰의 “카드 뽑기” 버튼이 켜지고, 요청이 오면 이 화면이 자동으로 카드를 나눠줘요. '+HOST+'에게는 <b>메르시가 고정</b>이고, 나머지 9명은 완전 랜덤이에요.</p>'+
     '<div style="margin-top:8px"><button class="btn ghost" data-act="sampleAssign">🧪 샘플: 초능력 10종 랜덤 배정</button></div>'+
+    (function(){var iss=dealIssues();return '<div class="note" style="margin-top:8px"><b>🔍 배정·카드 점검</b> '+(iss.length?'<span class="tag hot">불일치 '+iss.length+'건</span><ul class="dots small">'+iss.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><button class="btn hot" data-act="dealFix">🔧 카드 다시 맞추기</button>':'<span class="tag good">✅ 모두 일치</span> <span class="small mut">저장된 배정 = 각자 폰의 카드</span>')+'</div>';})()+
     '<p class="small" style="margin-top:6px">추첨 완료 '+(PLAYERS.length-undrawn.length)+'/'+PLAYERS.length+(undrawn.length?' · 대기: '+undrawn.map(esc).join(', '):'')+'</p>'+
     '<div class="chips" style="margin-top:8px">'+PLAYERS.map(function(n){var hh=heroByName(n);return '<span class="chip'+(hh?'':' dim')+'">'+(hh?hh.em+' ':'')+esc(n)+(hh?' · '+hh.hero:'')+'</span>';}).join('')+'</div></div>';
 }
@@ -1096,7 +1155,7 @@ function usePanel(x){
   var id=x.id;
   if(id==='sigma')h+='<p class="small">① 본인 포함 여부를 정하세요</p><div class="chips"><button class="chip'+(uo.inc===true?' on':'')+'" data-act="sel" data-k="ui.use.inc" data-v="1">본인 포함 (나 ↔ 무작위 1명)</button><button class="chip'+(uo.inc===false?' on':'')+'" data-act="sel" data-k="ui.use.inc" data-v="0">본인 제외 (무작위 2명 교환)</button></div>';
   if(id==='moira'||id==='cassidy'||id==='symmetra')h+='<p class="small">'+(id==='moira'?'① 점수를 빼앗을 사람':id==='cassidy'?'① 결투를 신청할 사람':'① 팀을 바꿀 사람')+'</p>'+chipsSel(PLAYERS,'ui.use.target',uo.target,S.me);
-  if(id==='tracer')return h+'<p class="small">시간을 되돌려 <b>점수 봉투 또는 팀 배정 추첨 중 하나</b>를 다시 뽑아요. 버튼을 누르면 어떤 추첨을 되돌릴지 고르는 창이 떠요.</p><button class="btn hot block" data-act="tracerOpen">⏪ 시간 되돌리기 (재추첨 선택)</button></div>';
+  if(id==='tracer')return h+'<p class="small">시간을 되돌려 <b>점수 봉투 또는 팀 배정 추첨</b>을 다시 뽑아요.<br>⚠️ <b>바로 직전에 진행된 추첨 1건만</b> 되돌릴 수 있어요!</p><button class="btn hot block" data-act="tracerOpen">⏪ 시간 되돌리기 (재추첨 선택)</button></div>';
   if(id==='reinhardt')return h+'<p class="small">공격받았다면 <b>직전에 발동된 초능력 2건</b> 중 막을 것을 고를 수 있어요.</p><div class="row"><button class="btn hot" data-act="reinOpen">🛡️ 공격받아 방어!</button><button class="btn ghost" data-act="reinBonus">방어 안 함 (+1점)</button></div></div>';
   return h+'<button class="btn hot block" style="margin-top:12px" data-act="useGo">📢 공개!</button></div>';
 }
@@ -1351,7 +1410,7 @@ function renderPop(){
       big=true;
       inner=(p.emoji?'<div class="emo">'+p.emoji+'</div>':'')+'<div class="lines">'+(p.lines||[]).map(function(l){return '<p>'+esc(l)+'</p>';}).join('')+'</div>'+(p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'');
   }
-  el.innerHTML='<div class="ov" data-act="popClose"><div class="box'+(big?' big':'')+'" data-stop="1"><h3>'+esc(ev.title||'')+'</h3>'+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button></div></div>';
+  el.innerHTML='<div class="ov" data-act="popClose"><div class="box'+(big?' big':'')+'" data-stop="1"><h3>'+esc(ev.title||'')+'</h3>'+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+(p.go?'<button class="btn block hot" style="margin-top:14px" data-act="popGo" data-v="'+esc(p.go)+'">'+esc(p.goLabel||'이동')+'</button>':'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button>')+'</div></div>';
   if(ev.kind==='dice')rollDice(ev);
   if(ev.kind==='draw')runDraw(ev);
 }
@@ -1398,6 +1457,7 @@ function capsTeams(){
   return [{n:'A팀',m:[CAPS[0]].concat(rest.slice(0,4))},{n:'B팀',m:[CAPS[1]].concat(rest.slice(4,8))}];
 }
 function ltSave(){
+  setLast(null);
   var lt=S.ui.lt;
   if(!['A','B','C'].every(function(k){return lt[k].length===3;}))return toast('A·B·C팀에 3명씩 선택하세요');
   setTeams('lunch',['A','B','C'].map(function(k){return {n:k+'팀',m:lt[k].slice()};}),'앉은 자리대로 팀이 정해졌어요! '+HOST+' 님이 진행해요','🍽️ 점심 팀 발표');
@@ -1413,10 +1473,12 @@ function clearBowl(){
   saveLedger();S.ui.scout=null;
 }
 function tBowl1(via){
+  setLast('team:bowl1');
   var pl=shuffle(PLAYERS);
   setTeams('bowl1',[{n:'A팀',m:pl.slice(0,5)},{n:'B팀',m:pl.slice(5,10)}],'1세트 팀이 정해졌어요!','🎳 볼링 1세트 팀',via?{via:via}:null);
 }
 function mtSave(){
+  setLast(null);
   var mt=S.ui.mt;
   if(mt.sel.length!==5)return toast('A팀 5명을 선택하세요');
   var rest=PLAYERS.filter(function(n){return mt.sel.indexOf(n)<0;});
@@ -1443,6 +1505,7 @@ function addPools(pool,members,assign,vals,kind){
 /* =============== 관리자: 볼링 세트 결과 / 스카우트·방출 / 럭키 찬스 =============== */
 function bowlResult(key,gi,via){
   var t=team(key);if(!t)return toast('먼저 팀을 만들어 주세요');
+  setLast('score:'+key);
   var win=t.groups[gi].m.slice(),lose=t.groups[1-gi].m.slice(),assign={},items=[];
   var wv=shuffle(BOWL_WIN),lv=shuffle(BOWL_LOSE);
   win.forEach(function(n,i){assign[n]=wv[i];items.push({name:n,d:wv[i],note:GAME[key]+' 승리 기본 점수'});});
@@ -1473,7 +1536,7 @@ function scoutDraw(target,via){
   g[li].m=g[li].m.filter(function(n){return n!==out;}).concat([target]);
   g[wi].m=g[wi].m.filter(function(n){return n!==target;}).concat([out]);
   var ln=t.groups[li].n;
-  A().state.scoutTarget=target;saveState();
+  A().state.scoutTarget=target;saveState();setLast('scout:bowl2');
   S.ui.scout={stage:'drawing',target:target,out:out};
   announce('draw','🥁 방출 추첨!'+(via?' (다시 뽑기)':''),{intro:ln+'이(가) '+target+' 님을 영입했어요! 패배팀에서 방출되는 사람은… 두구두구 누구!',pool:lose,
     slots:[{label:'영입',name:target,spin:false},{label:'방출',name:out,spin:true}],note:out+' 님 방출! '+target+' ↔ '+out+' 팀 교환',via:via||''},null);
@@ -1513,6 +1576,7 @@ function luckyRandom(){
   m.rec=mates[rnd(mates.length)];
 }
 function luckyApply(){
+  setLast(null);
   var m=S.modal,t=team(m.key),ti=teamOf(m.key,m.thrower),mates=t.groups[ti].m,names;
   if(m.kind==='team')names=mates.slice();
   else if(m.kind==='self')names=[m.thrower];
@@ -1552,6 +1616,7 @@ function clearVote(key){
   if(S.pub.vote&&S.pub.vote.key===key){S.pub.vote=null;enqueue(function(){return S.db.doc('public/vote').delete();});}
 }
 function owDraw(key,via){
+  setLast('team:'+key);
   /* 이전 결과/예측/투표를 정리하고 새 팀을 즉시 전체 공개해요. 승부 예측 투표는 관리자가 "투표 시작"을 눌러야 시작돼요 */
   var R=clone(S.pub.results)||{};if(R[key]){delete R[key];S.pub.results=R;saveResults();}
   delEvt('base:'+key,true);delEvt('pred:'+key,true);saveLedger();
@@ -1579,6 +1644,7 @@ function owVoteClose(key,quiet){
 }
 function owResult(key,gi,via){
   var t=team(key);if(!t)return toast('먼저 팀을 공개하세요');
+  setLast('score:'+key);
   if(S.pub.vote&&S.pub.vote.key===key&&S.pub.vote.open)owVoteClose(key,true);
   var win=t.groups[gi].m.slice(),lose=t.groups[1-gi].m.slice(),assign={},items=[],pi=[],bonus={};
   var wv=shuffle(OW_WIN),lv=shuffle(OW_LOSE);
@@ -1649,7 +1715,7 @@ function pwModal(){
     case 'moira':b='<p class="small">'+esc(holder)+' 님이 점수를 빼앗을 대상</p>'+chipsSel(PLAYERS,'modal.target',m.target,holder);break;
     case 'junkrat':b='<p class="small">주사위를 굴려 결과를 폰에 공개해요.</p>';break;
     case 'symmetra':b='<p class="small">'+esc(holder)+' 님이 팀을 바꿀 상대 (현재 팀 기준)</p>'+chipsSel(PLAYERS,'modal.target',m.target,holder);break;
-    case 'tracer':{var to=tracerOptions();b='<p class="small">'+esc(holder)+' 님이 되돌릴 추첨을 선택하세요. 선택하면 자동으로 다시 진행돼요.</p>'+(to.length?'<div class="chips">'+to.map(function(x){return '<button class="chip'+(m.target===x.id?' on':'')+'" data-act="sel" data-k="modal.target" data-v="'+x.id+'">'+esc(x.label)+'</button>';}).join('')+'</div>':'<p class="warn small">되돌릴 수 있는 추첨이 아직 없어요.</p>');break;}
+    case 'tracer':{var to=tracerOptions();b='<p class="small">⚠️ <b>바로 직전에 진행된 추첨 1건</b>만 되돌릴 수 있어요. '+esc(holder)+' 님이 선택하면 자동으로 다시 진행돼요.</p>'+(to.length?'<div class="chips">'+to.map(function(x){return '<button class="chip'+(m.target===x.id?' on':'')+'" data-act="sel" data-k="modal.target" data-v="'+x.id+'">'+esc(x.label)+'</button>';}).join('')+'</div>':'<p class="warn small">바로 직전에 진행된 추첨이 없거나 되돌릴 수 없는 종류예요.</p>');break;}
     case 'lucio':
       var T=S.pub.teams,cur=T&&T.current;
       b='<p class="small">현재 팀 기준: <b>'+(cur?(cur==='lunch'?'점심':GAME[cur]):'팀 없음')+'</b> · '+(cur&&teamOf(cur,holder)>=0?esc(holder)+' 님의 팀원 전원 +'+P.lucio:'<span class="warn">보유자가 현재 팀에 없어요</span>')+'</p>';break;
@@ -1675,7 +1741,7 @@ function pwModal(){
 }
 function fail(msg){return {ok:false,msg:msg};}
 /* 트레이서: 되돌릴 수 있는 추첨 목록 (공개 정보로 계산해서 플레이어 화면과 관리자가 똑같이 봐요) */
-function tracerOptions(){
+function tracerCandidates(){
   var R=S.pub.results||{},T=(S.pub.teams&&S.pub.teams.sets)||{},o=[];
   ['bowl1','bowl2','ow1','ow2'].forEach(function(k){
     if(R[k]&&R[k].team!=null&&T[k])o.push({id:'score:'+k,label:(k.indexOf('bowl')===0?'🎳 ':'🎮 ')+GAME[k]+' 점수 봉투 다시 뽑기'});
@@ -1684,6 +1750,15 @@ function tracerOptions(){
   if(T.bowl1&&!R.bowl1)o.push({id:'team:bowl1',label:'🎳 '+GAME.bowl1+' 팀 다시 뽑기'});
   if(T.bowl2&&R.bowl1&&!R.bowl2)o.push({id:'scout:bowl2',label:'🥁 '+GAME.bowl2+' 방출 추첨 다시 하기'});
   return o;
+}
+function tracerOptions(){
+  var last=S.pub.last;
+  if(!last||!last.id)return [];
+  return tracerCandidates().filter(function(o){return o.id===last.id;});
+}
+function setLast(id){
+  S.pub.last=id?{id:id,ts:Date.now()}:null;
+  if(id)put('public/last',S.pub.last);else enqueue(function(){return S.db.doc('public/last').delete();});
 }
 function redoTarget(id,holder){
   var via='트레이서 — 시간 역행! '+holder+' 님이 시간을 되돌렸어요',R=S.pub.results||{},p=String(id||'').split(':'),kind=p[0],key=p[1];
@@ -1772,8 +1847,9 @@ function execPower(hero,o){
     case 'lucio':
       var tc=S.pub.teams&&S.pub.teams.current,ti=tc?teamOf(tc,holder):-1;
       if(ti<0)return fail('보유자가 현재 팀에 없어요');
-      items=S.pub.teams.sets[tc].groups[ti].m.map(function(n){return {name:n,d:P.lucio,note:label};});
-      lines=[holder+' 님의 팀 분위기 전환!','팀원 전원 +'+P.lucio+'점'];break;
+      var lg=S.pub.teams.sets[tc].groups[ti];
+      items=lg.m.map(function(n){return {name:n,d:P.lucio,note:label};});
+      lines=[holder+' 님의 팀 분위기 전환!',lg.n+' 팀원 전원 +'+P.lucio+'점','👥 '+lg.m.join(', ')];break;
     case 'cassidy':
       if(!okT(o.target)||!o.res)return fail('상대와 결과를 선택하세요');
       var winner=o.res==='win'?holder:o.target;qv.winner=winner;
@@ -1825,8 +1901,8 @@ function pwRun(){
 }
 function tracerModal(){
   var o=tracerOptions();
-  var h='<div class="ov" data-act="modalClose"><div class="box" data-stop="1"><h3>⏪ 시간 역행!</h3><p class="small">어떤 추첨을 <b>다시 뽑을지</b> 선택하세요. 선택하면 모두의 화면에서 바로 다시 진행돼요.</p>';
-  if(!o.length)h+='<p class="warn">아직 되돌릴 수 있는 추첨이 없어요.</p>';
+  var h='<div class="ov" data-act="modalClose"><div class="box" data-stop="1"><h3>⏪ 시간 역행!</h3><div class="via" style="background:var(--hot)">⚠️ 트레이서는 <b>바로 직전에 진행된 추첨 1건</b>만 되돌릴 수 있어요!</div><p class="small">아래 항목을 선택하면 모두의 화면에서 바로 다시 진행돼요.</p>';
+  if(!o.length)h+='<p class="warn">바로 직전에 진행된 추첨이 없거나, 되돌릴 수 없는 종류예요.</p>';
   else h+=o.map(function(x){return '<button class="rbtn" data-act="tracerPick" data-v="'+x.id+'"><span><b>'+esc(x.label)+'</b></span></button>';}).join('');
   return h+'<button class="btn ghost block" style="margin-top:12px" data-act="modalClose">닫기</button></div></div>';
 }
@@ -1875,15 +1951,19 @@ function processUses(){
 }
 
 /* =============== 관리자: 샘플 데이터 (테스트용) =============== */
-function sampleAssign(){
+async function sampleAssign(){
   var ids=shuffle(HEROES.map(function(h){return h.id;})),names=shuffle(PLAYERS.slice()),as={};
   ids=ids.filter(function(i){return i!=='mercy';});names=names.filter(function(n){return n!==HOST;});as[HOST]='mercy';
   names.forEach(function(n,i){as[n]=ids[i];});
-  A().state.assign=as;delete A().state.duel;delete A().state.echo;saveState();
+  try{await assignTx(function(map){Object.keys(map).forEach(function(k){delete map[k];});Object.keys(as).forEach(function(k){map[k]=as[k];});});}
+  catch(e){return toast('배정 실패: '+(e.message||e.code));}
+  delete A().state.duel;delete A().state.echo;saveState();
   L().evts.filter(function(e){return e.id.indexOf('pw:')===0;}).forEach(function(e){delEvt(e.id,true);});
   saveLedger();
   S.pub.used={used:{}};saveUsed();
+  setLast(null);
   toast('🧪 초능력 10종을 랜덤 배정했어요');
+  render(true);
 }
 function sampleTeams(){
   var T=clone(S.pub.teams)||{sets:{},current:null};T.sets=T.sets||{};
@@ -1911,6 +1991,7 @@ function sampleClear(){
 
 /* =============== 관리자: 가방 / 공개 / 초기화 =============== */
 function tBags(){
+  setLast(null);
   var bags=A().content&&A().content.bags;
   if(!bags||bags.length!==PLAYERS.length)return toast('가방 데이터가 없어요');
   var vals=shuffle(bags),assign={};
@@ -1926,25 +2007,50 @@ function publishFinal(){
   announce('announce','🏆 최종 순위 공개!',{emoji:'🏆',lines:['시상식 메뉴에서 전체 점수와 순위를 확인하세요']},'🏆 최종 순위가 공개됐어요!!!! 시상식 메뉴를 확인하세요');
 }
 async function resetAll(){
-  S.epoch=(S.epoch||0)+1;S.dealAgain=false;
-  var uids=Object.keys(Object.assign({},A().deals||{},S.players)),chatIds=S.chat.map(function(m){return m.id;});
-  A().ledger={evts:[],entries:[]};A().state={assign:{},stage:{}};
-  S.pub.teams={sets:{},current:null};S.pub.used={used:{}};S.pub.flags={drawOpen:false};S.pub.final={published:false,rows:[]};S.pub.bets={};S.pub.results={};
-  S.ui.ws={bowl1:[],bowl2:[]};S.ui.owbet={ow1:{},ow2:{}};S.ui.outSel=[];S.ui.focus=null;
-  saveLedger();saveState();saveTeams();saveUsed();saveFlags();saveBets();saveResults();put('public/final',S.pub.final);
-  enqueue(function(){return S.db.doc('public/live').delete();});
-  S.pub.vote=null;enqueue(function(){return S.db.doc('public/vote').delete();});
-  Object.keys(S.players).forEach(function(uid){delete syncCache[uid];enqueue(function(){return S.db.doc('myscore/'+uid).delete();});});
-  uids.forEach(function(uid){enqueue(function(){return S.db.doc('deal/'+uid).delete();});});
-  chatIds.forEach(function(id){enqueue(function(){return S.db.doc('chat/'+id).delete();});});
-  Object.keys(S.players).forEach(function(uid){
-    var pl=S.players[uid];
-    if(pl&&(pl.drawReq||pl.useReq||pl.useDone||pl.vote))enqueue(function(){return S.db.doc('players/'+uid).update({drawReq:null,useReq:null,useDone:null,vote:null});});
-  });
-  S.ui.use={inc:null,target:null,mode:null,evt:null};S.ui.lt={A:[],B:[],C:[]};
-  A().deals={};
-  Qp.then(function(){setTimeout(function(){S.dealAgain=false;adminTick();},900);});
-  toast('초기화했어요');render(true);
+  if(S.passive)return toast('다른 기기에서 관리자 중이에요. 이 화면은 읽기 전용이에요');
+  S.resetting=true;S.epoch=(S.epoch||0)+1;S.busy++;
+  toast('🧹 초기화 중… 잠시만 기다려 주세요');
+  var failed=0,left=0;
+  try{
+    for(var w=0;w<80&&S.dealing;w++)await sleep(100);      // 진행 중인 카드 지급이 끝날 때까지 대기
+    await Qp;                                              // 이미 대기 중인 저장 작업 마무리
+    var db=S.db;
+    var set=function(p,d){return db.doc(p).set(d).catch(function(e){failed++;console.error(p,e);});};
+    var del=function(p){return db.doc(p).delete().catch(function(e){failed++;console.error(p,e);});};
+    /* 이 화면의 기억 비우기 */
+    A().ledger={evts:[],entries:[]};A().state={assign:{},stage:{}};A().deals={};
+    S.pub.teams={sets:{},current:null};S.pub.used={used:{}};S.pub.flags={drawOpen:false};S.pub.final={published:false,rows:[]};
+    S.pub.bets={};S.pub.results={};S.pub.vote=null;S.pub.last=null;S.pub.live=null;
+    S.ui.ws={bowl1:[],bowl2:[]};S.ui.owbet={ow1:{},ow2:{}};S.ui.outSel=[];S.ui.focus=null;S.ui.scout=null;
+    S.ui.use={inc:null,target:null,mode:null,evt:null};S.ui.lt={A:[],B:[],C:[]};S.ui.lucky=null;
+    syncCache={};S.handledUse={};S.modal=null;
+    /* 서버 데이터 지우기 */
+    await Promise.all([
+      set('adminonly/ledger',{evts:[],entries:[]}),set('adminonly/state',{stage:{}}),set('adminonly/assign',{map:{}}),
+      set('public/teams',{sets:{},current:null}),set('public/used',{used:{}}),set('public/flags',{drawOpen:false}),
+      set('public/bets',{}),set('public/results',{}),set('public/final',{published:false,rows:[]}),
+      del('public/live'),del('public/vote'),del('public/last')
+    ]);
+    var colls=['deal','chat','myscore'];
+    for(var pass=0;pass<2;pass++){
+      for(var c=0;c<colls.length;c++){
+        var ids=await db.collection(colls[c]).list();
+        await Promise.all(ids.map(function(id){return del(colls[c]+'/'+id);}));
+      }
+    }
+    await Promise.all(Object.keys(S.players).map(function(uid){
+      return db.doc('players/'+uid).update({drawReq:null,useReq:null,useDone:null,vote:null}).catch(function(e){failed++;});
+    }));
+    /* 마지막 확인: 남은 게 없는지 */
+    for(var c2=0;c2<colls.length;c2++){left+=(await db.collection(colls[c2]).list()).length;}
+    toast(failed||left?'⚠️ 일부 데이터가 남았을 수 있어요 ('+(failed+left)+'건). 한 번 더 눌러 주세요':'✅ 초기화 완료! 모든 데이터가 깨끗하게 지워졌어요');
+  }catch(e){
+    console.error(e);toast('⚠️ 초기화 중 오류가 났어요: '+(e.message||e.code)+' — 한 번 더 눌러 주세요');
+  }finally{
+    S.busy--;
+    setTimeout(function(){S.resetting=false;S.dealAgain=false;adminTick();render(true);},1200);
+    render(true);
+  }
 }
 
 /* =============== 모달 =============== */
@@ -1996,8 +2102,10 @@ document.addEventListener('click',function(e){
   if(t.classList.contains('ov')&&e.target!==t)return;
   handle(t.getAttribute('data-act'),t.getAttribute('data-v'),t);
 });
+var ADMIN_ACTS={ltSave:1,tBowl1:1,mtSave:1,bowlWin:1,scoutStart:1,scoutPick:1,bowl2Reset:1,luckyOpen:1,luckyReason:1,luckyDraw:1,luckyRandom:1,luckyApply:1,owDraw:1,owBet:1,owVoteOpen:1,owVoteClose:1,owResult:1,lunchT:1,lunchHost:1,drawOpen:1,revealUse:1,pwOpen:1,pwRun:1,pwUndo:1,duelOpen:1,echoCall:1,tBags:1,publish:1,unpublish:1,saveGifts:1,resetAll:1,sampleAssign:1,sampleTeams:1,samplePoints:1,sampleClear:1,manAdd:1,delEvt:1,tPick:1,notice:1};
 async function handle(act,v,t){
   var u=S.ui,k=t.getAttribute('data-k');
+  if(S.admin&&S.passive&&ADMIN_ACTS[act]){toast('다른 기기에서 관리자 중이에요. 이 화면은 읽기 전용이에요');return;}
   switch(act){
     case 'menu':S.menu=!S.menu;break;
     case 'menuClose':S.menu=false;break;
@@ -2051,6 +2159,8 @@ async function handle(act,v,t){
     case 'bowlWin':{var bw=v.split(':');bowlResult(bw[0],+bw[1]);break;}
     case 'scoutStart':scoutStart();break;
     case 'scoutPick':{var sp=v;ask(sp+' 님을 영입할까요? 패배팀 방출자가 랜덤으로 정해져요.',function(){scoutPick(sp);render(true);});return;}
+    case 'lockTake':acquireLock(true);toast('이 기기에서 관리자를 시작해요');break;
+    case 'popGo':{closePop();S.view=v;S.menu=false;window.scrollTo(0,0);break;}
     case 'bowl2Reset':ask('2세트 팀과 2세트 점수를 초기화할까요?',function(){bowl2Reset();render(true);});return;
     case 'mtSave':mtSave();break;
     case 'gn':u.gn=+v;break;
@@ -2082,8 +2192,9 @@ async function handle(act,v,t){
       toast(HOST+' '+sc+'점 지급');break;}
     case 'drawOpen':{
       var f=clone(S.pub.flags)||{};f.drawOpen=!f.drawOpen;S.pub.flags=f;saveFlags();
-      if(f.drawOpen)announce('announce','🎴 초능력 카드 추첨 시작!',{emoji:'🔮',lines:['“초능력 뽑기” 메뉴에서 카드를 뽑아주세요']},'🎴 초능력 카드 추첨이 시작됐어요!!!! 초능력 뽑기 메뉴에서 카드를 뽑아주세요');
+      if(f.drawOpen)announce('announce','🎴 초능력 카드 추첨 시작!',{emoji:'🔮',lines:['“초능력 뽑기” 메뉴에서 카드를 뽑아주세요'],go:'power',goLabel:'🔮 초능력 뽑기로 이동'},'🎴 초능력 카드 추첨이 시작됐어요!!!! 초능력 뽑기 메뉴에서 카드를 뽑아주세요');
       break;}
+    case 'dealFix':reconcileDeals();toast('🔧 카드를 다시 맞추는 중이에요');break;
     case 'revealUse':revealUse(v);break;
     case 'sampleAssign':ask('현재 초능력 배정과 사용 기록이 샘플로 바뀌어요. 랜덤 배정할까요?',function(){sampleAssign();render(true);});return;
     case 'sampleTeams':sampleTeams();break;
