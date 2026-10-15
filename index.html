@@ -283,11 +283,20 @@ details.pl .bd{padding:0 12px 12px}
 
 .quote{margin:8px 0 4px;padding:8px 12px;border-radius:12px;background:var(--panel2);font-style:italic;font-weight:700;font-size:15.5px;line-height:1.45}
 
+.envs{display:flex;gap:8px;justify-content:center;margin:12px 0 4px}
+.env{width:46px;height:58px;border-radius:12px;background:var(--panel2);border:3px solid var(--line);display:grid;place-items:center;font-family:var(--f-d);font-size:24px;opacity:.5}
+.env.pick{opacity:1;background:var(--hot);color:#1a0d05;border-color:var(--hot);transform:translateY(-8px) scale(1.12);box-shadow:0 5px 0 rgba(0,0,0,.25)}
+.btn.big{padding:14px 18px;font-size:16px}
+.rbtn{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:12px;margin-top:10px;border-radius:14px;border:3px solid var(--line);background:var(--panel2)}
+.rbtn .em{font-size:30px}
+.note.qadm{margin-top:10px}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="vote"></div>
 <div id="modal"></div>
 <div id="pop"></div>
 <div id="toast" role="status"></div>
@@ -329,8 +338,8 @@ var SCHEDULE=[
 var MENU=[
   {id:'chat',t:'채팅',i:'💬'},
   {id:'home',t:'전체 일정',i:'🗓️'},
-  {id:'lunch',t:'점심 미니게임',i:'🍽️'},
   {id:'power',t:'초능력 뽑기',i:'🔮'},
+  {id:'lunch',t:'점심 미니게임',i:'🍽️'},
   {id:'bowl',t:'볼링',i:'🎳'},
   {id:'ow',t:'PC방',i:'🎮'},
   {id:'award',t:'시상식',i:'🏆'}
@@ -377,7 +386,7 @@ function hhmm(ts){var d=new Date(ts);return ('0'+d.getHours()).slice(-2)+':'+('0
 var S={
   db:null,uid:null,ready:false,err:null,cfgMissing:false,setup:false,
   me:null,admin:false,guest:false,view:'home',menu:false,
-  pub:{},players:{},deal:null,chat:[],chatSeen:0,
+  pub:{},players:{},deal:null,myscore:null,myscoreErr:null,voteSeen:{},chat:[],chatSeen:0,
   adm:{content:null,state:{assign:{},stage:{}},ledger:{evts:[],entries:[]},deals:{},loaded:{},unsub:[],retry:0},
   ui:{pin:'',loginName:null,err:'',busy:false,setupMsg:'',
       manual:{name:null,d:1,note:''},gpool:{},gn:3,focus:null,gifts:null,chat:'',asNotice:false,
@@ -466,6 +475,9 @@ function startSubs(){
     if(S.deal&&!had&&Date.now()-(S.deal.ts||0)<30000)showPop({id:'deal'+S.deal.ts,kind:'mydeal',title:'나의 초능력',payload:{hero:S.deal.hero}});
     render();
   },subErr);
+  db.doc('myscore/'+S.uid).onSnapshot(function(s){
+    S.myscoreErr=null;S.myscore=s.exists?clone(s.data()):null;render();
+  },function(e){S.myscoreErr=(e&&e.code)||'error';render();});
   db.collection('chat').recent(150,function(s){
     var prevLast=S.chat.length?S.chat[S.chat.length-1].ts:0,first=!S.chatLoaded;
     S.chat=s.docs.map(function(d){var x=d.data();x.id=d.id;return x;}).sort(function(a,b){return a.ts-b.ts;});
@@ -524,7 +536,7 @@ function enqueue(fn){
   return Qp;
 }
 function put(path,data){var d=clone(data);return enqueue(function(){return S.db.doc(path).set(d);});}
-function saveLedger(){return put('adminonly/ledger',L());}
+function saveLedger(){var r=put('adminonly/ledger',L());schedSync();return r;}
 function saveState(){return put('adminonly/state',A().state);}
 function saveTeams(){return put('public/teams',S.pub.teams);}
 function saveUsed(){return put('public/used',S.pub.used);}
@@ -656,16 +668,16 @@ function showPop(ev){S.pop={ev:ev,open:false};renderPop();}
 function closePop(){S.pop=null;renderPop();}
 
 /* =============== 초능력 카드 자동 지급 (관리자 화면) =============== */
-function adminTick(){if(S.admin){reconcileDeals();processUses();}}
+function adminTick(){if(S.admin){reconcileDeals();processUses();schedSync();}}
 async function reconcileDeals(){
   if(S.dealing){S.dealAgain=true;return;}
   var a=A();
   if(!S.db||!a.content||!a.loaded.main||!a.loaded.deals||!a.state)return;
   S.dealing=true;
   try{
-    // (옵션) 관리자(이유정)에게 메르시 고정 — 기본은 OFF(전원 랜덤)
+    // 관리자(이유정)에게는 메르시를 무조건 배정 (나머지 9명은 랜덤)
     var mh=holderOf('mercy');
-    if(S.pub.flags&&S.pub.flags.fixMercy&&mh!==HOST){
+    if(mh!==HOST){
       var prevH=a.state.assign[HOST];
       if(mh){if(prevH)a.state.assign[mh]=prevH;else delete a.state.assign[mh];}
       a.state.assign[HOST]='mercy';
@@ -702,14 +714,58 @@ async function reconcileDeals(){
   S.dealing=false;render();
 }
 
+/* =============== 내 점수 동기화 (관리자 화면 → 각자 본인만 읽는 문서) =============== */
+var syncT=null,syncCache={};
+function schedSync(){
+  if(!S.admin||!S.db)return;
+  clearTimeout(syncT);syncT=setTimeout(syncScores,700);
+}
+function syncScores(){
+  if(!S.db||!S.admin||!A().loaded.main)return;
+  Object.keys(S.players).forEach(function(uid){
+    var p=S.players[uid];if(!p||!p.name)return;
+    var items=L().entries.filter(function(e){return e.name===p.name;}).map(function(e){return {l:e.note,d:e.d,c:e.cat,t:e.ts};});
+    var key=JSON.stringify([p.name,items]);
+    if(syncCache[uid]===key)return;
+    syncCache[uid]=key;
+    var total=items.reduce(function(a,x){return a+x.d;},0);
+    enqueue(function(){return S.db.doc('myscore/'+uid).set({name:p.name,total:total,items:items,ts:Date.now()});});
+  });
+}
+/* =============== 승부 예측 투표 (PC방) =============== */
+function activeVote(){
+  var v=S.pub.vote;
+  if(!v||!v.open||!S.me)return null;
+  if(!team(v.key)||teamOf(v.key,S.me)<0)return null;
+  return v;
+}
+function myVote(v){var p=S.players[S.uid];return p&&p.vote&&p.vote.id===v.id?p.vote.v:null;}
+function voteButtons(v){
+  var mv=myVote(v),ti=teamOf(v.key,S.me),t=team(v.key);
+  return '<p><b>'+esc(t.groups[ti].n)+'</b>(우리 팀)이<br><b>이길 것 같나요, 질 것 같나요?</b></p>'+
+    '<div class="row" style="justify-content:center;margin-top:10px"><button class="btn big '+(mv==='win'?'good':'ghost')+'" data-act="voteSet" data-v="win">🏆 이길 것 같아요</button><button class="btn big '+(mv==='lose'?'bad':'ghost')+'" data-act="voteSet" data-v="lose">😅 질 것 같아요</button></div>'+
+    (mv?'<p class="win" style="margin-top:10px">✅ 예측 완료! 관리자가 마감하면 공개돼요. (마감 전에는 바꿀 수 있어요)</p>':'<p class="small mut" style="margin-top:10px">하나를 골라주세요</p>');
+}
+function renderVote(){
+  var el=$('#vote');if(!el)return;
+  var v=activeVote();
+  if(!v||S.voteSeen[v.id]){el.innerHTML='';return;}
+  var t=team(v.key),ti=teamOf(v.key,S.me);
+  el.innerHTML='<div class="ov"><div class="box big" data-stop="1"><h3>🔮 승부 예측!</h3>'+
+    '<div class="chips" style="justify-content:center;margin-bottom:10px">'+t.groups[ti].m.map(function(n){return '<span class="chip'+(n===S.me?' me':'')+'">'+esc(n)+'</span>';}).join('')+'</div>'+
+    voteButtons(v)+'<button class="btn block ghost" style="margin-top:14px" data-act="voteHide">'+(myVote(v)?'닫기':'나중에 할게요')+'</button></div></div>';
+}
+
 /* =============== 렌더 =============== */
 function render(force){
   var app=$('#app');if(!app)return;
+  renderVote();   // 투표 창은 입력 중이어도 바로 떠야 해요
   var a=document.activeElement;
   if(!force&&a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&app.contains(a)){S.pending=true;return;}
   S.pending=false;
   app.innerHTML=layout();
   renderModal();
+  renderVote();
   if(S.view==='chat'&&S.ready){markChatSeen();}
 }
 function layout(){
@@ -725,6 +781,7 @@ function layout(){
 function menuItems(){
   var m=MENU.slice();
   if(S.admin)m.push({id:'score',t:'점수 입력',i:'🧮',adm:true});
+  m.push({id:'mine',t:'내 점수',i:'🧾'});
   return m;
 }
 function drawer(){
@@ -744,6 +801,7 @@ function body(){
     case 'ow':h=viewOw();break;
     case 'award':h=viewAward();break;
     case 'score':h=viewScore();break;
+    case 'mine':h=viewMine();break;
     default:h=viewHome();
   }
   return loginBar()+adminBar()+h;
@@ -896,14 +954,14 @@ function viewLunch(){
    '<div class="note"><b>예시</b> 지금 갈 수 있다면? <b>바다 vs 산</b></div>'+
    '<div class="demo"><span class="bub ok">🌊 바다</span><span class="bub ok">🌊 바다</span><span class="bub ok">🌊 바다</span><span class="verdict win">전원 일치 → 팀원 전원 +1점</span></div>'+
    '<div class="demo"><span class="bub ok">🌊 바다</span><span class="bub ok">🌊 바다</span><span class="bub no">⛰️ 산</span><span class="verdict lose">한 명이라도 다르면 0점</span></div>'+
-   '<p class="small mut">총 4문제 · 문제는 현장에서 공개돼요.</p></div>'+
+   '<p class="small mut">총 4문제 · 문제는 현장에서 공개돼요.</p>'+(S.admin?lunchQ('unison'):'')+'</div>'+
    '<h3 class="h3">② 5초 릴레이</h3><div class="card"><ul class="dots"><li>팀원 3명이 순서대로 각자 5초 안에 답변해요.</li><li>중복 없이 3개 정답을 말하면 팀원 전원 +1점!</li></ul>'+
    '<div class="note"><b>예시</b> 주제: <b>과일 이름</b></div>'+
    '<div class="demo"><span class="bub ok">1번 사과</span><span class="bub ok">2번 바나나</span><span class="bub ok">3번 포도</span><span class="verdict win">3개 성공 → 전원 +1점</span></div>'+
    '<div class="demo"><span class="bub ok">1번 사과</span><span class="bub no">2번 사과</span><span class="verdict lose">중복 → 실패</span></div>'+
-   '<p class="small mut">총 5주제 · 주제는 현장에서 공개돼요.</p></div>'+
+   '<p class="small mut">총 5주제 · 주제는 현장에서 공개돼요.</p>'+(S.admin?lunchQ('relay'):'')+'</div>'+
    '<h3 class="h3">점수 정보</h3><div class="card"><table class="tbl"><tr><th>게임</th><th>횟수</th><th>성공 시</th></tr><tr><td>이구동성</td><td>4문제</td><td>팀원 전원 +1</td></tr><tr><td>5초 릴레이</td><td>5주제</td><td>팀원 전원 +1</td></tr><tr><td><b>최대</b></td><td colspan="2"><b>9점</b> (예시 제외)</td></tr></table>'+
-   '<div class="note">'+HOST+' 님은 나머지 9명의 평균 점수를 <b>반올림</b>해서 받아요.</div></div>';
+   '<div class="note">'+HOST+' 님은 나머지 9명의 평균 점수를 받아요.</div></div>';
   if(S.admin)h+=lunchAdmin();
   return h;
 }
@@ -927,16 +985,16 @@ function lunchTeamAdmin(){
     '<p class="small mut">현재 공개된 팀</p>'+teamBlock('lunch')+h+
     '<button class="btn hot block" style="margin-top:12px" data-act="ltSave"'+(ready?'':' disabled')+'>팀 공개 · 폰에 알리기</button>');
 }
+function lunchQ(kind){
+  var c=A().content;
+  if(!c||!c.lunch)return '<p class="warn small" style="margin-top:8px">🔒 문제 데이터가 없어요. 비밀 데이터를 올려주세요.</p>';
+  var list=kind==='unison'?c.lunch.unison:c.lunch.relay;
+  return '<div class="note qadm"><b>🔒 관리자 전용 · '+(kind==='unison'?'이구동성 문제':'5초 릴레이 주제')+'</b>'+(kind==='unison'?'<span class="small mut"> (문제를 보고 골라서 내세요)</span>':'')+'<ol class="qlist">'+list.map(function(q){return '<li>'+esc(q)+'</li>';}).join('')+'</ol></div>';
+}
 function lunchAdmin(){
   var t=team('lunch'),c=A().content,T=calc();
   var h='<h2 class="h2">🛠 점심 진행 (관리자)</h2>';
   h+=lunchTeamAdmin();
-  h+='<div class="card"><b>📋 문제 목록 (관리자 전용)</b>';
-  if(c&&c.lunch){
-    h+='<p class="small mut">이구동성은 문제를 보고 골라서 내세요.</p><b class="small">이구동성</b><ol class="qlist">'+c.lunch.unison.map(function(q){return '<li>'+esc(q)+'</li>';}).join('')+'</ol>'+
-       '<b class="small">5초 릴레이 주제</b><ol class="qlist">'+c.lunch.relay.map(function(q){return '<li>'+esc(q)+'</li>';}).join('')+'</ol>';
-  }else h+='<p class="warn small">문제 데이터가 없어요. 비밀 데이터를 올려주세요.</p>';
-  h+='</div>';
   if(!t){return h+'<div class="card">위에서 점심 팀을 먼저 공개하면 점수를 입력할 수 있어요.</div>';}
   var tot=t.groups.map(function(g,gi){var n=0;lunchRounds().forEach(function(r){if(lunchState(r,gi)==='ok')n++;});return {n:g.n,v:n};});
   h+='<div class="card"><b>팀별 성공 체크</b><p class="small mut">팀마다 <b>성공 / 실패</b>를 한 번만 누르면 점수가 자동 반영돼요. (성공 시 팀원 전원 +1점) 같은 버튼을 다시 누르면 선택이 취소돼요.</p>'+
@@ -961,8 +1019,7 @@ function powerAdminTop(){
   var f=S.pub.flags||{},as=A().state.assign;
   var undrawn=PLAYERS.filter(function(n){return !as[n];});
   return '<div class="card"><label class="tgl" data-act="drawOpen"><span class="sw'+(f.drawOpen?' on':'')+'"></span>초능력 뽑기 '+(f.drawOpen?'열림':'닫힘')+'</label>'+
-    '<p class="small mut" style="margin-top:6px">열면 참가자 폰의 “카드 뽑기” 버튼이 켜지고, 요청이 오면 이 화면이 자동으로 카드를 나눠줘요. 카드는 <b>전원 완전 랜덤</b>으로 뽑혀요.</p>'+
-    '<label class="tgl" data-act="fixMercy" style="margin-top:6px"><span class="sw'+(f.fixMercy?' on':'')+'"></span>'+HOST+' 메르시 고정 '+(f.fixMercy?'ON':'OFF (랜덤)')+'</label>'+
+    '<p class="small mut" style="margin-top:6px">열면 참가자 폰의 “카드 뽑기” 버튼이 켜지고, 요청이 오면 이 화면이 자동으로 카드를 나눠줘요. '+HOST+'에게는 <b>메르시가 고정</b>이고, 나머지 9명은 완전 랜덤이에요.</p>'+
     '<div style="margin-top:8px"><button class="btn ghost" data-act="sampleAssign">🧪 샘플: 초능력 10종 랜덤 배정</button></div>'+
     '<p class="small" style="margin-top:6px">추첨 완료 '+(PLAYERS.length-undrawn.length)+'/'+PLAYERS.length+(undrawn.length?' · 대기: '+undrawn.map(esc).join(', '):'')+'</p>'+
     '<div class="chips" style="margin-top:8px">'+PLAYERS.map(function(n){var hh=heroByName(n);return '<span class="chip'+(hh?'':' dim')+'">'+(hh?hh.em+' ':'')+esc(n)+(hh?' · '+hh.hero:'')+'</span>';}).join('')+'</div></div>';
@@ -1017,11 +1074,7 @@ function usePanel(x){
   var id=x.id;
   if(id==='sigma')h+='<p class="small">① 본인 포함 여부를 정하세요</p><div class="chips"><button class="chip'+(uo.inc===true?' on':'')+'" data-act="sel" data-k="ui.use.inc" data-v="1">본인 포함 (나 ↔ 무작위 1명)</button><button class="chip'+(uo.inc===false?' on':'')+'" data-act="sel" data-k="ui.use.inc" data-v="0">본인 제외 (무작위 2명 교환)</button></div>';
   if(id==='moira'||id==='cassidy'||id==='symmetra')h+='<p class="small">'+(id==='moira'?'① 점수를 빼앗을 사람':id==='cassidy'?'① 결투를 신청할 사람':'① 팀을 바꿀 사람')+'</p>'+chipsSel(PLAYERS,'ui.use.target',uo.target,S.me);
-  if(id==='reinhardt'){
-    var cand=Object.keys(used).filter(function(k){return k!=='reinhardt';});
-    h+='<p class="small">① 방어 여부</p><div class="chips"><button class="chip'+(uo.mode==='defend'?' on':'')+'" data-act="sel" data-k="ui.use.mode" data-v="defend">공격받아 방어!</button><button class="chip'+(uo.mode==='bonus'?' on':'')+'" data-act="sel" data-k="ui.use.mode" data-v="bonus">방어 안 함 (+1점)</button></div>';
-    if(uo.mode==='defend')h+=cand.length?'<p class="small" style="margin-top:8px">무효화할 초능력</p><div class="chips">'+cand.map(function(k){var hx=heroOf(k);return '<button class="chip'+(uo.evt==='pw:'+k?' on':'')+'" data-act="sel" data-k="ui.use.evt" data-v="pw:'+k+'">'+hx.em+' '+hx.hero+' ('+esc(used[k].by)+')</button>';}).join('')+'</div>':'<p class="warn small">아직 사용된 초능력이 없어요.</p>';
-  }
+  if(id==='reinhardt')return h+'<p class="small">공격받았다면 <b>직전에 발동된 초능력 2건</b> 중 막을 것을 고를 수 있어요.</p><div class="row"><button class="btn hot" data-act="reinOpen">🛡️ 공격받아 방어!</button><button class="btn ghost" data-act="reinBonus">방어 안 함 (+1점)</button></div></div>';
   return h+'<button class="btn hot block" style="margin-top:12px" data-act="useGo">📢 공개!</button></div>';
 }
 
@@ -1052,7 +1105,7 @@ function bowlSet(key){
   var h='<div class="card tool"><h3>🎳 '+n+'세트'+(res?' <span class="tag good">종료</span>':'')+'</h3>';
   if(key==='bowl1'){
     h+='<p class="mut small">10명을 무작위 5:5로 나눠서 폰에 공개해요.</p>'+teamBlock('bowl1')+
-      '<button class="btn '+(t?'ghost':'hot')+' block" data-act="tBowl1">'+(t?'🎲 1세트 팀 다시 추첨':'🎲 1세트 팀 랜덤 추첨 · 폰에 공개')+'</button>';
+      '<button class="btn '+(t?'ghost':'hot')+' block" data-act="tBowl1">'+(t?'🔄 이미 뽑았어요 · 다시 뽑을까요?':'🎲 1세트 팀 랜덤 추첨 · 폰에 공개')+'</button>';
   }else{
     var r1=S.pub.results&&S.pub.results.bowl1,t1=team('bowl1');
     if(!t){
@@ -1082,43 +1135,58 @@ function bowlSet(key){
 }
 
 /* =============== PC방 (오버워치) =============== */
+function liveVotes(key){
+  var v=S.pub.vote,m={};
+  if(!v||v.key!==key)return m;
+  Object.keys(S.players).forEach(function(uid){
+    var p=S.players[uid];
+    if(p&&p.vote&&p.vote.id===v.id&&(p.vote.v==='win'||p.vote.v==='lose'))m[p.name]=p.vote.v;
+  });
+  return m;
+}
 function getBet(key,n){
   var l=S.ui.owbet[key];
   if(l&&Object.prototype.hasOwnProperty.call(l,n))return l[n];
+  var lv=liveVotes(key);if(lv[n])return lv[n];
   var p=S.pub.bets&&S.pub.bets[key]&&S.pub.bets[key].map;
   return p&&p[n]||null;
 }
+function voteCard(){
+  var v=activeVote();
+  if(!v)return '';
+  return '<div class="card" style="border-color:var(--hot)"><b>🔮 승부 예측 투표 중!</b><div style="text-align:center;margin-top:6px">'+voteButtons(v)+'</div></div>';
+}
 function viewOw(){
-  var h='<h2 class="h2" style="margin-top:6px">🎮 PC방 · 오버워치 5:5</h2>'+banner()+
+  var h='<h2 class="h2" style="margin-top:6px">🎮 PC방 · 오버워치 5:5</h2>'+banner()+voteCard()+
    '<div class="card"><div class="kv"><b>인원</b><span>10명</span><b>라운드</b><span>총 2경기 · 경기마다 팀 변경</span><b>팀 구성</b><span><b>심승선 · 최우재</b>가 팀장! 두 팀장이 이끄는 5:5로 나머지 8명을 <b>랜덤</b> 배정해요.</span></div></div>'+
    teamCard('ow1','1경기 팀')+teamCard('ow2','2경기 팀');
   if(S.admin)h+=owAdmin('ow1')+owAdmin('ow2');
   h+='<h3 class="h3">경기 구성</h3><div class="card"><table class="tbl"><tr><th>경기</th><th>진행</th><th>추가 보상</th></tr><tr><td>1경기</td><td>랜덤 5:5 대결</td><td>승부 예측 성공 +1</td></tr><tr><td>2경기</td><td>팀 변경 후 5:5 대결</td><td>승부 예측 성공 +1</td></tr></table></div>'+
    '<h3 class="h3">기본 점수</h3>'+baseTable('2 / 2 / 3 / 3 / 3')+
-   '<h3 class="h3">🔮 승부 예측</h3><div class="card"><ul class="dots"><li>경기 시작 전 <b>본인 팀의 승리 또는 패배</b>에 베팅.</li><li>예측이 맞으면 +1점 / 틀리면 0점.</li><li>베팅은 선택 사항이며 경기마다 1회 가능.</li><li>팀과 예측은 관리자가 저장하면 모두에게 공개돼요.</li></ul></div>';
+   '<h3 class="h3">🔮 승부 예측</h3><div class="card"><ul class="dots"><li>팀이 정해지면 각자 폰에 <b>“우리 팀이 이길 것 같나요, 질 것 같나요?”</b> 투표가 떠요.</li><li>예측이 맞으면 +1점 / 틀리면 0점.</li><li>투표는 선택 사항이며 경기마다 1회 가능해요.</li><li>투표가 마감되면 모두의 예측이 공개돼요.</li></ul></div>';
   return h;
 }
 function owAdmin(key){
-  var st=(A().state.stage||{})[key],pubT=team(key),groups=st?st.groups:(pubT?pubT.groups:null);
-  var res=S.pub.results&&S.pub.results[key];
-  var h='<div class="card tool"><h3>🛠 '+GAME[key]+' 진행</h3><p class="mut small">① 팀 랜덤 배정 → ② 승부 예측 입력 후 저장(저장하면 팀·예측이 플레이어에게 공개) → ③ 경기 후 승리팀 선택(점수 자동 반영)</p>'+
-    '<button class="btn hot block" data-act="owDraw" data-v="'+key+'">① 🎲 팀 랜덤 배정 (심승선 · 최우재 팀장)</button>';
-  if(groups){
-    h+=(st?'<div class="note small">📝 팀은 배정됐지만 <b>아직 공개 전</b>이에요. 예측을 입력하고 저장하면 공개돼요.</div>':'<p class="small win" style="margin-top:8px">✅ 팀과 예측이 공개된 상태예요 (예측을 고치고 저장하면 다시 반영돼요)</p>');
-    h+='<p class="small" style="margin-top:8px"><b>② 승부 예측 입력</b> — 각자 본인 팀의 승리/패배 중 무엇에 걸었나요?</p>';
-    groups.forEach(function(g){
+  var t=team(key),res=S.pub.results&&S.pub.results[key],v=S.pub.vote,isCur=!!(v&&v.key===key),open=isCur&&v.open;
+  var h='<div class="card tool"><h3>🛠 '+GAME[key]+' 진행'+(res?' <span class="tag good">종료</span>':'')+'</h3><p class="mut small">① 팀 랜덤 배정(모두의 폰에 실시간 공개 + 예측 투표 시작) → ② 경기 후 승리팀 선택(점수 자동 반영)</p>'+
+    '<button class="btn '+(t?'ghost':'hot')+' block" data-act="owDraw" data-v="'+key+'">'+(t?'🔄 이미 뽑았어요 · 다시 뽑을까요?':'① 🎲 팀 랜덤 배정 · 전체 공개 (심승선 · 최우재 팀장)')+'</button>';
+  if(t){
+    h+=teamBlock(key);
+    h+='<p class="small" style="margin-top:12px"><b>② 경기 결과</b> — 승리팀을 선택하면 기본 점수와 예측 점수가 자동 계산돼요.</p><div class="row">'+
+      t.groups.map(function(g,gi){return '<button class="btn '+(res&&res.team===gi?'good':'ghost')+'" data-act="owResult" data-v="'+key+':'+gi+'">'+esc(g.n)+' 승리</button>';}).join('')+'</div>';
+    if(res)h+='<p class="small" style="margin-top:8px"><b>반영됨</b> · 기본 '+evtPoints('base:'+key).map(function(e){return esc(e.name)+' '+e.d;}).join(' · ')+(hasEvt('pred:'+key)?'<br>예측 성공 · '+(evtPoints('pred:'+key).map(function(e){return esc(e.name);}).join(', ')||'없음'):'')+'</p>';
+    var lv=liveVotes(key),done=Object.keys(lv).length;
+    h+='<p class="small" style="margin-top:14px"><b>📱 승부 예측 투표</b> '+(open?'<span class="tag hot">진행 중</span>':(isCur?'<span class="tag good">마감됨</span>':'<span class="tag">시작 전</span>'))+' · 투표 완료 '+done+'/10명</p>';
+    t.groups.forEach(function(g){
       h+='<div class="betgrp"><span class="tag pri">'+esc(g.n)+'</span>'+g.m.map(function(n){
-        var b=getBet(key,n);
-        return '<div class="betrow"><span>'+(CAPS.indexOf(n)>=0?'⭐ ':'')+esc(n)+'</span><span class="seg">'+
-          ['win','lose','none'].map(function(v){var lab=v==='win'?'승리':v==='lose'?'패배':'없음',on=(b===v)||(v==='none'&&!b);return '<button class="'+(on?'on '+v:'')+'" data-act="owBet" data-r="'+key+'" data-n="'+esc(n)+'" data-v="'+v+'">'+lab+'</button>';}).join('')+'</span></div>';
+        var b=getBet(key,n),waiting=open&&!lv[n]&&!b;
+        return '<div class="betrow"><span>'+(CAPS.indexOf(n)>=0?'⭐ ':'')+esc(n)+(waiting?' <span class="small mut">⏳ 투표 대기</span>':'')+'</span><span class="seg">'+
+          ['win','lose','none'].map(function(x){var lab=x==='win'?'승리':x==='lose'?'패배':'없음',on=(b===x)||(x==='none'&&!b);return '<button class="'+(on?'on '+x:'')+'" data-act="owBet" data-r="'+key+'" data-n="'+esc(n)+'" data-v="'+x+'">'+lab+'</button>';}).join('')+'</span></div>';
       }).join('')+'</div>';
     });
-    h+='<button class="btn block" style="margin-top:10px" data-act="owSave" data-v="'+key+'">② 팀·예측 저장하고 공개</button>';
-    if(pubT&&!st){
-      h+='<p class="small" style="margin-top:14px"><b>③ 경기 결과</b> — 승리팀을 선택하면 기본 점수와 예측 점수가 자동 계산돼요.</p><div class="row">'+
-        pubT.groups.map(function(g,gi){return '<button class="btn '+(res&&res.team===gi?'good':'ghost')+'" data-act="owResult" data-v="'+key+':'+gi+'">'+esc(g.n)+' 승리</button>';}).join('')+'</div>';
-      if(res)h+='<p class="small" style="margin-top:8px"><b>반영됨</b> · 기본 '+evtPoints('base:'+key).map(function(e){return esc(e.name)+' '+e.d;}).join(' · ')+(hasEvt('pred:'+key)?'<br>예측 성공 · '+(evtPoints('pred:'+key).map(function(e){return esc(e.name);}).join(', ')||'없음'):'')+'</p>';
-    }
+    h+='<p class="small mut" style="margin-top:6px">참가자가 폰에서 고른 예측이 실시간으로 여기에 들어와요. 필요하면 위 버튼으로 직접 고칠 수 있어요.</p>';
+    if(open)h+='<button class="btn block" style="margin-top:8px" data-act="owVoteClose" data-v="'+key+'">🔒 투표 마감 · 예측 공개</button>';
+    else h+='<button class="btn ghost block" style="margin-top:8px" data-act="owVoteOpen" data-v="'+key+'">'+(isCur?'🔓 투표 다시 열기':'📱 투표 시작')+'</button>';
   }
   return h+'</div>';
 }
@@ -1197,6 +1265,21 @@ function viewScore(){
   return h;
 }
 
+function viewMine(){
+  var h='<h2 class="h2" style="margin-top:6px">🧾 내 점수</h2>'+banner();
+  if(!S.me)return h+'<div class="card">로그인하면 내 점수를 볼 수 있어요.<br><button class="btn hot" style="margin-top:8px" data-act="relogin">로그인하기</button></div>';
+  if(S.myscoreErr==='permission-denied')return h+'<div class="note">⚠️ 점수 보기 기능이 아직 준비되지 않았어요. 관리자에게 Firestore 규칙 업데이트(myscore)를 요청해 주세요.</div>';
+  var d=S.myscore,items=(d&&d.items)||[],total=(d&&d.total)||0;
+  h+='<div class="card" style="text-align:center"><div class="small mut">'+esc(S.me)+' 님의 현재 점수</div><div class="bigtxt" style="font-size:64px">'+total+'<span style="font-size:24px">점</span></div><p class="small mut">나만 볼 수 있어요 🤫 다른 사람에게 알려주지 마세요!</p></div>';
+  if(!items.length)return h+'<div class="card">아직 받은 점수가 없어요. 게임이 진행되면 여기에 쌓여요.</div>';
+  var cats={};items.forEach(function(x){cats[x.c]=(cats[x.c]||0)+x.d;});
+  h+='<div class="chips" style="margin:6px 0 10px">'+Object.keys(CATN).filter(function(k){return cats[k]!=null;}).map(function(k){return '<span class="chip">'+CATN[k]+' '+fmt(cats[k])+'</span>';}).join('')+'</div>';
+  h+='<div class="card"><b>받은 점수 내역</b>'+items.slice().sort(function(a,b){return (a.t||0)-(b.t||0);}).map(function(x){
+    return '<div class="led"><div><span class="tag">'+(CATN[x.c]||x.c)+'</span> '+esc(x.l)+'<div class="mut small">'+(x.t?hhmm(x.t):'')+'</div></div><b class="'+(x.d>=0?'win':'lose')+'">'+fmt(x.d)+'</b></div>';
+  }).join('')+'<div class="led"><b>합계</b><b class="pt">'+total+'점</b></div></div>';
+  return h;
+}
+
 /* =============== 팝업 (실시간 결과) =============== */
 function renderPop(){
   var el=$('#pop');if(!el)return;
@@ -1221,7 +1304,18 @@ function renderPop(){
       if(!S.me)inner='<p class="mut">참가자로 로그인하면 내 결과를 볼 수 있어요.</p>';
       else if(!(S.me in (p.assign||{})))inner='<p class="mut">이번 추첨 대상이 아니에요.</p>';
       else if(!P.open)inner='<p class="mut" style="margin-bottom:10px">내 결과는 나만 볼 수 있어요</p><button class="priv" data-act="privOpen">🎁 탭해서 열기</button>';
-      else{var v=p.assign[S.me];inner='<p>'+esc(S.me)+' 님의 '+esc(p.label||'결과')+'</p><div class="bigtxt '+(v>0?'plus':v<0?'minus':'')+'">'+(p.fmt==='plain'?v:fmt(v))+(p.unit||'')+'</div><p class="small mut">다른 사람에게 점수를 알려주지 마세요 🤫</p>';}
+      else{
+        var v=p.assign[S.me],pl=p.pool&&p.pool[S.me],bn=(p.bonus&&p.bonus[S.me])||0;
+        inner='<p>'+esc(S.me)+' 님의 '+esc(p.label||'결과')+'</p>';
+        if(pl){
+          var used1=false;
+          inner+='<p class="small mut" style="margin-bottom:2px">이번 팀 점수 봉투 '+(pl.kind==='win'?'(승리팀)':'(패배팀)')+'</p><div class="envs">'+pl.vals.map(function(x){var pk=(!used1&&x===v);if(pk)used1=true;return '<span class="env'+(pk?' pick':'')+'">'+x+'</span>';}).join('')+'</div>'+
+            '<p class="small" style="margin-top:2px">▲ 내가 뽑은 점수</p><div class="bigtxt '+(pl.tier==='high'?'plus':pl.tier==='low'?'minus':'')+'">'+v+'점</div>'+
+            (bn?'<p class="win"><b>🔮 승부 예측 성공 +'+bn+'</b> → 합계 '+(v+bn)+'점</p>':'')+
+            (pl.tier==='high'?'<p class="quote">“표정 관리를 잘하세요. 당신의 점수를 노릴 수도 있어요 👀”</p>':pl.tier==='low'?'<p class="quote">“주변을 잘 둘러보세요. 누구 표정이 밝은지… 👀”</p>':'');
+        }else inner+='<div class="bigtxt '+(v>0?'plus':v<0?'minus':'')+'">'+(p.fmt==='plain'?v:fmt(v))+(p.unit||'')+'</div>';
+        inner+='<p class="small mut" style="margin-top:6px">다른 사람에게 점수를 알려주지 마세요 🤫</p>';
+      }
       break;
     case 'draw':
       big=true;
@@ -1314,6 +1408,16 @@ function tPick(){
   announce('pick','🎯 추첨 결과',{names:names,note:'두근두근…'},'🎯 추첨 결과: '+names.join(', '));
 }
 
+/* 점수 봉투 팝업용: 이번 팀이 받는 봉투 전체 + 높은/낮은 점수 구분 */
+function envPool(names,vals,kind){
+  var mx=Math.max.apply(null,vals),mn=Math.min.apply(null,vals),out={};
+  return {vals:vals.slice().sort(function(a,b){return b-a;}),kind:kind,mx:mx,mn:mn};
+}
+function addPools(pool,members,assign,vals,kind){
+  var ep=envPool(members,vals,kind);
+  members.forEach(function(n){pool[n]={vals:ep.vals,kind:kind,tier:assign[n]===ep.mx?'high':assign[n]===ep.mn?'low':''};});
+}
+
 /* =============== 관리자: 볼링 세트 결과 / 스카우트·방출 / 럭키 찬스 =============== */
 function bowlResult(key,gi){
   var t=team(key);if(!t)return toast('먼저 팀을 만들어 주세요');
@@ -1323,7 +1427,8 @@ function bowlResult(key,gi){
   lose.forEach(function(n,i){assign[n]=lv[i];items.push({name:n,d:lv[i],note:GAME[key]+' 패배 기본 점수'});});
   addEvt(GAME[key]+' 기본 점수','bowl',items,{id:'base:'+key});
   var R=clone(S.pub.results)||{};R[key]={win:win,team:gi};S.pub.results=R;saveResults();
-  announce('private','✉️ '+GAME[key]+' 점수 봉투',{assign:assign,unit:'점',fmt:'plain',label:'기본 점수'},
+  var pool={};addPools(pool,win,assign,BOWL_WIN,'win');addPools(pool,lose,assign,BOWL_LOSE,'lose');
+  announce('private','✉️ '+GAME[key]+' 점수 봉투',{assign:assign,pool:pool,unit:'점',fmt:'plain',label:'기본 점수'},
     '🎳 '+GAME[key]+' 결과!!!! '+t.groups[gi].n+' 승리! ('+win.join(', ')+')');
   S.ui.scout=null;
 }
@@ -1419,37 +1524,34 @@ function luckyModal(){
 }
 /* =============== 관리자: PC방 =============== */
 function owDraw(key){
-  var st=A().state.stage=A().state.stage||{};
-  st[key]={groups:capsTeams()};saveState();
-  var o={};PLAYERS.forEach(function(n){o[n]=null;});S.ui.owbet[key]=o;
-  toast('팀을 배정했어요. 예측을 입력하고 저장하면 공개돼요');
+  /* 이전 결과/예측 정리 후 새 팀을 즉시 전체 공개하고 승부 예측 투표를 시작해요 */
+  var R=clone(S.pub.results)||{};if(R[key]){delete R[key];S.pub.results=R;saveResults();}
+  delEvt('base:'+key,true);delEvt('pred:'+key,true);saveLedger();
+  var B=clone(S.pub.bets)||{};delete B[key];S.pub.bets=B;saveBets();
+  S.ui.owbet[key]={};
+  setTeams(key,capsTeams(),'⭐ 팀장이 이끄는 5:5! 우리 팀의 승부를 예측해 주세요','🎮 '+GAME[key]+' 팀 추첨!',{cap:CAPS});
+  var vote={id:uuid(),key:key,open:true,ts:Date.now()};S.pub.vote=vote;put('public/vote',vote);
 }
 function owBet(key,n,v){
   if(!S.ui.owbet[key])S.ui.owbet[key]={};
   S.ui.owbet[key][n]=(v==='none')?null:v;
 }
-function owSave(key){
-  var st=A().state.stage&&A().state.stage[key],pubT=team(key),groups=st?st.groups:(pubT&&pubT.groups);
-  if(!groups)return toast('먼저 팀을 배정하세요');
-  var map={};
-  PLAYERS.forEach(function(n){var b=getBet(key,n);if(b==='win'||b==='lose')map[n]=b;});
+function owVoteOpen(key){
+  var vote={id:uuid(),key:key,open:true,ts:Date.now()};S.pub.vote=vote;put('public/vote',vote);
+  S.ui.owbet[key]={};
+  announce('announce','🔮 승부 예측 투표!',{emoji:'🔮',lines:[GAME[key]+' 승부 예측 투표가 시작됐어요','우리 팀이 이길 것 같나요, 질 것 같나요?']},'🔮 '+GAME[key]+' 승부 예측 투표 시작!');
+}
+function owVoteClose(key,quiet){
+  var map={},w=0,l=0;
+  PLAYERS.forEach(function(n){var b=getBet(key,n);if(b==='win'){map[n]=b;w++;}else if(b==='lose'){map[n]=b;l++;}});
   var B=clone(S.pub.bets)||{};B[key]={map:map,ts:Date.now()};S.pub.bets=B;saveBets();
-  var names=Object.keys(map);
-  if(st){
-    if(S.pub.results&&S.pub.results[key]){
-      var R=clone(S.pub.results);delete R[key];S.pub.results=R;saveResults();
-      delEvt('base:'+key,true);delEvt('pred:'+key,true);saveLedger();
-    }
-    setTeams(key,groups,'⭐ 팀장이 이끄는 5:5! 승부 예측도 함께 공개돼요','🎮 '+GAME[key]+' 팀',{cap:CAPS});
-    delete A().state.stage[key];saveState();
-  }else{
-    announce('announce','🔮 승부 예측 공개',{emoji:'🔮',lines:[GAME[key]+' 승부 예측이 업데이트됐어요','예측한 사람 '+names.length+'명']},'🔮 '+GAME[key]+' 승부 예측이 공개됐어요!');
-  }
-  toast('저장하고 공개했어요');
+  var v=clone(S.pub.vote)||{id:uuid(),key:key};v.open=false;S.pub.vote=v;put('public/vote',v);
+  if(!quiet)announce('announce','🔮 승부 예측 마감!',{emoji:'🔮',lines:[GAME[key]+' 예측이 마감됐어요','승리 예측 '+w+'명 · 패배 예측 '+l+'명','팀 카드에서 모두의 예측을 확인하세요']},'🔮 '+GAME[key]+' 승부 예측 마감! 승리 예측 '+w+'명 / 패배 예측 '+l+'명');
 }
 function owResult(key,gi){
   var t=team(key);if(!t)return toast('먼저 팀을 공개하세요');
-  var win=t.groups[gi].m.slice(),lose=t.groups[1-gi].m.slice(),assign={},items=[],pi=[];
+  if(S.pub.vote&&S.pub.vote.key===key&&S.pub.vote.open)owVoteClose(key,true);
+  var win=t.groups[gi].m.slice(),lose=t.groups[1-gi].m.slice(),assign={},items=[],pi=[],bonus={};
   var wv=shuffle(OW_WIN),lv=shuffle(OW_LOSE);
   win.forEach(function(n,i){assign[n]=wv[i];items.push({name:n,d:wv[i],note:GAME[key]+' 승리 기본 점수'});});
   lose.forEach(function(n,i){assign[n]=lv[i];items.push({name:n,d:lv[i],note:GAME[key]+' 패배 기본 점수'});});
@@ -1457,13 +1559,21 @@ function owResult(key,gi){
   PLAYERS.forEach(function(n){
     var b=bets[n];if(!b)return;
     var onWin=win.indexOf(n)>=0;
-    if((b==='win')===onWin){pi.push({name:n,d:1,note:GAME[key]+' 승부 예측 성공'});assign[n]+=1;}
+    if((b==='win')===onWin){pi.push({name:n,d:1,note:GAME[key]+' 승부 예측 성공'});bonus[n]=1;}
   });
   addEvt(GAME[key]+' 기본 점수','ow',items,{id:'base:'+key,quiet:true});
   addEvt(GAME[key]+' 승부 예측 성공','ow',pi,{id:'pred:'+key});
   var R=clone(S.pub.results)||{};R[key]={win:win,team:gi};S.pub.results=R;saveResults();
-  announce('private','✉️ '+GAME[key]+' 점수 봉투',{assign:assign,unit:'점',fmt:'plain',label:'획득 점수 (예측 포함)'},
+  var pool={};addPools(pool,win,assign,OW_WIN,'win');addPools(pool,lose,assign,OW_LOSE,'lose');
+  announce('private','✉️ '+GAME[key]+' 점수 봉투',{assign:assign,bonus:bonus,pool:pool,unit:'점',fmt:'plain',label:'기본 점수'},
     '🎮 '+GAME[key]+' 결과! '+t.groups[gi].n+' 승리!!!! '+(pi.length?'예측 성공: '+pi.map(function(x){return x.name;}).join(', ')+' (+1점)':'예측 성공자 없음'));
+}
+/* 플레이어: 승부 예측 투표 */
+async function sendVote(v){
+  var vt=activeVote();if(!vt)return;
+  try{await S.db.doc('players/'+S.uid).update({vote:{id:vt.id,key:vt.key,v:v,ts:Date.now()}});}
+  catch(er){toast('투표 실패: '+(er.message||er.code));}
+  render(true);
 }
 
 /* =============== 관리자: 점심 =============== */
@@ -1648,6 +1758,25 @@ function pwRun(){
   if(!r.ok)return toast(r.msg);
   S.modal=null;render(true);
 }
+function recentUsed(){
+  var u=(S.pub.used&&S.pub.used.used)||{};
+  return Object.keys(u).filter(function(k){return k!=='reinhardt';}).sort(function(a,b){return (u[b].ts||0)-(u[a].ts||0);}).slice(0,2);
+}
+function reinModal(){
+  var u=(S.pub.used&&S.pub.used.used)||{},rec=recentUsed();
+  var h='<div class="ov" data-act="modalClose"><div class="box" data-stop="1"><h3>🛡️ 방벽 방어!</h3><p class="small">직전에 발동된 초능력 중 <b>막을 것</b>을 선택하세요.</p>';
+  if(!rec.length)h+='<p class="warn">아직 발동된 초능력이 없어요.</p>';
+  else h+=rec.map(function(k,i){
+    var x=heroOf(k),d=(u[k].detail||[])[0]||'';
+    return '<button class="rbtn" data-act="reinPick" data-v="'+k+'"><span class="em">'+x.em+'</span><span><b>'+(i===0?'가장 최근 · ':'그 전 · ')+esc(x.hero)+' — '+esc(x.power)+'</b><br><span class="small mut">'+esc(u[k].by)+' 님 발동'+(d?' · '+esc(d):'')+'</span></span></button>';
+  }).join('');
+  return h+'<button class="btn ghost block" style="margin-top:12px" data-act="modalClose">닫기</button></div></div>';
+}
+async function sendUse(hero,o){
+  try{await S.db.doc('players/'+S.uid).update({useReq:{hero:hero,opts:o,ts:Date.now()},useDone:null});}
+  catch(er){toast('요청 실패: '+(er.message||er.code));}
+  render(true);
+}
 /* 플레이어가 "공개!"를 누르면 이 화면(관리자)이 대신 실행해서 모두에게 팝업을 띄워요 */
 function processUses(){
   var a=A();
@@ -1675,8 +1804,8 @@ function processUses(){
 
 /* =============== 관리자: 샘플 데이터 (테스트용) =============== */
 function sampleAssign(){
-  var f=S.pub.flags||{},ids=shuffle(HEROES.map(function(h){return h.id;})),names=shuffle(PLAYERS.slice()),as={};
-  if(f.fixMercy){ids=ids.filter(function(i){return i!=='mercy';});names=names.filter(function(n){return n!==HOST;});as[HOST]='mercy';}
+  var ids=shuffle(HEROES.map(function(h){return h.id;})),names=shuffle(PLAYERS.slice()),as={};
+  ids=ids.filter(function(i){return i!=='mercy';});names=names.filter(function(n){return n!==HOST;});as[HOST]='mercy';
   names.forEach(function(n,i){as[n]=ids[i];});
   A().state.assign=as;delete A().state.duel;delete A().state.echo;saveState();
   L().evts.filter(function(e){return e.id.indexOf('pw:')===0;}).forEach(function(e){delEvt(e.id,true);});
@@ -1731,11 +1860,13 @@ async function resetAll(){
   S.ui.ws={bowl1:[],bowl2:[]};S.ui.owbet={ow1:{},ow2:{}};S.ui.outSel=[];S.ui.focus=null;
   saveLedger();saveState();saveTeams();saveUsed();saveFlags();saveBets();saveResults();put('public/final',S.pub.final);
   enqueue(function(){return S.db.doc('public/live').delete();});
+  S.pub.vote=null;enqueue(function(){return S.db.doc('public/vote').delete();});
+  Object.keys(S.players).forEach(function(uid){delete syncCache[uid];enqueue(function(){return S.db.doc('myscore/'+uid).delete();});});
   uids.forEach(function(uid){enqueue(function(){return S.db.doc('deal/'+uid).delete();});});
   chatIds.forEach(function(id){enqueue(function(){return S.db.doc('chat/'+id).delete();});});
   Object.keys(S.players).forEach(function(uid){
     var pl=S.players[uid];
-    if(pl&&(pl.drawReq||pl.useReq||pl.useDone))enqueue(function(){return S.db.doc('players/'+uid).update({drawReq:null,useReq:null,useDone:null});});
+    if(pl&&(pl.drawReq||pl.useReq||pl.useDone||pl.vote))enqueue(function(){return S.db.doc('players/'+uid).update({drawReq:null,useReq:null,useDone:null,vote:null});});
   });
   S.ui.use={inc:null,target:null,mode:null,evt:null};S.ui.lt={A:[],B:[],C:[]};
   toast('초기화했어요');render(true);
@@ -1748,6 +1879,7 @@ function renderModal(){
   if(!m){el.innerHTML='';return;}
   if(m.type==='pw')el.innerHTML=pwModal();
   else if(m.type==='lucky')el.innerHTML=luckyModal();
+  else if(m.type==='rein')el.innerHTML=reinModal();
   else if(m.type==='confirm'){
     el.innerHTML='<div class="ov"><div class="box big" data-stop="1"><h3>확인</h3><p>'+esc(m.msg)+'</p><div class="row" style="margin-top:14px"><button class="btn ghost" style="flex:1" data-act="modalClose">취소</button><button class="btn bad" style="flex:1" data-act="confirmYes">확인</button></div></div></div>';
   }
@@ -1838,7 +1970,7 @@ async function handle(act,v,t){
     case 'ltSave':ltSave();break;
     case 'tBowl1':{
       var hasB=!!team('bowl1')||L().evts.some(function(e){return e.cat==='bowl';});
-      if(hasB){ask('1세트 팀을 다시 추첨하면 지금까지의 볼링 팀·결과·점수가 모두 지워져요. 다시 추첨할까요?',function(){clearBowl();tBowl1();render(true);});return;}
+      if(hasB){ask('이미 1세트 팀을 뽑았어요! 정말 다시 뽑을까요? (지금까지의 볼링 팀·결과·점수가 모두 지워져요)',function(){clearBowl();tBowl1();render(true);});return;}
       tBowl1();break;}
     case 'bowlWin':{var bw=v.split(':');bowlResult(bw[0],+bw[1]);break;}
     case 'scoutStart':scoutStart();break;
@@ -1852,9 +1984,18 @@ async function handle(act,v,t){
     case 'luckyDraw':luckyDraw();break;
     case 'luckyRandom':luckyRandom();break;
     case 'luckyApply':luckyApply();break;
-    case 'owDraw':owDraw(v);break;
+    case 'owDraw':{
+      var okey=v;
+      if(team(okey)){ask('이미 '+GAME[okey]+' 팀을 뽑았어요! 정말 다시 뽑을까요? (이 경기의 결과·점수·예측이 모두 지워져요)',function(){owDraw(okey);render(true);});return;}
+      owDraw(okey);break;}
     case 'owBet':owBet(t.getAttribute('data-r'),t.getAttribute('data-n'),v);break;
-    case 'owSave':owSave(v);break;
+    case 'owVoteOpen':owVoteOpen(v);break;
+    case 'owVoteClose':owVoteClose(v);break;
+    case 'voteSet':return sendVote(v);
+    case 'voteHide':{var av=activeVote();if(av)S.voteSeen[av.id]=true;break;}
+    case 'reinOpen':S.modal={type:'rein'};break;
+    case 'reinPick':{var rp=v,rx=heroOf(rp);ask(rx.hero+' — '+rx.power+'을(를) 막을까요? 모두에게 공개돼요.',function(){S.modal=null;sendUse('reinhardt',{mode:'defend',evt:'pw:'+rp});});return;}
+    case 'reinBonus':ask('방어 없이 보너스(+1점)를 받을까요? 모두에게 공개돼요.',function(){sendUse('reinhardt',{mode:'bonus'});});return;
     case 'owResult':{var pr=v.split(':');owResult(pr[0],+pr[1]);break;}
     case 'lunchT':lunchSet(t.getAttribute('data-r'),+v,t.getAttribute('data-s'));break;
     case 'lunchHost':{
@@ -1866,7 +2007,6 @@ async function handle(act,v,t){
       if(f.drawOpen)announce('announce','🎴 초능력 카드 추첨 시작!',{emoji:'🔮',lines:['“초능력 뽑기” 메뉴에서 카드를 뽑아주세요']},'🎴 초능력 카드 추첨이 시작됐어요!!!! 초능력 뽑기 메뉴에서 카드를 뽑아주세요');
       break;}
     case 'revealUse':revealUse(v);break;
-    case 'fixMercy':{var ff=clone(S.pub.flags)||{};ff.fixMercy=!ff.fixMercy;S.pub.flags=ff;saveFlags();toast(ff.fixMercy?HOST+'에게 메르시를 고정해요':'초능력 뽑기는 전원 랜덤이에요');break;}
     case 'sampleAssign':ask('현재 초능력 배정과 사용 기록이 샘플로 바뀌어요. 랜덤 배정할까요?',function(){sampleAssign();render(true);});return;
     case 'sampleTeams':sampleTeams();break;
     case 'samplePoints':samplePoints();break;
