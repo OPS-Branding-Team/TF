@@ -692,8 +692,10 @@ async function reconcileDeals(){
     }
     do{
       S.dealAgain=false;
+      var ep=S.epoch||0;            // 초기화(리셋)가 일어나면 번호가 바뀌어요
       var uids=Object.keys(S.players);
       for(var i=0;i<uids.length;i++){
+        if(ep!==(S.epoch||0)){S.dealAgain=true;break;}    // 중간에 초기화됨 → 처음부터 다시
         var uid=uids[i],p=S.players[uid];
         if(!p)continue;
         if(!p.drawReq&&!a.state.assign[p.name])continue;
@@ -707,13 +709,24 @@ async function reconcileDeals(){
           hero=pool[rnd(pool.length)];
           a.state.assign[p.name]=hero;
           await saveState();
+          if(ep!==(S.epoch||0)){S.dealAgain=true;break;}
         }
         var dl=a.deals[uid];
         if(!dl||dl.hero!==hero||dl.name!==p.name){
+          if(a.state.assign[p.name]!==hero)continue;       // 쓰기 직전에 배정이 바뀌었으면 건너뜀
           var det=a.content.powers[hero]&&a.content.powers[hero].detail||[];
           var rec={name:p.name,hero:hero,detail:det,ts:Date.now()};
           await S.db.doc('deal/'+uid).set(rec);
           a.deals[uid]=rec;
+        }
+      }
+      // 현재 배정과 맞지 않는 옛 카드는 모두 삭제 (초기화 이전 카드가 되살아나는 것을 막아요)
+      var dk=Object.keys(a.deals);
+      for(var j=0;j<dk.length;j++){
+        var d2=a.deals[dk[j]];
+        if(d2&&a.state.assign[d2.name]!==d2.hero){
+          try{await S.db.doc('deal/'+dk[j]).delete();}catch(er){console.error(er);}
+          delete a.deals[dk[j]];
         }
       }
     }while(S.dealAgain);
@@ -1860,7 +1873,8 @@ function publishFinal(){
   announce('announce','🏆 최종 순위 공개!',{emoji:'🏆',lines:['시상식 메뉴에서 전체 점수와 순위를 확인하세요']},'🏆 최종 순위가 공개됐어요!!!! 시상식 메뉴를 확인하세요');
 }
 async function resetAll(){
-  var uids=Object.keys(A().deals||{}),chatIds=S.chat.map(function(m){return m.id;});
+  S.epoch=(S.epoch||0)+1;S.dealAgain=false;
+  var uids=Object.keys(Object.assign({},A().deals||{},S.players)),chatIds=S.chat.map(function(m){return m.id;});
   A().ledger={evts:[],entries:[]};A().state={assign:{},stage:{}};
   S.pub.teams={sets:{},current:null};S.pub.used={used:{}};S.pub.flags={drawOpen:false};S.pub.final={published:false,rows:[]};S.pub.bets={};S.pub.results={};
   S.ui.ws={bowl1:[],bowl2:[]};S.ui.owbet={ow1:{},ow2:{}};S.ui.outSel=[];S.ui.focus=null;
@@ -1875,6 +1889,8 @@ async function resetAll(){
     if(pl&&(pl.drawReq||pl.useReq||pl.useDone||pl.vote))enqueue(function(){return S.db.doc('players/'+uid).update({drawReq:null,useReq:null,useDone:null,vote:null});});
   });
   S.ui.use={inc:null,target:null,mode:null,evt:null};S.ui.lt={A:[],B:[],C:[]};
+  A().deals={};
+  Qp.then(function(){setTimeout(function(){S.dealAgain=false;adminTick();},900);});
   toast('초기화했어요');render(true);
 }
 
