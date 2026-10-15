@@ -661,9 +661,9 @@ async function reconcileDeals(){
   if(!S.db||!a.content||!a.loaded.main||!a.loaded.deals||!a.state)return;
   S.dealing=true;
   try{
-    // 관리자(이유정)에게는 메르시를 무조건 배정
+    // (옵션) 관리자(이유정)에게 메르시 고정 — 기본은 OFF(전원 랜덤)
     var mh=holderOf('mercy');
-    if(mh!==HOST){
+    if(S.pub.flags&&S.pub.flags.fixMercy&&mh!==HOST){
       var prevH=a.state.assign[HOST];
       if(mh){if(prevH)a.state.assign[mh]=prevH;else delete a.state.assign[mh];}
       a.state.assign[HOST]='mercy';
@@ -959,7 +959,9 @@ function powerAdminTop(){
   var f=S.pub.flags||{},as=A().state.assign;
   var undrawn=PLAYERS.filter(function(n){return !as[n];});
   return '<div class="card"><label class="tgl" data-act="drawOpen"><span class="sw'+(f.drawOpen?' on':'')+'"></span>초능력 뽑기 '+(f.drawOpen?'열림':'닫힘')+'</label>'+
-    '<p class="small mut" style="margin-top:6px">열면 참가자 폰의 “카드 뽑기” 버튼이 켜지고, 요청이 오면 이 화면이 자동으로 카드를 나눠줘요. ('+HOST+'에게는 메르시가 자동 배정돼요)</p>'+
+    '<p class="small mut" style="margin-top:6px">열면 참가자 폰의 “카드 뽑기” 버튼이 켜지고, 요청이 오면 이 화면이 자동으로 카드를 나눠줘요. 카드는 <b>전원 완전 랜덤</b>으로 뽑혀요.</p>'+
+    '<label class="tgl" data-act="fixMercy" style="margin-top:6px"><span class="sw'+(f.fixMercy?' on':'')+'"></span>'+HOST+' 메르시 고정 '+(f.fixMercy?'ON':'OFF (랜덤)')+'</label>'+
+    '<div style="margin-top:8px"><button class="btn ghost" data-act="sampleAssign">🧪 샘플: 초능력 10종 랜덤 배정</button></div>'+
     '<p class="small" style="margin-top:6px">추첨 완료 '+(PLAYERS.length-undrawn.length)+'/'+PLAYERS.length+(undrawn.length?' · 대기: '+undrawn.map(esc).join(', '):'')+'</p>'+
     '<div class="chips" style="margin-top:8px">'+PLAYERS.map(function(n){var hh=heroByName(n);return '<span class="chip'+(hh?'':' dim')+'">'+(hh?hh.em+' ':'')+esc(n)+(hh?' · '+hh.hero:'')+'</span>';}).join('')+'</div></div>';
 }
@@ -1143,6 +1145,11 @@ function awardAdmin(){
 }
 
 /* =============== 점수 입력 (실시간 점수판) =============== */
+function sampleCard(){
+  return tool('🧪 샘플 데이터 (테스트용)','기능이 제대로 동작하는지 확인할 때 쓰세요. 모두 랜덤으로 채워져요. 끝나면 아래 전체 초기화로 지우면 돼요.',
+    '<div class="row"><button class="btn ghost" data-act="sampleAssign">초능력 10종 랜덤 배정</button><button class="btn ghost" data-act="sampleTeams">샘플 팀</button><button class="btn ghost" data-act="samplePoints">샘플 점수</button><button class="btn ghost" data-act="sampleClear">샘플 점수 지우기</button></div>'+
+    '<p class="small mut" style="margin-top:8px">· <b>초능력 배정</b>: 10명에게 10종을 랜덤 배정하고 로그인한 사람에게 카드를 바로 보내요. 기존 배정·사용 기록은 바뀌어요.<br>· <b>샘플 팀</b>: 점심·볼링 1세트·PC방 1경기 팀을 조용히(팝업 없이) 만들어요. 시메트라·루시우 테스트용이에요.<br>· <b>샘플 점수</b>: 참가자마다 랜덤 점수를 넣어 점수판을 채워요.</p>');
+}
 function viewScore(){
   var T=calc(),R=rank(T),f=S.ui.focus;
   var h='<h2 class="h2" style="margin-top:6px">🧮 실시간 점수</h2><p class="mut small">점수는 각 메뉴(점심·볼링·PC방·초능력·시상식)에서 입력하면 여기에 바로 반영돼요.</p>';
@@ -1164,6 +1171,7 @@ function viewScore(){
     '<div class="chips">'+PLAYERS.map(function(n){return '<button class="chip'+(S.ui.gpool[n]===false?' dim':' on')+'" data-act="tog" data-k="gpool" data-v="'+esc(n)+'" data-def="1">'+esc(n)+'</button>';}).join('')+'</div>'+
     '<div class="row" style="margin-top:8px">뽑을 인원 '+[1,2,3,4,5].map(function(n){return '<button class="chip'+(S.ui.gn===n?' on':'')+'" data-act="gn" data-v="'+n+'">'+n+'</button>';}).join('')+'</div>'+
     '<button class="btn hot block" data-act="tPick">'+pool.length+'명 중 '+S.ui.gn+'명 뽑기 · 공개</button>');
+  h+=sampleCard();
   h+=seedCard();
   h+=tool('🧹 테스트용 전체 초기화','점수, 팀, 초능력 배정, 공개 상태, 채팅을 모두 지워요. 참가자 로그인과 PIN은 유지돼요.','<button class="btn bad block" data-act="resetAll">전체 초기화</button>');
   return h;
@@ -1565,6 +1573,41 @@ function processUses(){
   render();
 }
 
+/* =============== 관리자: 샘플 데이터 (테스트용) =============== */
+function sampleAssign(){
+  var f=S.pub.flags||{},ids=shuffle(HEROES.map(function(h){return h.id;})),names=shuffle(PLAYERS.slice()),as={};
+  if(f.fixMercy){ids=ids.filter(function(i){return i!=='mercy';});names=names.filter(function(n){return n!==HOST;});as[HOST]='mercy';}
+  names.forEach(function(n,i){as[n]=ids[i];});
+  A().state.assign=as;delete A().state.duel;delete A().state.echo;saveState();
+  L().evts.filter(function(e){return e.id.indexOf('pw:')===0;}).forEach(function(e){delEvt(e.id,true);});
+  saveLedger();
+  S.pub.used={used:{}};saveUsed();
+  toast('🧪 초능력 10종을 랜덤 배정했어요');
+}
+function sampleTeams(){
+  var T=clone(S.pub.teams)||{sets:{},current:null};T.sets=T.sets||{};
+  var o=shuffle(lunchOthers());
+  T.sets.lunch={groups:[0,1,2].map(function(i){return {n:'ABC'[i]+'팀',m:o.slice(i*3,i*3+3)};})};
+  var b=shuffle(PLAYERS);
+  T.sets.bowl1={groups:[{n:'A팀',m:b.slice(0,5)},{n:'B팀',m:b.slice(5,10)}]};
+  T.sets.ow1={groups:capsTeams()};
+  T.current='bowl1';
+  S.pub.teams=T;saveTeams();
+  toast('🧪 샘플 팀을 만들었어요 (점심·볼링1·PC방1)');
+}
+function samplePoints(){
+  PLAYERS.forEach(function(n){
+    var cnt=1+rnd(2),items=[];
+    for(var i=0;i<cnt;i++)items.push({name:n,d:[-1,1,1,2,3][rnd(5)],note:'샘플 점수'});
+    addEvt('샘플 점수 · '+n,'other',items,{id:'sample:'+n,quiet:true});
+  });
+  saveLedger();toast('🧪 샘플 점수를 넣었어요');
+}
+function sampleClear(){
+  L().evts.filter(function(e){return e.id.indexOf('sample:')===0;}).forEach(function(e){delEvt(e.id,true);});
+  saveLedger();toast('샘플 점수를 지웠어요');
+}
+
 /* =============== 관리자: 가방 / 공개 / 초기화 =============== */
 function tBags(){
   var bags=A().content&&A().content.bags;
@@ -1727,6 +1770,11 @@ async function handle(act,v,t){
       if(f.drawOpen)announce('announce','🎴 초능력 카드 추첨 시작!',{emoji:'🔮',lines:['“초능력 뽑기” 메뉴에서 카드를 뽑아주세요']},'🎴 초능력 카드 추첨이 시작됐어요!!!! 초능력 뽑기 메뉴에서 카드를 뽑아주세요');
       break;}
     case 'revealUse':revealUse(v);break;
+    case 'fixMercy':{var ff=clone(S.pub.flags)||{};ff.fixMercy=!ff.fixMercy;S.pub.flags=ff;saveFlags();toast(ff.fixMercy?HOST+'에게 메르시를 고정해요':'초능력 뽑기는 전원 랜덤이에요');break;}
+    case 'sampleAssign':ask('현재 초능력 배정과 사용 기록이 샘플로 바뀌어요. 랜덤 배정할까요?',function(){sampleAssign();render(true);});return;
+    case 'sampleTeams':sampleTeams();break;
+    case 'samplePoints':samplePoints();break;
+    case 'sampleClear':sampleClear();break;
     case 'pwOpen':{
       var dl=(v==='cassidy'&&A().state.duel)?A().state.duel:null;
       S.modal={type:'pw',hero:v,target:dl?dl.target:null,res:null,inc:null,mode:null,evt:null,duel:!!dl,called:(v==='echo'&&!!A().state.echo)};break;}
