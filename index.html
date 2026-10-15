@@ -1235,7 +1235,6 @@ function awardAdmin(){
     '<button class="btn hot block" data-act="publish">'+(fin&&fin.published?'최신 점수로 다시 공개':'점수 공개하기')+'</button>'+(fin&&fin.published?'<button class="btn ghost block" style="margin-top:8px" data-act="unpublish">공개 취소 (다시 숨기기)</button>':''));
   var g=S.ui.gifts||((S.pub.gifts&&S.pub.gifts.list)||[]);
   h+=tool('🎁 선물 목록 입력 (선택)','순위별 선물 이름을 적으면 위 표에 보여요. 비워두면 ???로 보여요.',PLAYERS.map(function(_,i){return '<div class="row" style="margin-top:6px"><b style="width:38px">'+(i+1)+'위</b><input class="in" style="flex:1;width:auto" data-bind="ui.gifts.'+i+'" value="'+esc(g[i]||'')+'" placeholder="선물"></div>';}).join('')+'<button class="btn block" style="margin-top:8px" data-act="saveGifts">선물 목록 저장</button>');
-  h+=tool('🧹 리허설 초기화','점수, 팀, 초능력 배정, 공개 상태, 채팅을 모두 지워요. 참가자 로그인과 PIN은 유지돼요.','<button class="btn bad block" data-act="resetAll">전체 초기화</button>');
   return h;
 }
 
