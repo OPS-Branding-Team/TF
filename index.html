@@ -764,7 +764,7 @@ function viewLogin(){
     '<button class="btn block hot" data-act="login"'+(u.busy?' disabled':'')+'>'+(u.busy?'확인 중…':'입장하기')+'</button>'+
     (u.err?'<div class="err">'+esc(u.err)+'</div>':'')+
     '<p class="small mut" style="margin-top:22px">로그인 없이 일정만 둘러볼 수도 있어요.</p>'+
-    '<button class="btn ghost" data-act="guest">둘러보기</button>'+(S.jsErr?'<p class="small mut" style="margin-top:14px">오류 기록: '+esc(S.jsErr)+'</p>':'')+'</div>';
+    '<button class="btn ghost" data-act="guest">둘러보기</button> <button class="btn ghost" data-act="setupOpen">🛠 초기 설정</button>'+(S.jsErr?'<p class="small mut" style="margin-top:14px">오류 기록: '+esc(S.jsErr)+'</p>':'')+'</div>';
 }
 async function doLogin(){
   var u=S.ui,name=u.loginName,pin=u.pin;
@@ -1505,6 +1505,7 @@ async function handle(act,v,t){
     case 'guest':S.guest=true;break;
     case 'relogin':S.guest=false;S.menu=false;window.scrollTo(0,0);if(!S.db||!S.uid)toast(connMsg());break;
     case 'setupDone':location.hash='';S.setup=false;break;
+    case 'setupOpen':S.setup=true;S.ui.setupMsg='';window.scrollTo(0,0);break;
     case 'login':return doLogin();
     case 'logout':return doLogout();
     case 'draw':
@@ -1562,6 +1563,7 @@ async function handle(act,v,t){
   }
   render(true);
 }
+window.addEventListener('hashchange',function(){S.setup=(location.hash==='#setup');if(S.ready)render(true);});
 var started=false;
 function boot(){if(started)return;started=true;init();}
 document.addEventListener('DOMContentLoaded',boot);
