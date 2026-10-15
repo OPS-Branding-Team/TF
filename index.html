@@ -268,6 +268,21 @@ details.pl .bd{padding:0 12px 12px}
 .loginbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;margin-bottom:12px;border-radius:14px;background:var(--panel);border:2px solid var(--hot);font-weight:700;box-shadow:0 3px 0 var(--shade)}
 .loginbar .btn{min-height:38px;padding:8px 18px}
 
+.slots{display:grid;gap:10px;text-align:center}
+.slot{padding:10px 12px;border:3px dashed var(--line);border-radius:16px;background:var(--panel2)}
+.slot small{display:block;font-size:12px;color:var(--mut);font-weight:700}
+.slot b{display:block;font-family:var(--f-d);font-size:30px;line-height:1.3}
+.slot.lock{border-style:solid;border-color:var(--hot);animation:pop .3s}
+.slot.me{background:var(--hot);color:#1a0d05}
+.slot.me small{color:#1a0d05}
+
+.qlist{margin:4px 0 10px;padding-left:22px}
+.qlist li{margin:3px 0;font-weight:700}
+.lgs{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:6px}
+.lt{display:flex;align-items:center;gap:8px}
+
+.quote{margin:8px 0 4px;padding:8px 12px;border-radius:12px;background:var(--panel2);font-style:italic;font-weight:700;font-size:15.5px;line-height:1.45}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
@@ -366,8 +381,8 @@ var S={
   adm:{content:null,state:{assign:{},stage:{}},ledger:{evts:[],entries:[]},deals:{},loaded:{},unsub:[],retry:0},
   ui:{pin:'',loginName:null,err:'',busy:false,setupMsg:'',
       manual:{name:null,d:1,note:''},gpool:{},gn:3,focus:null,gifts:null,chat:'',asNotice:false,
-      ws:{bowl1:[],bowl2:[]},mt:{key:'bowl2',sel:[]},outSel:[],owbet:{ow1:{},ow2:{}}},
-  broadcast:true,modal:null,pop:null,busy:0,dealing:false,dealAgain:false,seenLive:false,lastLive:null,pending:false
+      use:{inc:null,target:null,mode:null,evt:null},ws:{bowl1:[],bowl2:[]},lt:{A:[],B:[],C:[]},mt:{key:'bowl2',sel:[]},outSel:[],owbet:{ow1:{},ow2:{}}},
+  handledUse:{},broadcast:true,modal:null,pop:null,busy:0,dealing:false,dealAgain:false,seenLive:false,lastLive:null,pending:false
 };
 function A(){return S.adm;}
 function L(){return S.adm.ledger;}
@@ -639,7 +654,7 @@ function showPop(ev){S.pop={ev:ev,open:false};renderPop();}
 function closePop(){S.pop=null;renderPop();}
 
 /* =============== 초능력 카드 자동 지급 (관리자 화면) =============== */
-function adminTick(){if(S.admin)reconcileDeals();}
+function adminTick(){if(S.admin){reconcileDeals();processUses();}}
 async function reconcileDeals(){
   if(S.dealing){S.dealAgain=true;return;}
   var a=A();
@@ -890,22 +905,50 @@ function viewLunch(){
   if(S.admin)h+=lunchAdmin();
   return h;
 }
+function lunchState(r,gi){
+  var id='lunch:'+r+':t:'+gi;
+  if(!hasEvt(id))return null;
+  return evtPoints(id).length?'ok':'no';
+}
+function lunchTeamAdmin(){
+  var lt=S.ui.lt,taken={},others=lunchOthers();
+  ['A','B','C'].forEach(function(k){lt[k].forEach(function(n){taken[n]=k;});});
+  var ready=['A','B','C'].every(function(k){return lt[k].length===3;});
+  var h='';
+  ['A','B','C'].forEach(function(k){
+    h+='<p class="small" style="margin-top:10px"><b>'+k+'팀</b> ('+lt[k].length+'/3)</p><div class="chips">'+others.map(function(n){
+      var on=lt[k].indexOf(n)>=0,other=taken[n]&&taken[n]!==k;
+      return other?'<span class="chip dim">'+esc(n)+'</span>':'<button class="chip'+(on?' on':'')+'" data-act="ta" data-k="ui.lt.'+k+'" data-v="'+esc(n)+'" data-max="3">'+esc(n)+(on?' ✓':'')+'</button>';
+    }).join('')+'</div>';
+  });
+  return tool('🍽️ 점심 팀 편성 (앉은 자리대로)',HOST+'(진행)을 뺀 9명을 A·B·C팀에 3명씩 선택하고 공개하세요.',
+    '<p class="small mut">현재 공개된 팀</p>'+teamBlock('lunch')+h+
+    '<button class="btn hot block" style="margin-top:12px" data-act="ltSave"'+(ready?'':' disabled')+'>팀 공개 · 폰에 알리기</button>');
+}
 function lunchAdmin(){
-  var t=team('lunch'),c=A().content,T=calc(),others=lunchOthers();
+  var t=team('lunch'),c=A().content,T=calc();
   var h='<h2 class="h2">🛠 점심 진행 (관리자)</h2>';
-  h+=tool('🍽️ 점심 팀 짜기',HOST+'(진행)을 뺀 9명을 3팀(3명씩)으로 나눠요.',teamBlock('lunch')+'<button class="btn hot block" data-act="tLunch">추첨하고 폰에 공개</button>');
-  h+='<div class="card"><b>현재 점심 점수</b><div class="chips" style="margin-top:6px">'+PLAYERS.map(function(n){return '<span class="chip">'+esc(n)+' <b>'+T[n].cats.lunch+'</b></span>';}).join('')+'</div></div>';
-  h+='<div class="card"><b>문제별 점수 입력</b><p class="small mut">성공한 사람 <b>이름을 눌러 +1점</b>을 주세요. 다시 누르면 취소돼요. “팀 전체”는 팀원 모두에게 한 번에 줘요.</p>';
+  h+=lunchTeamAdmin();
+  h+='<div class="card"><b>📋 문제 목록 (관리자 전용)</b>';
+  if(c&&c.lunch){
+    h+='<p class="small mut">이구동성은 문제를 보고 골라서 내세요.</p><b class="small">이구동성</b><ol class="qlist">'+c.lunch.unison.map(function(q){return '<li>'+esc(q)+'</li>';}).join('')+'</ol>'+
+       '<b class="small">5초 릴레이 주제</b><ol class="qlist">'+c.lunch.relay.map(function(q){return '<li>'+esc(q)+'</li>';}).join('')+'</ol>';
+  }else h+='<p class="warn small">문제 데이터가 없어요. 비밀 데이터를 올려주세요.</p>';
+  h+='</div>';
+  if(!t){return h+'<div class="card">위에서 점심 팀을 먼저 공개하면 점수를 입력할 수 있어요.</div>';}
+  var tot=t.groups.map(function(g,gi){var n=0;lunchRounds().forEach(function(r){if(lunchState(r,gi)==='ok')n++;});return {n:g.n,v:n};});
+  h+='<div class="card"><b>팀별 성공 체크</b><p class="small mut">팀마다 <b>성공 / 실패</b>를 한 번만 누르면 점수가 자동 반영돼요. (성공 시 팀원 전원 +1점) 같은 버튼을 다시 누르면 선택이 취소돼요.</p>'+
+    '<div class="chips" style="margin-top:6px">'+tot.map(function(x){return '<span class="chip">'+esc(x.n)+' 성공 <b>'+x.v+'</b></span>';}).join('')+'</div>';
   lunchRounds().forEach(function(r){
-    var q=c&&c.lunch?(r[0]==='u'?c.lunch.unison:c.lunch.relay)[+r.slice(1)-1]:'';
-    var groups=t?t.groups:[{n:'전체',m:others}];
-    h+='<div class="lrow2"><div class="q"><b>'+rLabel(r)+'</b>'+(q?'<div class="qt">'+esc(q)+'</div>':'<div class="warn small">문제 데이터 없음 (비밀 데이터를 올려주세요)</div>')+'</div>'+
-      groups.map(function(g,gi){
-        return '<div class="lg"><button class="chip tm" data-act="lunchTeam" data-r="'+r+'" data-v="'+gi+'">'+esc(g.n)+' 전체</button>'+
-          g.m.map(function(n){var on=hasEvt('lunch:'+r+':p:'+n);return '<button class="chip'+(on?' on':'')+'" data-act="lunchP" data-r="'+r+'" data-v="'+esc(n)+'">'+esc(n)+(on?' ✓':'')+'</button>';}).join('')+'</div>';
-      }).join('')+'</div>';
+    h+='<div class="lrow2"><b>'+rLabel(r)+'</b><div class="lgs">'+t.groups.map(function(g,gi){
+      var st=lunchState(r,gi);
+      return '<div class="lt"><span class="tag pri">'+esc(g.n)+'</span><span class="seg">'+
+        '<button class="'+(st==='ok'?'on win':'')+'" data-act="lunchT" data-r="'+r+'" data-v="'+gi+'" data-s="ok">성공</button>'+
+        '<button class="'+(st==='no'?'on lose':'')+'" data-act="lunchT" data-r="'+r+'" data-v="'+gi+'" data-s="no">실패</button></span></div>';
+    }).join('')+'</div></div>';
   });
   h+='</div>';
+  h+='<div class="card"><b>현재 점심 점수</b><div class="chips" style="margin-top:6px">'+PLAYERS.map(function(n){return '<span class="chip">'+esc(n)+' <b>'+T[n].cats.lunch+'</b></span>';}).join('')+'</div></div>';
   var hs=hostScore(),done=hasEvt('lunch:host');
   h+=tool('⚖️ '+HOST+' 점수','나머지 9명 점심 점수의 평균(반올림). 현재 계산값 <b>'+hs+'점</b>'+(done?' · 이미 지급됨':''),'<button class="btn hot block" data-act="lunchHost">'+HOST+' 점수 '+(done?'다시 계산해 ':'')+'지급</button>');
   return h;
@@ -922,39 +965,60 @@ function powerAdminTop(){
 }
 function viewPower(){
   var used=(S.pub.used&&S.pub.used.used)||{},c=A().content,f=S.pub.flags||{};
-  var h='<h2 class="h2" style="margin-top:6px">🔮 초능력 카드</h2><p class="mut">오버워치 영웅 10종 · 집결 시 전원 1장씩 랜덤 추첨 · 반드시 1회 사용</p>'+banner();
+  /* 1) 맨 위: 내 초능력 (뽑기 전에는 뽑기 카드, 뽑은 뒤에는 내 카드) */
+  var mine='',p=S.players[S.uid];
+  if(!S.me){mine='<div class="card">로그인하면 내 초능력 카드를 뽑을 수 있어요.<br><button class="btn hot" style="margin-top:8px" data-act="relogin">로그인하기</button></div>';}
+  else if(S.deal){
+    var x0=heroOf(S.deal.hero);
+    mine='<div class="mycard" style="--c:'+x0.c+'"><div class="em">'+x0.em+'</div><h3>'+x0.hero+'</h3><div class="pn">'+x0.power+'</div>'+
+      '<p style="margin-top:8px"><span class="tag">'+(x0.last?'⏳ 마지막에 발동':'⚡ 원하는 타이밍에 발동')+'</span></p><ul>'+(S.deal.detail||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+
+      (used[x0.id]?'<p style="margin-top:12px"><span class="tag good">✅ 사용 완료 · 모두에게 공개됨</span></p>':'<p style="margin-top:12px"><span class="tag">🤫 아직 비공개 · 손을 들고 이름을 외친 뒤 아래 버튼으로 공개</span></p>')+'</div>'+(used[x0.id]?'':usePanel(x0));
+  }else{
+    var waiting=p&&p.drawReq;
+    mine='<div class="card drawbox"><div class="back'+(waiting?' shuf':'')+'">?</div>'+
+      (waiting?'<p><b>카드를 섞는 중…</b></p><p class="small mut">관리자('+HOST+') 화면이 켜져 있어야 카드가 도착해요.</p>':
+       f.drawOpen?'<p><b>카드를 뽑을 시간이에요!</b></p><button class="btn hot block" style="margin-top:10px" data-act="draw">초능력 카드 뽑기</button>':
+       '<p><b>아직 뽑기 전이에요</b></p><p class="small mut">집결 시간에 관리자가 뽑기를 열어줘요.</p>')+'</div>';
+  }
+  var h='<h2 class="h2" style="margin-top:6px">🔮 '+(S.me&&S.deal?'나의 초능력':'초능력 뽑기')+'</h2>'+banner()+mine;
   if(S.admin)h+=powerAdminTop();
-  h+='<div class="pgrid" style="margin-top:12px">'+HEROES.map(function(x){
+  /* 2) 전체 카드 10종 */
+  h+='<h2 class="h2">전체 초능력 카드</h2><p class="mut">오버워치 영웅 10종 · 집결 시 전원 1장씩 랜덤 추첨 · 반드시 1회 사용<br>에코는 <b>마지막에</b>, 나머지는 <b>원하는 타이밍에</b> 발동해요.</p>'+
+   '<div class="pgrid" style="margin-top:12px">'+HEROES.map(function(x){
       var u=used[x.id],adm=S.admin&&c&&c.powers&&c.powers[x.id],open=!!u||!!adm;
       var s='<div class="pcard'+(open?' open':'')+'" style="--c:'+x.c+'"><div class="em">'+x.em+'</div><div class="hn">'+x.hero+'</div><div class="pn">'+x.power+'</div>';
-      if(x.last)s+='<span class="last">⏳ 마지막에 발동</span>';
+      s+='<span class="last">'+(x.last?'⏳ 마지막에 발동':'⚡ 원하는 타이밍에 발동')+'</span>';
       if(adm){
         var hd=holderOf(x.id);
         s+='<ul class="dt">'+c.powers[x.id].detail.map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+
           '<span class="by">👤 보유자: '+(hd?esc(hd):'미추첨')+(u?' · ✅ 사용 공개됨':' · 🔒 비공개')+'</span>'+
-          '<div class="crow">'+(u?'<button class="cb" data-act="pwUndo" data-v="'+x.id+'">↩ 사용 취소 (점수도 취소)</button>':
-            '<button class="cb" data-act="revealUse" data-v="'+x.id+'"'+(hd?'':' disabled')+'>📢 사용 공개</button><button class="cb" data-act="pwOpen" data-v="'+x.id+'"'+(hd?'':' disabled')+'>🧮 점수 반영 처리</button>')+'</div>';
+          '<div class="crow">'+(u?'<button class="cb" data-act="pwUndo" data-v="'+x.id+'">↩ 사용 취소 (점수도 취소)</button>'+((x.id==='cassidy'&&A().state.duel)?'<button class="cb" data-act="pwOpen" data-v="'+x.id+'">⚔️ 결과 입력</button>':'')+((x.id==='echo'&&A().state.echo)?'<button class="cb" data-act="pwOpen" data-v="echo">🪞 호명한 대상 입력</button>':''):
+            (x.id==='echo'?'<button class="cb" data-act="pwOpen" data-v="echo"'+(hd?'':' disabled')+'>🪞 에코 실행 (호명 팝업)</button>':
+            '<button class="cb" data-act="pwOpen" data-v="'+x.id+'"'+(hd?'':' disabled')+'>🛠 대신 공개 (관리자)</button><button class="cb" data-act="revealUse" data-v="'+x.id+'"'+(hd?'':' disabled')+'>공개만 (점수 없이)</button>'))+'</div>';
       }else if(u){
         s+='<ul class="dt">'+(u.detail||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul><span class="by">✅ '+esc(u.by)+' 님이 사용</span>';
       }else s+='<div class="ghost"><i></i><i></i><i></i></div><div class="lock">🔒 효과는 사용 전까지 비밀</div>';
       return s+'</div>';
     }).join('')+'</div>'+
-   '<h3 class="h3">초능력 사용 규칙</h3><div class="card"><ol style="margin:0;padding-left:20px"><li>초능력은 사용 전까지 비공개.</li><li>모든 초능력은 반드시 1회 사용.</li><li>사용할 때 <b>손을 들고 초능력 이름을 크게 외치면</b> 발동!<br><span class="small mut">예: 🙋 “캐서디! 석양의 무법자!”</span></li><li>사용 즉시 초능력이 공개되고 효과가 적용돼요.</li><li>에코를 제외한 초능력은 최종 정산 전까지 사용.</li><li>에코는 가장 마지막에 사용.</li></ol></div>'+
-   '<h2 class="h2">나의 초능력</h2>';
-  var p=S.players[S.uid];
-  if(!S.me){h+='<div class="card">로그인하면 내 초능력 카드를 뽑을 수 있어요.<br><button class="btn hot" style="margin-top:8px" data-act="relogin">로그인하기</button></div>';}
-  else if(S.deal){
-    var x=heroOf(S.deal.hero);
-    h+='<div class="mycard" style="--c:'+x.c+'"><div class="em">'+x.em+'</div><h3>'+x.hero+'</h3><div class="pn">'+x.power+'</div><ul>'+(S.deal.detail||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+
-      (used[x.id]?'<p style="margin-top:12px"><span class="tag good">✅ 사용 완료 · 모두에게 공개됨</span></p>':'<p style="margin-top:12px"><span class="tag">🤫 아직 비공개 · 손을 들고 이름을 외치면 발동</span></p>')+'</div>';
-  }else{
-    var waiting=p&&p.drawReq;
-    h+='<div class="card drawbox"><div class="back'+(waiting?' shuf':'')+'">?</div>'+
-      (waiting?'<p><b>카드를 섞는 중…</b></p><p class="small mut">관리자('+HOST+') 화면이 켜져 있어야 카드가 도착해요.</p>':
-       f.drawOpen?'<p><b>카드를 뽑을 시간이에요!</b></p><button class="btn hot block" style="margin-top:10px" data-act="draw">초능력 카드 뽑기</button>':
-       '<p><b>아직 뽑기 전이에요</b></p><p class="small mut">집결 시간에 관리자가 뽑기를 열어줘요.</p>')+'</div>';
-  }
+   '<h3 class="h3">초능력 사용 규칙</h3><div class="card"><ol style="margin:0;padding-left:20px"><li>초능력은 사용 전까지 비공개.</li><li>모든 초능력은 반드시 1회 사용.</li><li><b>에코를 제외한 초능력은 원하는 타이밍에 발동</b>할 수 있어요. 손을 들고 초능력 이름을 크게 외친 뒤, 위 “나의 초능력”에서 <b>공개 버튼</b>을 눌러 발동!<br><span class="small mut">예: 🙋 “캐서디! 석양의 무법자!”</span></li><li>사용 즉시 초능력이 공개되고 효과가 적용돼요.</li><li>에코를 제외한 초능력은 최종 정산 전까지 사용.</li><li>에코는 <b>가장 마지막에</b> 관리자가 진행해요.</li></ol></div>';
   return h;
+}
+
+function usePanel(x){
+  var p=S.players[S.uid]||{},uo=S.ui.use,used=(S.pub.used&&S.pub.used.used)||{};
+  if(x.id==='echo')return '<div class="note">🪞 <b>에코는 마지막에 관리자가 진행해요.</b> “누구의 점수를 바꿀건가요?” 팝업이 뜨면 바꿀 사람을 크게 호명해 주세요.</div>';
+  if(p.useReq)return '<div class="note">📡 <b>공개하는 중…</b> 잠시만 기다려 주세요. (관리자('+HOST+') 화면이 켜져 있어야 해요)</div>';
+  var h='<div class="card"><b>📢 초능력 사용 공개</b><p class="small mut">손을 들고 이름을 외친 뒤 버튼을 누르면 모두의 폰에 팝업이 떠요. 한 번 공개하면 되돌릴 수 없어요.</p>';
+  if(p.useDone&&p.useDone.ok===false)h+='<p class="err">⚠️ '+esc(p.useDone.msg||'공개하지 못했어요')+' 다시 시도해 주세요.</p>';
+  var id=x.id;
+  if(id==='sigma')h+='<p class="small">① 본인 포함 여부를 정하세요</p><div class="chips"><button class="chip'+(uo.inc===true?' on':'')+'" data-act="sel" data-k="ui.use.inc" data-v="1">본인 포함 (나 ↔ 무작위 1명)</button><button class="chip'+(uo.inc===false?' on':'')+'" data-act="sel" data-k="ui.use.inc" data-v="0">본인 제외 (무작위 2명 교환)</button></div>';
+  if(id==='moira'||id==='cassidy'||id==='symmetra')h+='<p class="small">'+(id==='moira'?'① 점수를 빼앗을 사람':id==='cassidy'?'① 결투를 신청할 사람':'① 팀을 바꿀 사람')+'</p>'+chipsSel(PLAYERS,'ui.use.target',uo.target,S.me);
+  if(id==='reinhardt'){
+    var cand=Object.keys(used).filter(function(k){return k!=='reinhardt';});
+    h+='<p class="small">① 방어 여부</p><div class="chips"><button class="chip'+(uo.mode==='defend'?' on':'')+'" data-act="sel" data-k="ui.use.mode" data-v="defend">공격받아 방어!</button><button class="chip'+(uo.mode==='bonus'?' on':'')+'" data-act="sel" data-k="ui.use.mode" data-v="bonus">방어 안 함 (+1점)</button></div>';
+    if(uo.mode==='defend')h+=cand.length?'<p class="small" style="margin-top:8px">무효화할 초능력</p><div class="chips">'+cand.map(function(k){var hx=heroOf(k);return '<button class="chip'+(uo.evt==='pw:'+k?' on':'')+'" data-act="sel" data-k="ui.use.evt" data-v="pw:'+k+'">'+hx.em+' '+hx.hero+' ('+esc(used[k].by)+')</button>';}).join('')+'</div>':'<p class="warn small">아직 사용된 초능력이 없어요.</p>';
+  }
+  return h+'<button class="btn hot block" style="margin-top:12px" data-act="useGo">📢 공개!</button></div>';
 }
 
 /* =============== 볼링 =============== */
@@ -1068,7 +1132,7 @@ function awardAdmin(){
   h+='<div class="card"><b>정산 순서</b><ol class="small" style="padding-left:18px;margin:6px 0 0"><li>운명의 가방 추첨</li><li>에코를 제외한 초능력 사용 (초능력 메뉴)</li><li>라인하르트 정산</li><li>에코 강제 발동</li><li>순위 확인 후 점수 공개</li></ol></div>';
   h+=tool('① 🎁 운명의 가방 추첨 '+(bagDone?'<span class="tag good">완료</span>':''),'가방 점수 10개를 참가자에게 무작위 배정해 바로 점수에 반영해요. 각자 폰에서 자기 가방만 열어봐요.','<button class="btn hot block" data-act="tBags">'+(bagDone?'다시 추첨 (기존 가방 교체)':'가방 추첨하고 폰에 공개')+'</button>');
   h+=tool('② 🛡️ 라인하르트 정산 '+(isUsed('reinhardt')?'<span class="tag good">완료</span>':''),'방어했다면 “방어”, 아니면 “미발동(+1)”을 선택해요. (보유자: '+(rh?esc(rh):'미추첨')+')','<button class="btn block" data-act="pwOpen" data-v="reinhardt"'+(rh&&!isUsed('reinhardt')?'':' disabled')+'>라인하르트 처리</button>');
-  h+=tool('③ 🪞 에코 강제 발동 '+(isUsed('echo')?'<span class="tag good">완료</span>':''),'가장 마지막에 사용해요. 점수를 보지 않고 고른 대상과 전체 점수를 교환해요.','<button class="btn block" data-act="pwOpen" data-v="echo"'+(holderOf('echo')&&!isUsed('echo')?'':' disabled')+'>에코 처리</button>');
+  h+=tool('③ 🪞 에코 강제 발동 '+(isUsed('echo')?'<span class="tag good">완료</span>':''),'가장 마지막에 사용해요. 점수를 보지 않고 고른 대상과 전체 점수를 교환해요.','<button class="btn block" data-act="pwOpen" data-v="echo"'+(holderOf('echo')&&(!isUsed('echo')||A().state.echo)?'':' disabled')+'>에코 실행</button>');
   h+='<div class="card"><b>④ 순위 미리보기</b><table class="tbl" style="margin-top:6px"><tr><th>순위</th><th>이름</th><th>메인</th><th>합계</th></tr>'+R.map(function(r){return '<tr><td>'+r.rank+(r.tie?'*':'')+'</td><td>'+esc(r.name)+'</td><td>'+r.main+'</td><td class="pt">'+r.total+'</td></tr>';}).join('')+'</table><p class="small mut">* 동점 — 메인 점수도 같으면 가위바위보로 정해요.</p></div>';
   h+=tool('⑤ 📣 점수 공개 '+(fin&&fin.published?'<span class="tag good">공개 중</span>':''),'누르면 모든 참가자 폰의 “시상식” 화면에 전체 점수 내역과 순위가 나타나요.',
     '<button class="btn hot block" data-act="publish">'+(fin&&fin.published?'최신 점수로 다시 공개':'점수 공개하기')+'</button>'+(fin&&fin.published?'<button class="btn ghost block" style="margin-top:8px" data-act="unpublish">공개 취소 (다시 숨기기)</button>':''));
@@ -1101,6 +1165,7 @@ function viewScore(){
     '<div class="row" style="margin-top:8px">뽑을 인원 '+[1,2,3,4,5].map(function(n){return '<button class="chip'+(S.ui.gn===n?' on':'')+'" data-act="gn" data-v="'+n+'">'+n+'</button>';}).join('')+'</div>'+
     '<button class="btn hot block" data-act="tPick">'+pool.length+'명 중 '+S.ui.gn+'명 뽑기 · 공개</button>');
   h+=seedCard();
+  h+=tool('🧹 테스트용 전체 초기화','점수, 팀, 초능력 배정, 공개 상태, 채팅을 모두 지워요. 참가자 로그인과 PIN은 유지돼요.','<button class="btn bad block" data-act="resetAll">전체 초기화</button>');
   return h;
 }
 
@@ -1122,7 +1187,7 @@ function renderPop(){
       inner='<div style="margin-top:8px">'+(p.names||[]).map(function(n,i){return '<span class="pn2'+(n===S.me?' me':'')+'" style="animation-delay:'+(i*0.5+0.3)+'s;font-size:18px">'+esc(n)+'</span>';}).join('')+'</div>'+(p.note?'<p class="pop-note">'+esc(p.note)+'</p>':'');break;
     case 'dice':
       big=true;
-      inner='<p>'+esc(p.who||'')+' 님의 주사위</p><div class="dice roll" id="dice">🎲</div><div id="dres" style="min-height:70px"></div>';break;
+      inner='<p>'+esc(p.who||'')+' 님의 주사위</p>'+(p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'')+'<div class="dice roll" id="dice">🎲</div><div id="dres" style="min-height:70px"></div>';break;
     case 'private':
       big=true;
       if(!S.me)inner='<p class="mut">참가자로 로그인하면 내 결과를 볼 수 있어요.</p>';
@@ -1130,15 +1195,45 @@ function renderPop(){
       else if(!P.open)inner='<p class="mut" style="margin-bottom:10px">내 결과는 나만 볼 수 있어요</p><button class="priv" data-act="privOpen">🎁 탭해서 열기</button>';
       else{var v=p.assign[S.me];inner='<p>'+esc(S.me)+' 님의 '+esc(p.label||'결과')+'</p><div class="bigtxt '+(v>0?'plus':v<0?'minus':'')+'">'+(p.fmt==='plain'?v:fmt(v))+(p.unit||'')+'</div><p class="small mut">다른 사람에게 점수를 알려주지 마세요 🤫</p>';}
       break;
+    case 'draw':
+      big=true;
+      inner='<p class="pop-note" style="margin:0 0 6px">'+esc(p.intro||'')+'</p>'+(p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'')+'<div class="slots">'+(p.slots||[]).map(function(s,i){
+        return '<div class="slot'+(s.spin?'':' lock')+'" data-i="'+i+'"><small>'+esc(s.label||'')+'</small><b>'+(s.spin?'❓':esc(s.name))+'</b></div>';
+      }).join('')+'</div><div id="dnote" style="min-height:48px;margin-top:12px"></div>';break;
     case 'mydeal':
       big=true;var x=heroOf(p.hero)||HEROES[0];
       inner='<div class="mycard" style="--c:'+x.c+';margin:6px 0"><div class="em">'+x.em+'</div><h3>'+x.hero+'</h3><div class="pn">'+x.power+'</div><p class="small" style="margin-top:8px">상세 효과는 “초능력 뽑기” 메뉴에서 확인하세요. 비밀이에요 🤫</p></div>';break;
     default:
       big=true;
-      inner=(p.emoji?'<div class="emo">'+p.emoji+'</div>':'')+'<div class="lines">'+(p.lines||[]).map(function(l){return '<p>'+esc(l)+'</p>';}).join('')+'</div>';
+      inner=(p.emoji?'<div class="emo">'+p.emoji+'</div>':'')+'<div class="lines">'+(p.lines||[]).map(function(l){return '<p>'+esc(l)+'</p>';}).join('')+'</div>'+(p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'');
   }
   el.innerHTML='<div class="ov" data-act="popClose"><div class="box'+(big?' big':'')+'" data-stop="1"><h3>'+esc(ev.title||'')+'</h3>'+inner+'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button></div></div>';
   if(ev.kind==='dice')rollDice(ev);
+  if(ev.kind==='draw')runDraw(ev);
+}
+function runDraw(ev){
+  var p=ev.payload||{},slots=p.slots||[],pool=(p.pool&&p.pool.length?p.pool:PLAYERS).slice(),alive=true;
+  function ok(){return alive&&S.pop&&S.pop.ev.id===ev.id;}
+  var last=0;
+  slots.forEach(function(s,i){
+    if(!s.spin)return;
+    var stop=1800+i*1400;last=Math.max(last,stop);
+    var iv=setInterval(function(){
+      if(!ok()){clearInterval(iv);return;}
+      var el=document.querySelector('.slot[data-i="'+i+'"] b');if(el)el.textContent=pool[rnd(pool.length)];
+    },70);
+    setTimeout(function(){
+      clearInterval(iv);if(!ok())return;
+      var box=document.querySelector('.slot[data-i="'+i+'"]');
+      if(box){box.classList.add('lock');if(s.name===S.me)box.classList.add('me');var b=box.querySelector('b');if(b)b.textContent=s.name;}
+    },stop);
+  });
+  setTimeout(function(){
+    if(!ok())return;
+    var n=document.getElementById('dnote');
+    var mine=slots.some(function(s){return s.name===S.me;});
+    if(n)n.innerHTML='<p class="pop-note" style="margin:0">'+esc(p.note||'')+'</p>'+(mine?'<p class="small" style="margin-top:6px"><b>나도 뽑혔어요! 👀</b></p>':'');
+  },last+500);
 }
 function rollDice(ev){
   var el=$('#dice'),p=ev.payload,n=0;
@@ -1158,10 +1253,10 @@ function capsTeams(){
   var rest=shuffle(PLAYERS.filter(function(n){return CAPS.indexOf(n)<0;}));
   return [{n:'A팀',m:[CAPS[0]].concat(rest.slice(0,4))},{n:'B팀',m:[CAPS[1]].concat(rest.slice(4,8))}];
 }
-function tLunch(){
-  var pl=shuffle(lunchOthers()),g=[];
-  for(var i=0;i<3;i++)g.push({n:'ABC'[i]+'팀',m:pl.slice(i*3,i*3+3)});
-  setTeams('lunch',g,HOST+' 님이 진행해요!','🍽️ 점심 팀 발표');
+function ltSave(){
+  var lt=S.ui.lt;
+  if(!['A','B','C'].every(function(k){return lt[k].length===3;}))return toast('A·B·C팀에 3명씩 선택하세요');
+  setTeams('lunch',['A','B','C'].map(function(k){return {n:k+'팀',m:lt[k].slice()};}),'앉은 자리대로 팀이 정해졌어요! '+HOST+' 님이 진행해요','🍽️ 점심 팀 발표');
 }
 function tBowl1(){
   var pl=shuffle(PLAYERS);
@@ -1264,19 +1359,13 @@ function owResult(key,gi){
 }
 
 /* =============== 관리자: 점심 =============== */
-function lunchP(r,n){
-  var id='lunch:'+r+':p:'+n;
-  if(hasEvt(id))delEvt(id);else addEvt('점심 '+rLabel(r)+' · '+n,'lunch',[{name:n,d:1,note:'점심 '+rLabel(r)}],{id:id});
-}
-function lunchTeam(r,gi){
-  var t=team('lunch'),m=t?t.groups[gi].m:lunchOthers();
-  var all=m.every(function(n){return hasEvt('lunch:'+r+':p:'+n);});
-  m.forEach(function(n){
-    var id='lunch:'+r+':p:'+n;
-    if(all)delEvt(id,true);
-    else if(!hasEvt(id))addEvt('점심 '+rLabel(r)+' · '+n,'lunch',[{name:n,d:1,note:'점심 '+rLabel(r)}],{id:id,quiet:true});
-  });
-  saveLedger();
+function lunchSet(r,gi,st){
+  var t=team('lunch');
+  if(!t)return toast('먼저 점심 팀을 공개하세요');
+  var id='lunch:'+r+':t:'+gi,g=t.groups[gi];
+  if(lunchState(r,gi)===st){delEvt(id);return;}
+  var items=st==='ok'?g.m.map(function(n){return {name:n,d:1,note:'점심 '+rLabel(r)+' · '+g.n+' 성공'};}):[];
+  addEvt('점심 '+rLabel(r)+' · '+g.n+(st==='ok'?' 성공':' 실패'),'lunch',items,{id:id});
 }
 
 /* =============== 관리자: 초능력 =============== */
@@ -1286,6 +1375,8 @@ function markUsed(hero,by){
   S.pub.used=U;saveUsed();
 }
 function pwUndo(hero){
+  if(hero==='cassidy'&&A().state.duel){delete A().state.duel;saveState();}
+  if(hero==='echo'&&A().state.echo){delete A().state.echo;saveState();}
   delEvt('pw:'+hero);
   var U=clone(S.pub.used)||{used:{}};if(U.used)delete U.used[hero];
   S.pub.used=U;saveUsed();
@@ -1294,7 +1385,8 @@ function revealUse(hero){
   var holder=holderOf(hero),x=heroOf(hero);
   if(!holder)return toast('아직 보유자가 없어요');
   markUsed(hero,holder);
-  announce('announce','🔮 '+x.hero+' — '+x.power+'!',{emoji:x.em,lines:[holder+' 님이 초능력을 사용했어요!!!!','카드 효과가 모두에게 공개됐어요']},'🔮 '+holder+' 님이 '+x.hero+' — '+x.power+' 발동!!!!');
+  var rq=quoteOf(hero,{target:''});
+  announce('announce','🔮 '+x.hero+' — '+x.power+'!',{emoji:x.em,lines:[holder+' 님이 초능력을 사용했어요!!!!','카드 효과가 모두에게 공개됐어요'],quote:rq},'🔮 '+holder+' 님이 '+x.hero+' — '+x.power+' 발동!!!!'+(rq?' “'+rq+'”':''));
 }
 function othersOf(n){return PLAYERS.filter(function(x){return x!==n;});}
 function pwModal(){
@@ -1303,9 +1395,10 @@ function pwModal(){
   var pending=HEROES.filter(function(h){return h.id!=='echo'&&holderOf(h.id)&&!isUsed(h.id);}).map(function(h){return h.hero;});
   switch(m.hero){
     case 'echo':
-      b='<p class="small">'+esc(holder)+' 님이 점수를 보지 않고 고른 대상과 전체 점수를 교환해요. 교환 후 취소할 수 없어요.</p>'+
-        (pending.length?'<p class="warn small">⚠️ 아직 사용하지 않은 초능력이 있어요: '+pending.join(', ')+'</p>':'')+
-        chipsSel(PLAYERS,'modal.target',m.target,holder);break;
+      if(!m.called)b='<p class="small">① <b>에코 호명 팝업</b>을 누르면 모두의 폰에 “에코는 '+esc(holder)+' 님이었습니다! 누구의 점수를 바꿀건가요? 지금 호명해주세요!”가 떠요.<br>② '+esc(holder)+' 님이 대상을 호명하면 이 창에서 선택해 교환해요. 교환 후 취소할 수 없어요.</p>'+
+        (pending.length?'<p class="warn small">⚠️ 아직 사용하지 않은 초능력이 있어요: '+pending.join(', ')+'</p>':'');
+      else b='<div class="note">🪞 <b>'+esc(holder)+'</b> 님이 호명한 사람을 선택하세요. (점수를 보지 않고 고른 대상과 전체 점수를 교환해요)</div>'+chipsSel(PLAYERS,'modal.target',m.target,holder);
+      break;
     case 'moira':b='<p class="small">'+esc(holder)+' 님이 점수를 빼앗을 대상</p>'+chipsSel(PLAYERS,'modal.target',m.target,holder);break;
     case 'junkrat':b='<p class="small">주사위를 굴려 결과를 폰에 공개해요.</p>';break;
     case 'symmetra':b='<p class="small">'+esc(holder)+' 님이 팀을 바꿀 상대 (현재 팀 기준)</p>'+chipsSel(PLAYERS,'modal.target',m.target,holder);break;
@@ -1314,82 +1407,162 @@ function pwModal(){
       var T=S.pub.teams,cur=T&&T.current;
       b='<p class="small">현재 팀 기준: <b>'+(cur?(cur==='lunch'?'점심':GAME[cur]):'팀 없음')+'</b> · '+(cur&&teamOf(cur,holder)>=0?esc(holder)+' 님의 팀원 전원 +'+P.lucio:'<span class="warn">보유자가 현재 팀에 없어요</span>')+'</p>';break;
     case 'cassidy':
-      b='<p class="small">가위바위보 상대</p>'+chipsSel(PLAYERS,'modal.target',m.target,holder)+
-        '<p class="small" style="margin-top:8px">결과</p><div class="row"><button class="chip'+(m.res==='win'?' on':'')+'" data-act="sel" data-k="modal.res" data-v="win">'+esc(holder)+' 승리</button><button class="chip'+(m.res==='lose'?' on':'')+'" data-act="sel" data-k="modal.res" data-v="lose">'+esc(holder)+' 패배</button></div>';break;
+      if(!m.duel)b='<p class="small">① 결투를 신청할 상대를 고르세요.<br>② <b>결투 신청 공개</b>를 누르면 모두의 폰에 “'+esc(holder)+' 님이 ○○ 님에게 결투를 신청했어요!” 팝업이 떠요.<br>③ 가위바위보가 끝나면 결과를 입력해요.</p>'+chipsSel(PLAYERS,'modal.target',m.target,holder);
+      else b='<div class="note">⚔️ <b>'+esc(holder)+'</b> vs <b>'+esc(m.target)+'</b> 결투 중!<br>가위바위보 결과를 선택하세요.</div><div class="row"><button class="chip'+(m.res==='win'?' on':'')+'" data-act="sel" data-k="modal.res" data-v="win">'+esc(holder)+' 승리 (본인 +'+P.cassidy+')</button><button class="chip'+(m.res==='lose'?' on':'')+'" data-act="sel" data-k="modal.res" data-v="lose">'+esc(holder)+' 패배 (상대 +'+P.cassidy+')</button></div>';
+      break;
     case 'sigma':
-      b='<p class="small">본인 포함 여부를 정한 뒤 추첨해요. 결과는 바꿀 수 없어요.</p><div class="row"><button class="chip'+(m.inc===true?' on':'')+'" data-act="sel" data-k="modal.inc" data-v="1">본인 포함 (본인 ↔ 1명)</button><button class="chip'+(m.inc===false?' on':'')+'" data-act="sel" data-k="modal.inc" data-v="0">본인 제외 (타인 2명)</button></div>';break;
+      b='<p class="small">① 본인 포함 여부를 선택하세요. ② <b>공개</b>를 누르면 모두의 폰에서 <b>실시간 랜덤 추첨</b>이 시작돼요. 결과는 바꿀 수 없어요.</p><div class="chips"><button class="chip'+(m.inc===true?' on':'')+'" data-act="sel" data-k="modal.inc" data-v="1">본인 포함 (본인 ↔ 무작위 1명)</button><button class="chip'+(m.inc===false?' on':'')+'" data-act="sel" data-k="modal.inc" data-v="0">본인 제외 (무작위 2명 교환)</button></div>';break;
     case 'reinhardt':
       var cand=L().evts.filter(function(e){return e.id.indexOf('pw:')===0&&e.id!=='pw:reinhardt';});
       b='<div class="row"><button class="chip'+(m.mode==='defend'?' on':'')+'" data-act="sel" data-k="modal.mode" data-v="defend">공격받아 방어함</button><button class="chip'+(m.mode==='bonus'?' on':'')+'" data-act="sel" data-k="modal.mode" data-v="bonus">미발동 (+'+P.reinhardt+'점)</button></div>';
       if(m.mode==='defend')b+=cand.length?'<p class="small" style="margin-top:8px">무효화할 초능력</p><div class="chips">'+cand.map(function(e){return '<button class="chip'+(m.evt===e.id?' on':'')+'" data-act="sel" data-k="modal.evt" data-v="'+esc(e.id)+'">'+esc(e.label)+'</button>';}).join('')+'</div>':'<p class="warn small">무효화할 사용 기록이 없어요.</p>';
       break;
-    case 'mercy':b='<p class="small">참가자 10명 중 무작위 '+P.mercyCount+'명에게 각각 +'+P.mercy+'점을 줘요.</p>';break;
+    case 'mercy':b='<p class="small">공개를 누르면 모두의 폰에서 참가자 10명 중 무작위 '+P.mercyCount+'명을 <b>실시간으로 추첨</b>하고, 각각 +'+P.mercy+'점을 줘요.</p>';break;
   }
+  var lab=m.hero==='junkrat'?'🎲 공개! 주사위 굴리기':(m.hero==='sigma'||m.hero==='mercy')?'🎯 공개! 추첨 시작':m.hero==='cassidy'?'🏁 결과 공개 · 점수 반영':'📢 사용 공개 · 점수 반영';
+  var primary=(m.hero==='cassidy'&&!m.duel)?'<button class="btn hot" style="flex:1" data-act="duelOpen">⚔️ 결투 신청 공개</button>':
+    (m.hero==='echo'&&!m.called)?'<button class="btn hot" style="flex:1" data-act="echoCall">🪞 에코 호명 팝업 띄우기</button>':
+    '<button class="btn hot" style="flex:1" data-act="pwRun">'+(m.hero==='echo'?'🪞 점수 교환 실행':lab)+'</button>';
   return '<div class="ov" data-act="modalClose"><div class="box" data-stop="1"><h3>'+x.em+' '+x.hero+' — '+x.power+'</h3><p class="small mut" style="margin-bottom:8px">보유자 <b>'+esc(holder||'-')+'</b></p>'+b+
-    '<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="modalClose">취소</button><button class="btn hot" style="flex:1" data-act="pwRun">'+(m.hero==='junkrat'?'🎲 주사위 굴리기':m.hero==='sigma'||m.hero==='mercy'?'🎯 추첨 실행':'사용 처리 · 폰에 공개')+'</button></div></div></div>';
+    '<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="modalClose">닫기</button>'+primary+'</div></div></div>';
 }
-function pwRun(){
-  var m=S.modal,hero=m.hero,holder=holderOf(hero),x=heroOf(hero),P=A().content.params,T=calc();
-  var label=x.hero+' — '+x.power+' · '+holder,items=[],lines=[],kind='announce',payload=null,chat='';
-  function need(v,msg){if(!v){toast(msg);return false;}return true;}
+function fail(msg){return {ok:false,msg:msg};}
+function quoteOf(key,vars){
+  var q=(A().content&&A().content.quotes&&A().content.quotes[key])||'';
+  return q.replace(/\{(\w+)\}/g,function(_,k){return vars&&vars[k]!=null?vars[k]:'';});
+}
+function duelStart(holder,target){
+  if(!target||target===holder||PLAYERS.indexOf(target)<0)return fail('결투 상대를 선택하세요');
+  A().state.duel={target:target};saveState();
+  markUsed('cassidy',holder);
+  var dq=quoteOf('cassidy_duel',{target:target});
+  announce('announce','⚔️ 결투 신청!',{emoji:'⚔️',lines:[holder+' 님이 '+target+' 님에게 결투를 신청했어요!','캐서디 — 석양의 무법자 · 가위바위보 승부!'],quote:dq},
+    '⚔️ '+holder+' 님이 '+target+' 님에게 결투를 신청했어요!!!! (캐서디 — 석양의 무법자)'+(dq?' “'+dq+'”':''));
+  return {ok:true};
+}
+function duelOpen(){
+  var m=S.modal,r=duelStart(holderOf('cassidy'),m.target);
+  if(!r.ok)return toast(r.msg);
+  m.duel=true;
+}
+function echoCall(){
+  var holder=holderOf('echo');
+  if(!holder)return toast('에코 보유자가 없어요');
+  A().state.echo={called:true};saveState();
+  markUsed('echo',holder);
+  var eq=quoteOf('echo_call',{});
+  announce('announce','🪞 에코 — 복제!',{emoji:'🪞',lines:['에코는 '+holder+' 님의 초능력이었습니다!','누구의 점수를 바꿀건가요?','지금 호명해주세요!'],quote:eq},
+    '🪞 에코는 '+holder+' 님이었습니다!!!! '+(eq?'“'+eq+'” ':'')+'누구의 점수를 바꿀건가요? 지금 호명해주세요!');
+  if(S.modal&&S.modal.hero==='echo')S.modal.called=true;
+}
+/* 초능력 실행 (관리자 창 / 플레이어 공개 요청 공통) */
+function execPower(hero,o){
+  var holder=holderOf(hero),x=heroOf(hero),P=(A().content||{}).params,T=calc();
+  if(!P)return fail('비밀 데이터가 없어요');
+  if(!holder)return fail('보유자가 없어요');
+  var label=x.hero+' — '+x.power+' · '+holder,items=[],lines=[],kind='announce',payload=null,chat='',qk=hero,qv={target:o.target||''};
+  var okT=function(t){return t&&t!==holder&&PLAYERS.indexOf(t)>=0;};
   switch(hero){
     case 'echo':
-      if(!need(m.target,'교환 대상을 선택하세요'))return;
-      items=swapItems(holder,m.target,T,label);lines=[holder+' ↔ '+m.target,'전체 점수 교환 완료!'];break;
+      if(!okT(o.target))return fail('교환 대상을 선택하세요');
+      items=swapItems(holder,o.target,T,label);lines=[holder+' ↔ '+o.target,'전체 점수 교환 완료!'];
+      delete A().state.echo;saveState();break;
     case 'moira':
-      if(!need(m.target,'대상을 선택하세요'))return;
-      items=[{name:holder,d:P.moira,note:label},{name:m.target,d:-P.moira,note:label+' (피해)'}];
-      lines=[holder+' 님이 '+m.target+' 님의 점수 '+P.moira+'점을 빼앗았어요!'];break;
+      if(!okT(o.target))return fail('대상을 선택하세요');
+      items=[{name:holder,d:P.moira,note:label},{name:o.target,d:-P.moira,note:label+' (피해)'}];
+      lines=[holder+' 님이 '+o.target+' 님의 점수 '+P.moira+'점을 빼앗았어요!'];break;
     case 'junkrat':
       var v=rnd(6)+1,d=P.dice[String(v)];
       items=[{name:holder,d:d,note:label+' (주사위 '+v+')'}];
       kind='dice';payload={who:holder,value:v,delta:d};chat='주사위 '+v+' → '+fmt(d)+'점';break;
     case 'symmetra':
-      if(!need(m.target,'바꿀 상대를 선택하세요'))return;
+      if(!okT(o.target))return fail('바꿀 상대를 선택하세요');
       var T2=clone(S.pub.teams),cur=T2&&T2.current,st=cur&&T2.sets[cur];
-      if(!st)return toast('현재 팀이 없어요');
-      var gi=-1,gj=-1;st.groups.forEach(function(g,i){if(g.m.indexOf(holder)>=0)gi=i;if(g.m.indexOf(m.target)>=0)gj=i;});
-      if(gi<0||gj<0||gi===gj)return toast('두 사람이 서로 다른 팀에 있어야 해요');
-      st.groups[gi].m[st.groups[gi].m.indexOf(holder)]=m.target;
-      st.groups[gj].m[st.groups[gj].m.indexOf(m.target)]=holder;
+      if(!st)return fail('현재 팀이 없어요');
+      var gi=-1,gj=-1;st.groups.forEach(function(g,i){if(g.m.indexOf(holder)>=0)gi=i;if(g.m.indexOf(o.target)>=0)gj=i;});
+      if(gi<0||gj<0||gi===gj)return fail('두 사람이 서로 다른 팀에 있어야 해요');
+      st.groups[gi].m[st.groups[gi].m.indexOf(holder)]=o.target;
+      st.groups[gj].m[st.groups[gj].m.indexOf(o.target)]=holder;
       S.pub.teams=T2;saveTeams();
-      lines=[holder+' ↔ '+m.target,'팀을 교환했어요! ('+(cur==='lunch'?'점심':GAME[cur])+')'];break;
+      lines=[holder+' ↔ '+o.target,'팀을 교환했어요! ('+(cur==='lunch'?'점심':GAME[cur])+')'];break;
     case 'tracer':lines=[holder+' 님이 시간을 되돌렸어요!','재추첨 1회 진행'];break;
     case 'lucio':
       var tc=S.pub.teams&&S.pub.teams.current,ti=tc?teamOf(tc,holder):-1;
-      if(ti<0)return toast('보유자가 현재 팀에 없어요');
+      if(ti<0)return fail('보유자가 현재 팀에 없어요');
       items=S.pub.teams.sets[tc].groups[ti].m.map(function(n){return {name:n,d:P.lucio,note:label};});
       lines=[holder+' 님의 팀 분위기 전환!','팀원 전원 +'+P.lucio+'점'];break;
     case 'cassidy':
-      if(!need(m.target&&m.res,'상대와 결과를 선택하세요'))return;
-      var winner=m.res==='win'?holder:m.target;
+      if(!okT(o.target)||!o.res)return fail('상대와 결과를 선택하세요');
+      var winner=o.res==='win'?holder:o.target;qv.winner=winner;
       items=[{name:winner,d:P.cassidy,note:label}];
-      lines=[holder+' vs '+m.target+' 가위바위보',m.res==='win'?holder+' 승리! 본인 +'+P.cassidy+'점':holder+' 패배! '+m.target+' +'+P.cassidy+'점'];break;
+      lines=[holder+' vs '+o.target+' 결투 결과',o.res==='win'?holder+' 승리! 본인 +'+P.cassidy+'점':holder+' 패배! '+o.target+' +'+P.cassidy+'점'];
+      delete A().state.duel;saveState();break;
     case 'sigma':
-      if(m.inc!==true&&m.inc!==false)return toast('본인 포함 여부를 선택하세요');
+      if(o.inc!==true&&o.inc!==false)return fail('본인 포함 여부를 선택하세요');
       var a,b2,pk=shuffle(othersOf(holder));
-      if(m.inc){a=holder;b2=pk[0];}else{a=pk[0];b2=pk[1];}
+      if(o.inc){a=holder;b2=pk[0];}else{a=pk[0];b2=pk[1];}
       items=swapItems(a,b2,T,label);
-      kind='pick';payload={names:[a,b2],note:'두 사람의 점수가 교환됐어요! ('+(m.inc?'본인 포함':'본인 제외')+')'};chat=a+' ↔ '+b2+' 점수 교환!';break;
+      kind='draw';
+      payload={intro:holder+' 님이 '+x.hero+' — '+x.power+' 발동! ('+(o.inc?'본인 포함':'본인 제외')+')',
+        pool:othersOf(holder),
+        slots:o.inc?[{label:'본인',name:holder,spin:false},{label:'교환 상대',name:b2,spin:true}]:[{label:'첫 번째',name:a,spin:true},{label:'두 번째',name:b2,spin:true}],
+        note:a+' ↔ '+b2+' 점수 교환!'};
+      chat=a+' ↔ '+b2+' 점수 교환!';break;
     case 'reinhardt':
-      if(m.mode==='bonus'){items=[{name:holder,d:P.reinhardt,note:label+' (미발동 보너스)'}];lines=[holder+' 님 방어 미발동','+'+P.reinhardt+'점 지급'];label+=' (미발동)';}
-      else if(m.mode==='defend'){
-        if(!need(m.evt,'무효화할 초능력을 선택하세요'))return;
-        var tg=L().evts.filter(function(e){return e.id===m.evt;})[0];
-        delEvt(m.evt);
-        lines=[holder+' 님이 방벽으로 막았어요!','무효화: '+(tg?tg.label:'')];label+=' (방어)';
-      }else return toast('방어 여부를 선택하세요');
+      if(o.mode==='bonus'){qk='reinhardt_bonus';items=[{name:holder,d:P.reinhardt,note:label+' (미발동 보너스)'}];lines=[holder+' 님 방어 미발동','+'+P.reinhardt+'점 지급'];label+=' (미발동)';}
+      else if(o.mode==='defend'){
+        var tg=L().evts.filter(function(e){return e.id===o.evt;})[0];
+        if(!tg||o.evt==='pw:reinhardt')return fail('무효화할 초능력 기록이 없어요');
+        delEvt(o.evt);
+        lines=[holder+' 님이 방벽으로 막았어요!','무효화: '+tg.label];label+=' (방어)';
+      }else return fail('방어 여부를 선택하세요');
       break;
     case 'mercy':
       var pk2=shuffle(PLAYERS).slice(0,P.mercyCount);
       items=pk2.map(function(n){return {name:n,d:P.mercy,note:label};});
-      kind='pick';payload={names:pk2,note:'각각 +'+P.mercy+'점!'};chat=pk2.join(', ')+' 각 +'+P.mercy+'점';break;
+      kind='draw';
+      payload={intro:holder+' 님이 '+x.hero+' — '+x.power+' 발동!',pool:PLAYERS.slice(),
+        slots:pk2.map(function(n,i){return {label:(i+1)+'번째',name:n,spin:true};}),note:'각각 +'+P.mercy+'점!'};
+      chat=pk2.join(', ')+' 각 +'+P.mercy+'점';break;
+    default:return fail('알 수 없는 초능력이에요');
   }
+  var q=quoteOf(qk,qv);
   addEvt(label,'power',items,{id:'pw:'+hero});
   markUsed(hero,holder);
-  announce(kind,'🔮 '+x.hero+' — '+x.power+'!',kind==='announce'?{emoji:x.em,lines:lines}:payload,
-    '🔮 '+holder+' 님이 '+x.hero+' — '+x.power+' 발동!!!! '+(chat||lines.join(' · ')));
+  if(kind==='announce')payload={emoji:x.em,lines:lines};
+  payload.quote=q;
+  announce(kind,'🔮 '+x.hero+' — '+x.power+'!',payload,
+    '🔮 '+holder+' 님이 '+x.hero+' — '+x.power+' 발동!!!! '+(q?'“'+q+'” ':'')+(chat||lines.join(' · ')));
+  return {ok:true};
+}
+function pwRun(){
+  var m=S.modal,r=execPower(m.hero,m);
+  if(!r.ok)return toast(r.msg);
   S.modal=null;render(true);
+}
+/* 플레이어가 "공개!"를 누르면 이 화면(관리자)이 대신 실행해서 모두에게 팝업을 띄워요 */
+function processUses(){
+  var a=A();
+  if(!S.db||!a.content||!a.loaded.main||!a.state)return;
+  Object.keys(S.players).forEach(function(uid){
+    var p=S.players[uid];
+    if(!p||!p.useReq)return;
+    var u=p.useReq,key=uid+':'+u.ts;
+    if(S.handledUse[key])return;
+    S.handledUse[key]=true;
+    var res,o=u.opts||{};
+    try{
+      var hero=a.state.assign[p.name];
+      if(!hero||hero!==u.hero)res=fail('내 초능력이 아니에요');
+      else if(hero==='echo')res=fail('에코는 관리자가 진행해요');
+      else if(isUsed(hero))res=fail('이미 사용한 초능력이에요');
+      else if(hero==='cassidy')res=duelStart(p.name,o.target);
+      else res=execPower(hero,o);
+    }catch(e){console.error(e);res=fail('처리 중 오류가 났어요');}
+    var done={ts:u.ts,ok:!!res.ok,msg:res.msg||'',hero:u.hero};
+    enqueue(function(){return S.db.doc('players/'+uid).update({useReq:null,useDone:done});});
+  });
+  render();
 }
 
 /* =============== 관리자: 가방 / 공개 / 초기화 =============== */
@@ -1418,8 +1591,10 @@ async function resetAll(){
   uids.forEach(function(uid){enqueue(function(){return S.db.doc('deal/'+uid).delete();});});
   chatIds.forEach(function(id){enqueue(function(){return S.db.doc('chat/'+id).delete();});});
   Object.keys(S.players).forEach(function(uid){
-    if(S.players[uid]&&S.players[uid].drawReq)enqueue(function(){return S.db.doc('players/'+uid).update({drawReq:null});});
+    var pl=S.players[uid];
+    if(pl&&(pl.drawReq||pl.useReq||pl.useDone))enqueue(function(){return S.db.doc('players/'+uid).update({drawReq:null,useReq:null,useDone:null});});
   });
+  S.ui.use={inc:null,target:null,mode:null,evt:null};S.ui.lt={A:[],B:[],C:[]};
   toast('초기화했어요');render(true);
 }
 
@@ -1469,7 +1644,7 @@ document.addEventListener('change',function(e){
       var o=JSON.parse(r.result);
       if(t.id==='pinfile')return doSetup(o);
       if(!o.powers||!o.bags||!o.lunch)throw new Error('파일 형식이 달라요');
-      put('adminonly/content',{powers:o.powers,params:o.params,lunch:o.lunch,bags:o.bags});
+      put('adminonly/content',{powers:o.powers,params:o.params,lunch:o.lunch,bags:o.bags,quotes:o.quotes||{}});
       toast('비밀 데이터를 올렸어요');
     }catch(er){toast('올리기 실패: '+er.message);}
   };
@@ -1488,7 +1663,8 @@ async function handle(act,v,t){
     case 'menuClose':S.menu=false;break;
     case 'go':S.view=v;S.menu=false;window.scrollTo(0,0);if(v==='chat'){render(true);markChatSeen();setTimeout(function(){window.scrollTo(0,document.body.scrollHeight);},60);return;}break;
     case 'sel':
-      if(k==='modal.inc')v=(v==='1');
+      if(k==='modal.inc'||k==='ui.use.inc')v=(v==='1');
+      if(k==='ui.use.mode'){u.use.evt=null;}
       if(k==='ui.focus'&&u.focus===v)v='';
       setPath(k,v);break;
     case 'ta':{
@@ -1527,7 +1703,7 @@ async function handle(act,v,t){
       addEvt('수동 조정 · '+u.manual.name+(u.manual.note?' ('+u.manual.note+')':''),'other',[{name:u.manual.name,d:u.manual.d,note:'수동 조정'+(u.manual.note?' · '+u.manual.note:'')}]);
       u.manual.note='';toast('반영했어요');break;
     case 'delEvt':{var id=v;ask('이 점수 기록을 삭제할까요?',function(){delEvt(id);if(id.indexOf('pw:')===0){var hid=id.slice(3),U=clone(S.pub.used)||{};if(U.used&&U.used[hid]){delete U.used[hid];S.pub.used=U;saveUsed();}}render(true);});return;}
-    case 'tLunch':tLunch();break;
+    case 'ltSave':ltSave();break;
     case 'tBowl1':tBowl1();break;
     case 'mtSave':mtSave();break;
     case 'tOut':tOut();break;
@@ -1541,8 +1717,7 @@ async function handle(act,v,t){
     case 'owBet':owBet(t.getAttribute('data-r'),t.getAttribute('data-n'),v);break;
     case 'owSave':owSave(v);break;
     case 'owResult':{var pr=v.split(':');owResult(pr[0],+pr[1]);break;}
-    case 'lunchP':lunchP(t.getAttribute('data-r'),v);break;
-    case 'lunchTeam':lunchTeam(t.getAttribute('data-r'),+v);break;
+    case 'lunchT':lunchSet(t.getAttribute('data-r'),+v,t.getAttribute('data-s'));break;
     case 'lunchHost':{
       var sc=hostScore();
       addEvt('점심 '+HOST+' 평균 점수 ('+sc+'점)','lunch',[{name:HOST,d:sc,note:'점심 · 나머지 평균(반올림)'}],{id:'lunch:host'});
@@ -1552,9 +1727,26 @@ async function handle(act,v,t){
       if(f.drawOpen)announce('announce','🎴 초능력 카드 추첨 시작!',{emoji:'🔮',lines:['“초능력 뽑기” 메뉴에서 카드를 뽑아주세요']},'🎴 초능력 카드 추첨이 시작됐어요!!!! 초능력 뽑기 메뉴에서 카드를 뽑아주세요');
       break;}
     case 'revealUse':revealUse(v);break;
-    case 'pwOpen':S.modal={type:'pw',hero:v,target:null,res:null,inc:null,mode:null,evt:null};break;
+    case 'pwOpen':{
+      var dl=(v==='cassidy'&&A().state.duel)?A().state.duel:null;
+      S.modal={type:'pw',hero:v,target:dl?dl.target:null,res:null,inc:null,mode:null,evt:null,duel:!!dl,called:(v==='echo'&&!!A().state.echo)};break;}
+    case 'duelOpen':duelOpen();break;
+    case 'echoCall':echoCall();break;
     case 'pwRun':return pwRun();
     case 'pwUndo':{var hh=v;ask('이 초능력 사용을 취소할까요? 공개와 점수 변동을 모두 되돌려요.',function(){pwUndo(hh);render(true);});return;}
+    case 'useGo':{
+      if(!S.deal)return;
+      var uh=S.deal.hero,uo=u.use,o={},uerr='';
+      if(uh==='echo')return toast('에코는 관리자가 진행해요');
+      if(uh==='sigma'){if(uo.inc!==true&&uo.inc!==false)uerr='본인 포함 여부를 선택하세요';o.inc=uo.inc;}
+      if(uh==='moira'||uh==='cassidy'||uh==='symmetra'){if(!uo.target)uerr='대상을 선택하세요';o.target=uo.target;}
+      if(uh==='reinhardt'){if(!uo.mode)uerr='방어 여부를 선택하세요';else if(uo.mode==='defend'&&!uo.evt)uerr='무효화할 초능력을 선택하세요';o.mode=uo.mode;o.evt=uo.evt||null;}
+      if(uerr)return toast(uerr);
+      ask('모두에게 공개돼요. 되돌릴 수 없어요. 공개할까요?',async function(){
+        try{await S.db.doc('players/'+S.uid).update({useReq:{hero:uh,opts:o,ts:Date.now()},useDone:null});}
+        catch(er){toast('요청 실패: '+(er.message||er.code));}
+        render(true);
+      });return;}
     case 'tBags':if(hasEvt('bags')){ask('이미 추첨한 가방을 새로 뽑을까요? 기존 가방 점수는 교체돼요.',function(){tBags();render(true);});return;}tBags();break;
     case 'publish':publishFinal();toast('점수를 공개했어요');break;
     case 'unpublish':{var F=clone(S.pub.final)||{};F.published=false;S.pub.final=F;put('public/final',F);toast('다시 숨겼어요');break;}
