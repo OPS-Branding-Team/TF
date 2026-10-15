@@ -405,6 +405,12 @@ function rnd(n){
   }catch(e){return Math.floor(Math.random()*n);}
 }
 function shuffle(arr){var a=arr.slice();for(var i=a.length-1;i>0;i--){var j=rnd(i+1);var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function withTimeout(p,ms,label){
+  return new Promise(function(res,rej){
+    var t=setTimeout(function(){rej(new Error((label||'서버')+' 응답이 없어요'));},ms);
+    p.then(function(v){clearTimeout(t);res(v);},function(e){clearTimeout(t);rej(e);});
+  });
+}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
 function heroOf(id){return HEROES.filter(function(h){return h.id===id;})[0];}
 async function sha(s){
@@ -515,6 +521,11 @@ async function init(){
   try{S.chatSeen=+(localStorage.getItem('tfchat_seen')||0);}catch(e){}
   S.ready=true;
   if(S.db&&S.uid)startSubs();
+  setInterval(function(){
+    if(!S.admin||!S.db||S.resetting)return;
+    if(S.dealing&&Date.now()-(S.dealStart||0)>25000)S.dealing=false;     // 멈춰 있으면 풀어줘요
+    adminTick();
+  },5000);
   render(true);
 }
 function subErr(e){S.err=(e&&e.code)||'error';render();}
@@ -779,7 +790,7 @@ async function reconcileDeals(){
   if(S.dealing){S.dealAgain=true;return;}
   var a=A();
   if(S.resetting||!S.db||!a.content||!a.loaded.main||!a.loaded.deals||!a.state)return;
-  S.dealing=true;
+  S.dealing=true;S.dealStart=Date.now();
   try{
     do{
       S.dealAgain=false;
@@ -792,7 +803,7 @@ async function reconcileDeals(){
         if(!p.drawReq&&!a.state.assign[p.name])continue;
         // 서버에 저장하는 그 순간에 "뽑기가 열려 있는지"와 "이 사람의 뽑기 요청이 아직 있는지"를 다시 확인해요
         // (초기화 직후 늦게 도착한 옛 요청으로 임의 배정되는 일을 막아요)
-        var tr=await S.db.transactMulti(['adminonly/assign','public/flags','players/'+uid],function(d){
+        var tr=await withTimeout(S.db.transactMulti(['adminonly/assign','public/flags','players/'+uid],function(d){
           var map=clone((d[0]&&d[0].map)||{}),fl=d[1]||{},pl=d[2];
           if(map[p.name])return {hero:map[p.name]};
           if(!fl.drawOpen||!pl||pl.name!==p.name||!pl.drawReq)return {hero:null};
@@ -806,7 +817,7 @@ async function reconcileDeals(){
           }
           map[p.name]=h2;
           return {hero:h2,write:{path:'adminonly/assign',data:{map:map}}};
-        });
+        }),15000,'카드 배정');
         var hero=tr&&tr.hero;
         if(tr&&tr.write)a.state.assign=tr.write.data.map;else if(hero)a.state.assign[p.name]=hero;
         if(!hero)continue;
@@ -815,7 +826,7 @@ async function reconcileDeals(){
         if(!dl||dl.hero!==hero||dl.name!==p.name){
           var det=a.content.powers[hero]&&a.content.powers[hero].detail||[];
           var rec={name:p.name,hero:hero,detail:det,ts:Date.now()};
-          await S.db.doc('deal/'+uid).set(rec);
+          await withTimeout(S.db.doc('deal/'+uid).set(rec),15000,'카드 전달');
           a.deals[uid]=rec;
         }
       }
@@ -831,7 +842,8 @@ async function reconcileDeals(){
         }
       }
     }while(S.dealAgain);
-  }catch(e){console.error(e);toast('카드 지급 실패: '+(e.message||e.code));}
+    S.dealErr=null;
+  }catch(e){console.error(e);S.dealErr=(e&&(e.message||e.code))||'알 수 없는 오류';toast('카드 지급 실패 — 자동으로 다시 시도해요');}
   S.dealing=false;render();
 }
 
@@ -1169,9 +1181,21 @@ function powerAdminTop(){
   return '<div class="card"><label class="tgl" data-act="drawOpen"><span class="sw'+(f.drawOpen?' on':'')+'"></span>초능력 뽑기 '+(f.drawOpen?'열림':'닫힘')+'</label>'+
     '<p class="small mut" style="margin-top:6px">열면 참가자 폰의 “카드 뽑기” 버튼이 켜지고, 요청이 오면 이 화면이 자동으로 카드를 나눠줘요. '+HOST+'에게는 <b>메르시가 고정</b>이고, 나머지 9명은 완전 랜덤이에요.</p>'+
     '<div style="margin-top:8px"><button class="btn ghost" data-act="sampleAssign">🧪 샘플: 초능력 10종 랜덤 배정</button></div>'+
+    (function(){
+      var as=A().state.assign||{},wait=[];
+      Object.keys(S.players).forEach(function(uid){var p=S.players[uid];if(p&&p.drawReq&&!as[p.name]&&wait.indexOf(p.name)<0)wait.push(p.name);});
+      return (wait.length||S.dealErr)?'<div class="note" style="margin-top:8px;border-color:var(--hot)"><b>⏳ 카드를 기다리는 사람 '+wait.length+'명</b>'+(wait.length?' · '+wait.map(esc).join(', '):'')+
+        (S.dealErr?'<div class="warn small" style="margin-top:4px">⚠️ 마지막 오류: '+esc(S.dealErr)+' (5초마다 자동으로 다시 시도해요)</div>':'<div class="small mut">곧 자동으로 배정돼요. 오래 걸리면 아래 버튼을 눌러 보세요.</div>')+
+        '<button class="btn hot" style="margin-top:6px" data-act="dealFix">🔧 지금 배정하기</button></div>':'';
+    })()+
     (function(){var iss=dealIssues();return '<div class="note" style="margin-top:8px"><b>🔍 배정·카드 점검</b> '+(iss.length?'<span class="tag hot">불일치 '+iss.length+'건</span><ul class="dots small">'+iss.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><button class="btn hot" data-act="dealFix">🔧 카드 다시 맞추기</button>':'<span class="tag good">✅ 모두 일치</span> <span class="small mut">저장된 배정 = 각자 폰의 카드</span>')+'</div>';})()+
     '<p class="small" style="margin-top:6px">추첨 완료 '+(PLAYERS.length-undrawn.length)+'/'+PLAYERS.length+(undrawn.length?' · 대기: '+undrawn.map(esc).join(', '):'')+'</p>'+
     '<div class="chips" style="margin-top:8px">'+PLAYERS.map(function(n){var hh=heroByName(n);return '<span class="chip'+(hh?'':' dim')+'">'+(hh?hh.em+' ':'')+esc(n)+(hh?' · '+hh.hero:'')+'</span>';}).join('')+'</div></div>';
+}
+function waitTimer(){
+  if(S.waitT)return '';
+  S.waitT=setTimeout(function(){S.waitT=null;render();},12500);
+  return '';
 }
 function viewPower(){
   var used=(S.pub.used&&S.pub.used.used)||{},c=A().content,f=S.pub.flags||{};
@@ -1186,7 +1210,7 @@ function viewPower(){
   }else{
     var waiting=p&&p.drawReq;
     mine='<div class="card drawbox"><div class="back'+(waiting?' shuf':'')+'">?</div>'+
-      (waiting?'<p><b>카드를 섞는 중…</b></p><p class="small mut">관리자('+HOST+') 화면이 켜져 있어야 카드가 도착해요.</p>':
+      (waiting?'<p><b>카드를 섞는 중…</b></p><p class="small mut">관리자('+HOST+') 화면이 켜져 있어야 카드가 도착해요.</p>'+((Date.now()-(p.drawReq||0)>12000)?'<div class="note" style="text-align:left;margin-top:10px">아직 도착하지 않았어요 😥<br><span class="small">관리자 화면이 켜져 있고 인터넷이 연결돼 있으면 곧 도착해요. 계속 안 오면 아래 버튼으로 다시 요청해 주세요.</span><br><button class="btn hot" style="margin-top:8px" data-act="drawRetry">🔁 다시 요청하기</button></div>':(waitTimer()||'')):
        f.drawOpen?'<p><b>카드를 뽑을 시간이에요!</b></p><button class="btn hot block" style="margin-top:10px" data-act="draw">초능력 카드 뽑기</button>':
        '<p><b>아직 뽑기 전이에요</b></p><p class="small mut">집결 시간에 관리자가 뽑기를 열어줘요.</p>')+'</div>';
   }
@@ -2360,7 +2384,8 @@ async function handle(act,v,t){
       if(f.drawOpen)announce('announce','🎴 초능력 카드 추첨 시작!',{emoji:'🔮',lines:['“초능력 뽑기” 메뉴에서 카드를 뽑아주세요'],go:'power',goLabel:'🔮 초능력 뽑기로 이동'},'🎴 초능력 카드 추첨이 시작됐어요!!!! 초능력 뽑기 메뉴에서 카드를 뽑아주세요');
       break;}
     case 'resync':adminOff();adminSubs();toast('🔄 실시간 연결을 다시 만들었어요');break;
-    case 'dealFix':reconcileDeals();toast('🔧 카드를 다시 맞추는 중이에요');break;
+    case 'dealFix':S.dealing=false;S.dealErr=null;reconcileDeals();toast('🔧 카드를 다시 맞추는 중이에요');break;
+    case 'drawRetry':try{await S.db.doc('players/'+S.uid).update({drawReq:Date.now()});toast('다시 요청했어요');}catch(er){toast('요청 실패: '+(er.message||er.code));}break;
     case 'revealUse':revealUse(v);break;
     case 'sampleAssign':ask('현재 초능력 배정과 사용 기록이 샘플로 바뀌어요. 랜덤 배정할까요?',function(){sampleAssign();render(true);});return;
     case 'sampleTeams':sampleTeams();break;
