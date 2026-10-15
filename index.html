@@ -344,6 +344,13 @@ var MENU=[
   {id:'ow',t:'PC방',i:'🎮'},
   {id:'award',t:'시상식',i:'🏆'}
 ];
+var NOTICES=[
+  {t:'초능력 카드 추첨',m:'초능력 카드 추첨 시간입니다. 카드를 뽑아주세요'},
+  {t:'점심 시간',m:'점심 맛있게 드세요 :)'},
+  {t:'볼링장으로 이동',m:'서현역 스트라이크300 으로 이동해주세요. 안전 운전!!'},
+  {t:'PC방 이동',m:'서현 제로백PC방으로 이동해주세요. 안전 운전!!'},
+  {t:'마지막 멘트',m:'즐거운 하루였어요. 브랜딩팀 쵝오~'}
+];
 var GAME={bowl1:'볼링 1세트',bowl2:'볼링 2세트',ow1:'오버워치 1경기',ow2:'오버워치 2경기'};
 var CATN={lunch:'점심',bowl:'볼링',ow:'PC방',power:'초능력',bag:'가방',other:'기타'};
 var BOWL_WIN=[3,3,4,4,5],BOWL_LOSE=[1,2,2,3,3],OW_WIN=[3,3,4,4,5],OW_LOSE=[2,2,3,3,3];
@@ -580,8 +587,8 @@ function chatListHTML(){
 function viewChat(){
   var h='<h2 class="h2" style="margin-top:6px">💬 실시간 채팅</h2>';
   if(S.admin){
-    h+='<div class="card flat"><div class="small mut" style="margin-bottom:6px">📢 일정 알림 (눌러서 바로 전체 공지)</div><div class="chips">'+
-      SCHEDULE.map(function(s,i){return '<button class="chip" data-act="notice" data-v="'+i+'">'+s[2]+' '+s[0].split('~')[0]+' '+s[1]+'</button>';}).join('')+'</div></div>';
+    h+='<div class="card flat"><div class="small mut" style="margin-bottom:6px">📢 공지 알림 (눌러서 바로 전체 공지)</div><div class="chips">'+
+      NOTICES.map(function(n,i){return '<button class="chip" data-act="notice" data-v="'+i+'">'+esc(n.t)+'</button>';}).join('')+'</div></div>';
   }
   h+='<div id="chatlist" class="chat">'+chatListHTML()+'</div>';
   if(S.me){
@@ -1960,7 +1967,7 @@ async function handle(act,v,t){
     case 'bc':S.broadcast=!S.broadcast;break;
     case 'chatSend':sendChat();return;
     case 'asNotice':u.asNotice=!u.asNotice;break;
-    case 'notice':{var s=SCHEDULE[+v];postChat('notice','⏰ '+s[1]+' 시간이에요! ('+s[0]+')','공지');toast('공지를 보냈어요');return;}
+    case 'notice':{var nt=NOTICES[+v];if(nt){postChat('notice',nt.m,'공지');toast('공지를 보냈어요');}return;}
     case 'manD':u.manual.d=+v;break;
     case 'manAdd':
       if(!u.manual.name)return toast('대상을 선택하세요');
