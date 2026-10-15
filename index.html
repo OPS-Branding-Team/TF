@@ -537,7 +537,7 @@ async function init(){
     if(!S.admin||!S.db||S.resetting)return;
     if(S.dealing&&Date.now()-(S.dealStart||0)>25000)S.dealing=false;     // 멈춰 있으면 풀어줘요
     adminTick();
-  },5000);
+  },10000);
   render(true);
 }
 function subErr(e){S.err=(e&&e.code)||'error';render();}
@@ -547,16 +547,12 @@ function startSubs(){
     var m={};s.docs.forEach(function(d){m[d.id]=clone(d.data());});
     handlePub(m);
   },subErr);
-  db.collection('players').onSnapshot(function(s){
-    var m={};s.docs.forEach(function(d){m[d.id]=d.data();});
-    S.players=m;
-    var mine=m[S.uid];S.me=mine?mine.name:null;
-    syncDeal(true);
-    var isA=(S.me===HOST);
-    if(isA&&!S.admin){S.admin=true;A().retry=0;adminSubs();}
-    if(!isA&&S.admin){S.admin=false;adminOff();if(S.view==='score')S.view='home';}
-    render();adminTick();
+  db.doc('players/'+S.uid).onSnapshot(function(s){      // 내 접속 정보 하나만 구독해요 (다른 사람 변경으로 읽기가 늘지 않게)
+    var m=Object.assign({},S.players);
+    if(s.exists)m[S.uid]=s.data();else delete m[S.uid];
+    S.players=m;playersChanged();
   },subErr);
+
   db.doc('deal/'+S.uid).onSnapshot(function(s){
     S.dealRaw=s.exists?clone(s.data()):null;
     syncDeal(true);
@@ -565,7 +561,7 @@ function startSubs(){
   db.doc('myscore/'+S.uid).onSnapshot(function(s){
     S.myscoreErr=null;S.myscore=s.exists?clone(s.data()):null;render();
   },function(e){S.myscoreErr=(e&&e.code)||'error';render();});
-  db.collection('chat').recent(150,function(s){
+  db.collection('chat').recent(30,function(s){
     var prevLast=S.chat.length?S.chat[S.chat.length-1].ts:0,first=!S.chatLoaded;
     S.chat=s.docs.map(function(d){var x=d.data();x.id=d.id;return x;}).sort(function(a,b){return a.ts-b.ts;});
     S.chatLoaded=true;
@@ -584,6 +580,14 @@ function maybeDealPop(){
   if(S.me===HOST||!S.deal||!p||!p.drawReq||Date.now()-p.drawReq>15000||S.dealPopFor===S.deal.ts)return;
   S.dealPopFor=S.deal.ts;
   showPop({id:'deal'+S.deal.ts,kind:'mydeal',title:'나의 초능력',payload:{hero:S.deal.hero}});
+}
+function playersChanged(){
+  var mine=S.players[S.uid];S.me=mine?mine.name:null;
+  syncDeal(true);
+  var isA=(S.me===HOST);
+  if(isA&&!S.admin){S.admin=true;A().retry=0;adminSubs();}
+  if(!isA&&S.admin){S.admin=false;adminOff();if(S.view==='score')S.view='home';}
+  render();adminTick();
 }
 function syncDeal(announce){
   S.deal=(S.dealRaw&&S.dealRaw.name===S.me)?S.dealRaw:null;     // 다른 사람 이름의 카드는 내 카드로 보여주지 않아요
@@ -637,12 +641,16 @@ function adminSubs(){
     A().state.assign=(m.assign&&m.assign.map)||{};
     render();adminTick();
   },fail));
+  A().unsub.push(S.db.collection('players').onSnapshot(function(s){
+    var m={};s.docs.forEach(function(d){m[d.id]=d.data();});
+    S.players=m;playersChanged();
+  },fail));
   A().unsub.push(S.db.collection('deal').onSnapshot(function(s){
     var m={};s.docs.forEach(function(d){m[d.id]=d.data();});
     A().deals=m;A().loaded.deals=true;A().lastSync=Date.now();render();adminTick();
   },fail));
 }
-function adminOff(){A().unsub.forEach(function(u){try{u();}catch(e){}});A().unsub=[];A().loaded={};}
+function adminOff(){A().unsub.forEach(function(u){try{u();}catch(e){}});A().unsub=[];A().loaded={};var me0=S.players[S.uid];S.players=me0?(function(){var o={};o[S.uid]=me0;return o;})():{};}
 
 /* =============== 저장 큐 =============== */
 var Qp=Promise.resolve();
@@ -660,7 +668,13 @@ function enqueue(fn){
     .then(function(){S.busy--;updateBusy();});
   return Qp;
 }
-function put(path,data){var d=clone(data);return enqueue(function(){return S.db.doc(path).set(d);});}
+var pendingPut={};
+function put(path,data){            // 같은 문서를 연달아 저장하면 한 번으로 합쳐요 (쓰기 횟수 절약)
+  var d=clone(data);
+  if(pendingPut[path]){pendingPut[path].data=d;return Qp;}
+  var rec={data:d};pendingPut[path]=rec;
+  return enqueue(function(){var x=rec.data;delete pendingPut[path];return S.db.doc(path).set(x);});
+}
 /* 관리자 화면이 여러 개여도 점수 기록이 서로 덮어쓰이지 않도록, 저장할 때마다 서버 기록과 합쳐요 */
 function mergeLedger(cur,loc){
   var s=cur||{},l=loc||{};
@@ -677,9 +691,13 @@ function mergeLedger(cur,loc){
   var list=Object.keys(ev).map(function(k){return ev[k];}).sort(function(a,b){return a.ts-b.ts;});
   return {gen:s.gen||l.gen||'',evts:list,entries:entries,del:del};
 }
+var ledgerQueued=false;
 function saveLedger(){
   schedSync();
+  if(ledgerQueued)return Qp;          // 이미 저장 대기 중이면 그 저장에 함께 실려요
+  ledgerQueued=true;
   return enqueue(function(){
+    ledgerQueued=false;
     return S.db.transact('adminonly/ledger',function(cur){return mergeLedger(cur,clone(L()));})
       .then(function(res){if(res)A().ledger=mergeLedger(res,L());});
   });
@@ -829,8 +847,24 @@ function closePop(){S.pop=null;renderPop();}
 
 /* =============== 초능력 카드 자동 지급 (관리자 화면) =============== */
 function adminTick(){if(S.admin&&!S.resetting){reconcileDeals();processUses();schedSync();}}
+/* 서버를 건드리기 전에, 지금 정말 처리할 일이 있는지 이 화면의 기억만으로 먼저 확인해요 */
+function needsReconcile(){
+  var a=A();
+  if(!S.db||!a.content||!a.loaded.main||!a.loaded.deals)return false;
+  var as=a.state.assign||{},fl=S.pub.flags||{},uids=Object.keys(S.players),k;
+  for(k=0;k<uids.length;k++){
+    var uid=uids[k],p=S.players[uid];if(!p)continue;
+    var want=as[p.name],dl=a.deals[uid];
+    if(want){if(!dl||dl.hero!==want||dl.name!==p.name)return true;}
+    else if(p.drawReq&&fl.drawOpen)return true;
+  }
+  var dk=Object.keys(a.deals);
+  for(k=0;k<dk.length;k++){var d=a.deals[dk[k]],pl=S.players[dk[k]];if(d&&(as[d.name]!==d.hero||!pl||pl.name!==d.name))return true;}
+  return false;
+}
 async function reconcileDeals(){
   if(S.dealing){S.dealAgain=true;return;}
+  if(!needsReconcile())return;
   var a=A();
   if(S.resetting||!S.db||!a.content||!a.loaded.main||!a.loaded.deals||!a.state)return;
   S.dealing=true;S.dealStart=Date.now();
@@ -843,26 +877,28 @@ async function reconcileDeals(){
         if(S.resetting||ep!==(S.epoch||0)){S.dealAgain=!S.resetting;break;}
         var uid=uids[i],p=S.players[uid];
         if(!p)continue;
-        if(!p.drawReq&&!a.state.assign[p.name])continue;
-        // 서버에 저장하는 그 순간에 "뽑기가 열려 있는지"와 "이 사람의 뽑기 요청이 아직 있는지"를 다시 확인해요
-        // (초기화 직후 늦게 도착한 옛 요청으로 임의 배정되는 일을 막아요)
-        var tr=await withTimeout(S.db.transactMulti(['adminonly/assign','public/flags','players/'+uid],function(d){
-          var map=clone((d[0]&&d[0].map)||{}),fl=d[1]||{},pl=d[2];
-          if(map[p.name])return {hero:map[p.name]};
-          if(!fl.drawOpen||!pl||pl.name!==p.name||!pl.drawReq)return {hero:null};
-          var h2;
-          if(p.name===HOST)h2='mercy';                       // 이유정은 항상 메르시 (본인이 뽑기를 눌렀을 때)
-          else{
-            var taken=Object.keys(map).map(function(k){return map[k];});
-            var pool=HEROES.map(function(h){return h.id;}).filter(function(id){return id!=='mercy'&&taken.indexOf(id)<0;});
-            if(!pool.length)return {hero:null};
-            h2=pool[rnd(pool.length)];
-          }
-          map[p.name]=h2;
-          return {hero:h2,write:{path:'adminonly/assign',data:{map:map}}};
-        }),15000,'카드 배정');
-        var hero=tr&&tr.hero;
-        if(tr&&tr.write)a.state.assign=tr.write.data.map;else if(hero)a.state.assign[p.name]=hero;
+        var hero=a.state.assign[p.name];
+        if(!hero){
+          // (보험) 아직 배정되지 않은 사람이 뽑기를 눌렀을 때만 서버에서 확인하며 배정해요
+          if(!p.drawReq||!(S.pub.flags&&S.pub.flags.drawOpen))continue;
+          var tr=await withTimeout(S.db.transactMulti(['adminonly/assign','public/flags','players/'+uid],function(d){
+            var map=clone((d[0]&&d[0].map)||{}),fl=d[1]||{},pl=d[2];
+            if(map[p.name])return {hero:map[p.name]};
+            if(!fl.drawOpen||!pl||pl.name!==p.name||!pl.drawReq)return {hero:null};
+            var h2;
+            if(p.name===HOST)h2='mercy';                       // 이유정은 항상 메르시 (본인이 뽑기를 눌렀을 때)
+            else{
+              var taken=Object.keys(map).map(function(k){return map[k];});
+              var pool=HEROES.map(function(h){return h.id;}).filter(function(id){return id!=='mercy'&&taken.indexOf(id)<0;});
+              if(!pool.length)return {hero:null};
+              h2=pool[rnd(pool.length)];
+            }
+            map[p.name]=h2;
+            return {hero:h2,write:{path:'adminonly/assign',data:{map:map}}};
+          }),15000,'카드 배정');
+          hero=tr&&tr.hero;
+          if(tr&&tr.write)a.state.assign=tr.write.data.map;else if(hero)a.state.assign[p.name]=hero;
+        }
         if(!hero)continue;
         if(S.resetting||ep!==(S.epoch||0)){S.dealAgain=!S.resetting;break;}
         var dl=a.deals[uid];
@@ -903,7 +939,12 @@ function syncScores(){
     var items=L().entries.filter(function(e){return e.name===p.name;}).map(function(e){return {l:e.note,d:e.d,c:e.cat,t:e.ts};});
     var key=JSON.stringify([p.name,items]);
     if(syncCache[uid]===key)return;
-    if(!items.length&&syncCache[uid]===undefined)return;
+    if(!items.length){                                   // 받은 점수가 없으면 문서를 만들지 않고, 있던 문서는 지워요
+      var had=syncCache[uid]!==undefined;
+      syncCache[uid]=key;
+      if(had)enqueue(function(){return S.db.doc('myscore/'+uid).delete();});
+      return;
+    }
     syncCache[uid]=key;
     var total=items.reduce(function(a,x){return a+x.d;},0);
     enqueue(function(){return S.db.doc('myscore/'+uid).set({name:p.name,total:total,items:items,ts:Date.now()});});
@@ -1018,11 +1059,10 @@ function banner(){
 
 /* ---------- 로그인 / 초기 설정 ---------- */
 function viewLogin(){
-  var u=S.ui,online={};
-  Object.keys(S.players).forEach(function(k){online[S.players[k].name]=true;});
+  var u=S.ui;
   return '<div class="login"><h1>TF 원데이 워크숍</h1><p class="mut">내 이름을 고르고 DM으로 받은 PIN 4자리를 입력하세요.</p>'+
     '<div class="namegrid">'+PLAYERS.map(function(n){
-      return '<button class="'+(u.loginName===n?'on':'')+'" data-act="sel" data-k="ui.loginName" data-v="'+esc(n)+'">'+esc(n)+'<small>'+(online[n]?'접속 중':'아직 입장 전')+'</small></button>';
+      return '<button class="'+(u.loginName===n?'on':'')+'" data-act="sel" data-k="ui.loginName" data-v="'+esc(n)+'">'+esc(n)+'</button>';
     }).join('')+'</div>'+
     '<input class="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••" data-bind="ui.pin" value="'+esc(u.pin)+'" autocomplete="off">'+
     '<button class="btn block hot" data-act="login"'+(u.busy?' disabled':'')+'>'+(u.busy?'확인 중…':'입장하기')+'</button>'+
@@ -1463,6 +1503,17 @@ function sampleCard(){
     '<div class="row"><button class="btn ghost" data-act="sampleAssign">초능력 10종 랜덤 배정</button><button class="btn ghost" data-act="sampleTeams">샘플 팀</button><button class="btn ghost" data-act="samplePoints">샘플 점수</button><button class="btn ghost" data-act="sampleClear">샘플 점수 지우기</button></div>'+
     '<p class="small mut" style="margin-top:8px">· <b>초능력 배정</b>: 10명에게 10종을 랜덤 배정하고 로그인한 사람에게 카드를 바로 보내요. 기존 배정·사용 기록은 바뀌어요.<br>· <b>샘플 팀</b>: 점심·볼링 1세트·PC방 1경기 팀을 조용히(팝업 없이) 만들어요. 시메트라·루시우 테스트용이에요.<br>· <b>샘플 점수</b>: 참가자마다 랜덤 점수를 넣어 점수판을 채워요.</p>');
 }
+function dupPlayers(){
+  var by={},list=[];
+  Object.keys(S.players).forEach(function(uid){var p=S.players[uid];if(!p||!p.name)return;(by[p.name]=by[p.name]||[]).push({uid:uid,ts:p.ts||0});});
+  Object.keys(by).forEach(function(n){var l=by[n].sort(function(a,b){return b.ts-a.ts;});for(var i=1;i<l.length;i++)list.push(l[i].uid);});
+  return list;
+}
+function gcCard(){
+  var d=dupPlayers();
+  return tool('🧹 접속 기록 정리','같은 이름으로 여러 번 로그인한 옛 기록이 쌓이면 서버 사용량이 늘어요. 가장 최근 로그인만 남기고 정리해요. (현재 접속 기록 '+Object.keys(S.players).length+'건 · 정리 대상 '+d.length+'건)',
+    '<button class="btn block '+(d.length?'hot':'ghost')+'" data-act="gcPlayers"'+(d.length?'':' disabled')+'>중복 접속 기록 '+d.length+'건 정리</button><p class="small mut" style="margin-top:6px">⚠️ 같은 사람이 두 기기를 동시에 쓰는 중이면 오래된 쪽이 로그아웃돼요. 행사 시작 전에 한 번만 눌러 주세요.</p>');
+}
 function viewScore(){
   var T=calc(),R=rank(T),f=S.ui.focus;
   var h='<h2 class="h2" style="margin-top:6px">🧮 실시간 점수</h2><p class="mut small">점수는 각 메뉴(점심·볼링·PC방·초능력·시상식)에서 입력하면 여기에 바로 반영돼요.</p>';
@@ -1484,6 +1535,7 @@ function viewScore(){
     '<div class="chips">'+PLAYERS.map(function(n){return '<button class="chip'+(S.ui.gpool[n]===false?' dim':' on')+'" data-act="tog" data-k="ui.gpool" data-v="'+esc(n)+'" data-def="1">'+esc(n)+'</button>';}).join('')+'</div>'+
     '<div class="row" style="margin-top:8px">뽑을 인원 '+[1,2,3,4,5].map(function(n){return '<button class="chip'+(S.ui.gn===n?' on':'')+'" data-act="gn" data-v="'+n+'">'+n+'</button>';}).join('')+'</div>'+
     '<button class="btn hot block" data-act="tPick">'+pool.length+'명 중 '+S.ui.gn+'명 뽑기 · 공개</button>');
+  h+=gcCard();
   h+=sampleCard();
   h+=seedCard();
   h+=tool('🧹 테스트용 전체 초기화','점수, 팀, 초능력 배정, 공개 상태, 채팅을 모두 지워요. 참가자 로그인과 PIN은 유지돼요.','<button class="btn bad block" data-act="resetAll">전체 초기화</button>');
@@ -2357,7 +2409,9 @@ document.addEventListener('input',function(e){
 document.addEventListener('compositionstart',function(){S.composing=true;});
 document.addEventListener('compositionend',function(){S.composing=false;if(S.pending)setTimeout(function(){render();},50);});
 document.addEventListener('visibilitychange',function(){
-  if(!document.hidden&&S.admin&&S.db){adminOff();adminSubs();}      // 화면을 다시 켰을 때 실시간 연결을 새로 만들어요
+  if(document.hidden){S.hiddenAt=Date.now();return;}
+  // 오래(90초 이상) 꺼져 있다가 돌아왔을 때만 실시간 연결을 새로 만들어요 (잦은 재연결 = 읽기 낭비)
+  if(S.admin&&S.db&&S.hiddenAt&&Date.now()-S.hiddenAt>90000){adminOff();adminSubs();}
 });
 document.addEventListener('keydown',function(e){
   if(e.key==='Enter'&&e.target&&e.target.id==='chatin'){e.preventDefault();sendChat();}
@@ -2497,6 +2551,12 @@ async function handle(act,v,t){
       }
       break;}
     case 'resync':adminOff();adminSubs();toast('🔄 실시간 연결을 다시 만들었어요');break;
+    case 'gcPlayers':{
+      var dups=dupPlayers();
+      ask('옛 접속 기록 '+dups.length+'건을 정리할까요? (가장 최근 로그인만 남아요)',async function(){
+        await Promise.all(dups.map(function(uid){return Promise.all([S.db.doc('players/'+uid).delete().catch(function(){}),S.db.doc('myscore/'+uid).delete().catch(function(){}),S.db.doc('deal/'+uid).delete().catch(function(){})]);}));
+        toast('🧹 '+dups.length+'건을 정리했어요');render(true);
+      });return;}
     case 'dealFix':S.dealing=false;S.dealErr=null;reconcileDeals();toast('🔧 카드를 다시 맞추는 중이에요');break;
     case 'drawRetry':try{await S.db.doc('players/'+S.uid).update({drawReq:Date.now()});toast('다시 요청했어요');}catch(er){toast('요청 실패: '+(er.message||er.code));}break;
     case 'revealUse':revealUse(v);break;
