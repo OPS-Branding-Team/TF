@@ -291,6 +291,8 @@ details.pl .bd{padding:0 12px 12px}
 .rbtn .em{font-size:30px}
 .note.qadm{margin-top:10px}
 
+.via{margin:0 0 10px;padding:8px 12px;border-radius:12px;background:#ffd23f;color:#1a1400;font-weight:700;font-size:14px}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
@@ -657,7 +659,7 @@ function setTeams(key,groups,note,title,extra){
   S.pub.teams=T;saveTeams();
   var p={groups:groups,note:note};
   if(extra)Object.assign(p,extra);
-  announce('teams',title,p,title+' — '+groups.map(function(g){return g.n+' ('+g.m.join(', ')+')';}).join(' / '));
+  announce('teams',title,p,(p.via?'⏪ '+p.via+' ':'')+title+' — '+groups.map(function(g){return g.n+' ('+g.m.join(', ')+')';}).join(' / '));
 }
 function holderOf(hero){var as=A().state.assign;for(var n in as)if(as[n]===hero)return n;return null;}
 function heroByName(n){var h=A().state.assign[n];return h?heroOf(h):null;}
@@ -1094,6 +1096,7 @@ function usePanel(x){
   var id=x.id;
   if(id==='sigma')h+='<p class="small">① 본인 포함 여부를 정하세요</p><div class="chips"><button class="chip'+(uo.inc===true?' on':'')+'" data-act="sel" data-k="ui.use.inc" data-v="1">본인 포함 (나 ↔ 무작위 1명)</button><button class="chip'+(uo.inc===false?' on':'')+'" data-act="sel" data-k="ui.use.inc" data-v="0">본인 제외 (무작위 2명 교환)</button></div>';
   if(id==='moira'||id==='cassidy'||id==='symmetra')h+='<p class="small">'+(id==='moira'?'① 점수를 빼앗을 사람':id==='cassidy'?'① 결투를 신청할 사람':'① 팀을 바꿀 사람')+'</p>'+chipsSel(PLAYERS,'ui.use.target',uo.target,S.me);
+  if(id==='tracer')return h+'<p class="small">시간을 되돌려 <b>점수 봉투 또는 팀 배정 추첨 중 하나</b>를 다시 뽑아요. 버튼을 누르면 어떤 추첨을 되돌릴지 고르는 창이 떠요.</p><button class="btn hot block" data-act="tracerOpen">⏪ 시간 되돌리기 (재추첨 선택)</button></div>';
   if(id==='reinhardt')return h+'<p class="small">공격받았다면 <b>직전에 발동된 초능력 2건</b> 중 막을 것을 고를 수 있어요.</p><div class="row"><button class="btn hot" data-act="reinOpen">🛡️ 공격받아 방어!</button><button class="btn ghost" data-act="reinBonus">방어 안 함 (+1점)</button></div></div>';
   return h+'<button class="btn hot block" style="margin-top:12px" data-act="useGo">📢 공개!</button></div>';
 }
@@ -1183,20 +1186,20 @@ function viewOw(){
   if(S.admin)h+=owAdmin('ow1')+owAdmin('ow2');
   h+='<h3 class="h3">경기 구성</h3><div class="card"><table class="tbl"><tr><th>경기</th><th>진행</th><th>추가 보상</th></tr><tr><td>1경기</td><td>랜덤 5:5 대결</td><td>승부 예측 성공 +1</td></tr><tr><td>2경기</td><td>팀 변경 후 5:5 대결</td><td>승부 예측 성공 +1</td></tr></table></div>'+
    '<h3 class="h3">기본 점수</h3>'+baseTable('2 / 2 / 3 / 3 / 3')+
-   '<h3 class="h3">🔮 승부 예측</h3><div class="card"><ul class="dots"><li>팀이 정해지면 각자 폰에 <b>“우리 팀이 이길 것 같나요, 질 것 같나요?”</b> 투표가 떠요.</li><li>예측이 맞으면 +1점 / 틀리면 0점.</li><li>투표는 선택 사항이며 경기마다 1회 가능해요.</li><li>투표가 마감되면 모두의 예측이 공개돼요.</li></ul></div>';
+   '<h3 class="h3">🔮 승부 예측</h3><div class="card"><ul class="dots"><li>팀이 정해진 뒤 관리자가 투표를 시작하면 각자 폰에 <b>“우리 팀이 이길 것 같나요, 질 것 같나요?”</b> 투표가 떠요.</li><li>예측이 맞으면 +1점 / 틀리면 0점.</li><li>투표는 선택 사항이며 경기마다 1회 가능해요.</li><li>투표가 마감되면 모두의 예측이 공개돼요.</li></ul></div>';
   return h;
 }
 function owAdmin(key){
   var t=team(key),res=S.pub.results&&S.pub.results[key],v=S.pub.vote,isCur=!!(v&&v.key===key),open=isCur&&v.open;
-  var h='<div class="card tool"><h3>🛠 '+GAME[key]+' 진행'+(res?' <span class="tag good">종료</span>':'')+'</h3><p class="mut small">① 팀 랜덤 배정(모두의 폰에 실시간 공개 + 예측 투표 시작) → ② 경기 후 승리팀 선택(점수 자동 반영)</p>'+
+  var h='<div class="card tool"><h3>🛠 '+GAME[key]+' 진행'+(res?' <span class="tag good">종료</span>':'')+'</h3><p class="mut small">① 팀 랜덤 배정(모두의 폰에 실시간 공개) → ② 📱 투표 시작 → ③ 투표 마감 → ④ 경기 후 승리팀 선택(점수 자동 반영)</p>'+
     '<button class="btn '+(t?'ghost':'hot')+' block" data-act="owDraw" data-v="'+key+'">'+(t?'🔄 이미 뽑았어요 · 다시 뽑을까요?':'① 🎲 팀 랜덤 배정 · 전체 공개 (심승선 · 최우재 팀장)')+'</button>';
   if(t){
     h+=teamBlock(key);
-    h+='<p class="small" style="margin-top:12px"><b>② 경기 결과</b> — 승리팀을 선택하면 기본 점수와 예측 점수가 자동 계산돼요.</p><div class="row">'+
+    h+='<p class="small" style="margin-top:12px"><b>④ 경기 결과</b> — 승리팀을 선택하면 기본 점수와 예측 점수가 자동 계산돼요.</p><div class="row">'+
       t.groups.map(function(g,gi){return '<button class="btn '+(res&&res.team===gi?'good':'ghost')+'" data-act="owResult" data-v="'+key+':'+gi+'">'+esc(g.n)+' 승리</button>';}).join('')+'</div>';
     if(res)h+='<p class="small" style="margin-top:8px"><b>반영됨</b> · 기본 '+evtPoints('base:'+key).map(function(e){return esc(e.name)+' '+e.d;}).join(' · ')+(hasEvt('pred:'+key)?'<br>예측 성공 · '+(evtPoints('pred:'+key).map(function(e){return esc(e.name);}).join(', ')||'없음'):'')+'</p>';
     var lv=liveVotes(key),done=Object.keys(lv).length;
-    h+='<p class="small" style="margin-top:14px"><b>📱 승부 예측 투표</b> '+(open?'<span class="tag hot">진행 중</span>':(isCur?'<span class="tag good">마감됨</span>':'<span class="tag">시작 전</span>'))+' · 투표 완료 '+done+'/10명</p>';
+    h+='<p class="small" style="margin-top:14px"><b>📱 ②③ 승부 예측 투표</b> '+(open?'<span class="tag hot">진행 중</span>':(isCur?'<span class="tag good">마감됨</span>':'<span class="tag">시작 전</span>'))+' · 투표 완료 '+done+'/10명</p>';
     t.groups.forEach(function(g){
       h+='<div class="betgrp"><span class="tag pri">'+esc(g.n)+'</span>'+g.m.map(function(n){
         var b=getBet(key,n),waiting=open&&!lv[n]&&!b;
@@ -1348,7 +1351,7 @@ function renderPop(){
       big=true;
       inner=(p.emoji?'<div class="emo">'+p.emoji+'</div>':'')+'<div class="lines">'+(p.lines||[]).map(function(l){return '<p>'+esc(l)+'</p>';}).join('')+'</div>'+(p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'');
   }
-  el.innerHTML='<div class="ov" data-act="popClose"><div class="box'+(big?' big':'')+'" data-stop="1"><h3>'+esc(ev.title||'')+'</h3>'+inner+'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button></div></div>';
+  el.innerHTML='<div class="ov" data-act="popClose"><div class="box'+(big?' big':'')+'" data-stop="1"><h3>'+esc(ev.title||'')+'</h3>'+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button></div></div>';
   if(ev.kind==='dice')rollDice(ev);
   if(ev.kind==='draw')runDraw(ev);
 }
@@ -1409,9 +1412,9 @@ function clearBowl(){
   L().evts.filter(function(e){return e.cat==='bowl';}).forEach(function(e){delEvt(e.id,true);});
   saveLedger();S.ui.scout=null;
 }
-function tBowl1(){
+function tBowl1(via){
   var pl=shuffle(PLAYERS);
-  setTeams('bowl1',[{n:'A팀',m:pl.slice(0,5)},{n:'B팀',m:pl.slice(5,10)}],'1세트 팀이 정해졌어요!','🎳 볼링 1세트 팀');
+  setTeams('bowl1',[{n:'A팀',m:pl.slice(0,5)},{n:'B팀',m:pl.slice(5,10)}],'1세트 팀이 정해졌어요!','🎳 볼링 1세트 팀',via?{via:via}:null);
 }
 function mtSave(){
   var mt=S.ui.mt;
@@ -1438,7 +1441,7 @@ function addPools(pool,members,assign,vals,kind){
 }
 
 /* =============== 관리자: 볼링 세트 결과 / 스카우트·방출 / 럭키 찬스 =============== */
-function bowlResult(key,gi){
+function bowlResult(key,gi,via){
   var t=team(key);if(!t)return toast('먼저 팀을 만들어 주세요');
   var win=t.groups[gi].m.slice(),lose=t.groups[1-gi].m.slice(),assign={},items=[];
   var wv=shuffle(BOWL_WIN),lv=shuffle(BOWL_LOSE);
@@ -1447,8 +1450,8 @@ function bowlResult(key,gi){
   addEvt(GAME[key]+' 기본 점수','bowl',items,{id:'base:'+key});
   var R=clone(S.pub.results)||{};R[key]={win:win,team:gi};S.pub.results=R;saveResults();
   var pool={};addPools(pool,win,assign,BOWL_WIN,'win');addPools(pool,lose,assign,BOWL_LOSE,'lose');
-  announce('private','✉️ '+GAME[key]+' 점수 봉투',{assign:assign,pool:pool,unit:'점',fmt:'plain',label:'기본 점수'},
-    '🎳 '+GAME[key]+' 결과!!!! '+t.groups[gi].n+' 승리! ('+win.join(', ')+')');
+  announce('private','✉️ '+GAME[key]+' 점수 봉투'+(via?' (다시 뽑기)':''),{assign:assign,pool:pool,unit:'점',fmt:'plain',label:'기본 점수',via:via||''},
+    (via?'⏪ '+via+' ':'')+'🎳 '+GAME[key]+' 결과!!!! '+t.groups[gi].n+' 승리! ('+win.join(', ')+')');
   S.ui.scout=null;
 }
 function scoutStart(){
@@ -1459,24 +1462,27 @@ function scoutStart(){
   announce('announce','🔁 2세트 팀 뽑기',{emoji:'🔁',lines:[ln+'(패배팀)이 '+wn+'(승리팀)에서 한 명을 영입해요!','패배팀 영입할 선수를 골라주세요']},
     '🔁 2세트 팀 뽑기! '+ln+'(패배팀)이 영입할 선수를 고르고 있어요');
 }
-function scoutPick(target){
+function scoutPick(target){scoutDraw(target,null);}
+function scoutDraw(target,via){
   var t=team('bowl1'),r1=S.pub.results&&S.pub.results.bowl1;
-  if(!t||!r1||r1.team==null)return toast('1세트 승리팀을 먼저 선택하세요');
-  if(S.ui.scout&&S.ui.scout.stage==='drawing')return;
+  if(!t||!r1||r1.team==null)return {ok:false,msg:'1세트 승리팀을 먼저 선택하세요'};
+  if(!via&&S.ui.scout&&S.ui.scout.stage==='drawing')return {ok:true};
   var wi=r1.team,li=1-wi;
-  if(t.groups[wi].m.indexOf(target)<0)return toast('승리팀 선수를 선택하세요');
+  if(t.groups[wi].m.indexOf(target)<0){toast('승리팀 선수를 선택하세요');return {ok:false,msg:'승리팀 선수를 선택하세요'};}
   var lose=t.groups[li].m.slice(),out=lose[rnd(lose.length)],g=clone(t.groups);
   g[li].m=g[li].m.filter(function(n){return n!==out;}).concat([target]);
   g[wi].m=g[wi].m.filter(function(n){return n!==target;}).concat([out]);
   var ln=t.groups[li].n;
+  A().state.scoutTarget=target;saveState();
   S.ui.scout={stage:'drawing',target:target,out:out};
-  announce('draw','🥁 방출 추첨!',{intro:ln+'이(가) '+target+' 님을 영입했어요! 패배팀에서 방출되는 사람은… 두구두구 누구!',pool:lose,
-    slots:[{label:'영입',name:target,spin:false},{label:'방출',name:out,spin:true}],note:out+' 님 방출! '+target+' ↔ '+out+' 팀 교환'},null);
+  announce('draw','🥁 방출 추첨!'+(via?' (다시 뽑기)':''),{intro:ln+'이(가) '+target+' 님을 영입했어요! 패배팀에서 방출되는 사람은… 두구두구 누구!',pool:lose,
+    slots:[{label:'영입',name:target,spin:false},{label:'방출',name:out,spin:true}],note:out+' 님 방출! '+target+' ↔ '+out+' 팀 교환',via:via||''},null);
   setTimeout(function(){
     setTeamsQuiet('bowl2',g);
-    sysChat('🥁 방출 추첨 결과: '+out+' 님 방출!!!! ('+target+' ↔ '+out+' 팀 교환) · 2세트 팀 → '+g.map(function(x){return x.n+' ('+x.m.join(', ')+')';}).join(' / '));
+    sysChat((via?'⏪ '+via+' ':'')+'🥁 방출 추첨 결과: '+out+' 님 방출!!!! ('+target+' ↔ '+out+' 팀 교환) · 2세트 팀 → '+g.map(function(x){return x.n+' ('+x.m.join(', ')+')';}).join(' / '));
     S.ui.scout={stage:'done'};render(true);
   },4500);
+  return {ok:true};
 }
 function bowl2Reset(){
   var R=clone(S.pub.results)||{};delete R.bowl2;S.pub.results=R;saveResults();
@@ -1542,14 +1548,18 @@ function luckyModal(){
   return h+'</div></div>';
 }
 /* =============== 관리자: PC방 =============== */
-function owDraw(key){
-  /* 이전 결과/예측 정리 후 새 팀을 즉시 전체 공개하고 승부 예측 투표를 시작해요 */
+function clearVote(key){
+  if(S.pub.vote&&S.pub.vote.key===key){S.pub.vote=null;enqueue(function(){return S.db.doc('public/vote').delete();});}
+}
+function owDraw(key,via){
+  /* 이전 결과/예측/투표를 정리하고 새 팀을 즉시 전체 공개해요. 승부 예측 투표는 관리자가 "투표 시작"을 눌러야 시작돼요 */
   var R=clone(S.pub.results)||{};if(R[key]){delete R[key];S.pub.results=R;saveResults();}
   delEvt('base:'+key,true);delEvt('pred:'+key,true);saveLedger();
   var B=clone(S.pub.bets)||{};delete B[key];S.pub.bets=B;saveBets();
+  clearVote(key);
   S.ui.owbet[key]={};
-  setTeams(key,capsTeams(),'⭐ 팀장이 이끄는 5:5! 우리 팀의 승부를 예측해 주세요','🎮 '+GAME[key]+' 팀 추첨!',{cap:CAPS});
-  var vote={id:uuid(),key:key,open:true,ts:Date.now()};S.pub.vote=vote;put('public/vote',vote);
+  var ex={cap:CAPS};if(via)ex.via=via;
+  setTeams(key,capsTeams(),'⭐ 팀장이 이끄는 5:5! 곧 승부 예측 투표가 시작돼요','🎮 '+GAME[key]+' 팀 추첨!'+(via?' (다시 뽑기)':''),ex);
 }
 function owBet(key,n,v){
   if(!S.ui.owbet[key])S.ui.owbet[key]={};
@@ -1567,7 +1577,7 @@ function owVoteClose(key,quiet){
   var v=clone(S.pub.vote)||{id:uuid(),key:key};v.open=false;S.pub.vote=v;put('public/vote',v);
   if(!quiet)announce('announce','🔮 승부 예측 마감!',{emoji:'🔮',lines:[GAME[key]+' 예측이 마감됐어요','승리 예측 '+w+'명 · 패배 예측 '+l+'명','팀 카드에서 모두의 예측을 확인하세요']},'🔮 '+GAME[key]+' 승부 예측 마감! 승리 예측 '+w+'명 / 패배 예측 '+l+'명');
 }
-function owResult(key,gi){
+function owResult(key,gi,via){
   var t=team(key);if(!t)return toast('먼저 팀을 공개하세요');
   if(S.pub.vote&&S.pub.vote.key===key&&S.pub.vote.open)owVoteClose(key,true);
   var win=t.groups[gi].m.slice(),lose=t.groups[1-gi].m.slice(),assign={},items=[],pi=[],bonus={};
@@ -1584,8 +1594,8 @@ function owResult(key,gi){
   addEvt(GAME[key]+' 승부 예측 성공','ow',pi,{id:'pred:'+key});
   var R=clone(S.pub.results)||{};R[key]={win:win,team:gi};S.pub.results=R;saveResults();
   var pool={};addPools(pool,win,assign,OW_WIN,'win');addPools(pool,lose,assign,OW_LOSE,'lose');
-  announce('private','✉️ '+GAME[key]+' 점수 봉투',{assign:assign,bonus:bonus,pool:pool,unit:'점',fmt:'plain',label:'기본 점수'},
-    '🎮 '+GAME[key]+' 결과! '+t.groups[gi].n+' 승리!!!! '+(pi.length?'예측 성공: '+pi.map(function(x){return x.name;}).join(', ')+' (+1점)':'예측 성공자 없음'));
+  announce('private','✉️ '+GAME[key]+' 점수 봉투'+(via?' (다시 뽑기)':''),{assign:assign,bonus:bonus,pool:pool,unit:'점',fmt:'plain',label:'기본 점수',via:via||''},
+    (via?'⏪ '+via+' ':'')+'🎮 '+GAME[key]+' 결과! '+t.groups[gi].n+' 승리!!!! '+(pi.length?'예측 성공: '+pi.map(function(x){return x.name;}).join(', ')+' (+1점)':'예측 성공자 없음'));
 }
 /* 플레이어: 승부 예측 투표 */
 async function sendVote(v){
@@ -1639,7 +1649,7 @@ function pwModal(){
     case 'moira':b='<p class="small">'+esc(holder)+' 님이 점수를 빼앗을 대상</p>'+chipsSel(PLAYERS,'modal.target',m.target,holder);break;
     case 'junkrat':b='<p class="small">주사위를 굴려 결과를 폰에 공개해요.</p>';break;
     case 'symmetra':b='<p class="small">'+esc(holder)+' 님이 팀을 바꿀 상대 (현재 팀 기준)</p>'+chipsSel(PLAYERS,'modal.target',m.target,holder);break;
-    case 'tracer':b='<p class="small">'+esc(holder)+' 님이 시간을 되돌려요. 점수 봉투 또는 팀 배정 추첨 중 하나를 다시 추첨한 뒤 이 처리를 완료하세요.</p>';break;
+    case 'tracer':{var to=tracerOptions();b='<p class="small">'+esc(holder)+' 님이 되돌릴 추첨을 선택하세요. 선택하면 자동으로 다시 진행돼요.</p>'+(to.length?'<div class="chips">'+to.map(function(x){return '<button class="chip'+(m.target===x.id?' on':'')+'" data-act="sel" data-k="modal.target" data-v="'+x.id+'">'+esc(x.label)+'</button>';}).join('')+'</div>':'<p class="warn small">되돌릴 수 있는 추첨이 아직 없어요.</p>');break;}
     case 'lucio':
       var T=S.pub.teams,cur=T&&T.current;
       b='<p class="small">현재 팀 기준: <b>'+(cur?(cur==='lunch'?'점심':GAME[cur]):'팀 없음')+'</b> · '+(cur&&teamOf(cur,holder)>=0?esc(holder)+' 님의 팀원 전원 +'+P.lucio:'<span class="warn">보유자가 현재 팀에 없어요</span>')+'</p>';break;
@@ -1664,6 +1674,36 @@ function pwModal(){
     '<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="modalClose">닫기</button>'+primary+'</div></div></div>';
 }
 function fail(msg){return {ok:false,msg:msg};}
+/* 트레이서: 되돌릴 수 있는 추첨 목록 (공개 정보로 계산해서 플레이어 화면과 관리자가 똑같이 봐요) */
+function tracerOptions(){
+  var R=S.pub.results||{},T=(S.pub.teams&&S.pub.teams.sets)||{},o=[];
+  ['bowl1','bowl2','ow1','ow2'].forEach(function(k){
+    if(R[k]&&R[k].team!=null&&T[k])o.push({id:'score:'+k,label:(k.indexOf('bowl')===0?'🎳 ':'🎮 ')+GAME[k]+' 점수 봉투 다시 뽑기'});
+  });
+  ['ow1','ow2'].forEach(function(k){if(T[k]&&!R[k])o.push({id:'team:'+k,label:'🎮 '+GAME[k]+' 팀 정보 다시 뽑기'});});
+  if(T.bowl1&&!R.bowl1)o.push({id:'team:bowl1',label:'🎳 '+GAME.bowl1+' 팀 다시 뽑기'});
+  if(T.bowl2&&R.bowl1&&!R.bowl2)o.push({id:'scout:bowl2',label:'🥁 '+GAME.bowl2+' 방출 추첨 다시 하기'});
+  return o;
+}
+function redoTarget(id,holder){
+  var via='트레이서 — 시간 역행! '+holder+' 님이 시간을 되돌렸어요',R=S.pub.results||{},p=String(id||'').split(':'),kind=p[0],key=p[1];
+  if(!tracerOptions().some(function(o){return o.id===id;}))return fail('지금은 되돌릴 수 없는 추첨이에요');
+  if(kind==='score'){
+    var gi=R[key].team;
+    if(key.indexOf('bowl')===0)bowlResult(key,gi,via);else owResult(key,gi,via);
+    return {ok:true};
+  }
+  if(kind==='team'){
+    if(key==='bowl1')tBowl1(via);else owDraw(key,via);
+    return {ok:true};
+  }
+  if(kind==='scout'){
+    var tg=A().state.scoutTarget;
+    if(!tg)return fail('영입 선수 정보가 없어요');
+    var r=scoutDraw(tg,via);return r.ok?{ok:true}:fail(r.msg||'다시 뽑지 못했어요');
+  }
+  return fail('알 수 없는 선택이에요');
+}
 function quoteOf(key,vars){
   var q=(A().content&&A().content.quotes&&A().content.quotes[key])||'';
   return q.replace(/\{(\w+)\}/g,function(_,k){return vars&&vars[k]!=null?vars[k]:'';});
@@ -1699,6 +1739,13 @@ function execPower(hero,o){
   if(!holder)return fail('보유자가 없어요');
   var label=x.hero+' — '+x.power+' · '+holder,items=[],lines=[],kind='announce',payload=null,chat='',qk=hero,qv={target:o.target||''};
   var okT=function(t){return t&&t!==holder&&PLAYERS.indexOf(t)>=0;};
+  if(hero==='tracer'){
+    var rr=redoTarget(o.target,holder);
+    if(!rr.ok)return rr;
+    addEvt(label+' (재추첨: '+o.target+')','power',[],{id:'pw:tracer'});
+    markUsed('tracer',holder);
+    return {ok:true};
+  }
   switch(hero){
     case 'echo':
       if(!okT(o.target))return fail('교환 대상을 선택하세요');
@@ -1722,7 +1769,6 @@ function execPower(hero,o){
       st.groups[gj].m[st.groups[gj].m.indexOf(o.target)]=holder;
       S.pub.teams=T2;saveTeams();
       lines=[holder+' ↔ '+o.target,'팀을 교환했어요! ('+(cur==='lunch'?'점심':GAME[cur])+')'];break;
-    case 'tracer':lines=[holder+' 님이 시간을 되돌렸어요!','재추첨 1회 진행'];break;
     case 'lucio':
       var tc=S.pub.teams&&S.pub.teams.current,ti=tc?teamOf(tc,holder):-1;
       if(ti<0)return fail('보유자가 현재 팀에 없어요');
@@ -1776,6 +1822,13 @@ function pwRun(){
   var m=S.modal,r=execPower(m.hero,m);
   if(!r.ok)return toast(r.msg);
   S.modal=null;render(true);
+}
+function tracerModal(){
+  var o=tracerOptions();
+  var h='<div class="ov" data-act="modalClose"><div class="box" data-stop="1"><h3>⏪ 시간 역행!</h3><p class="small">어떤 추첨을 <b>다시 뽑을지</b> 선택하세요. 선택하면 모두의 화면에서 바로 다시 진행돼요.</p>';
+  if(!o.length)h+='<p class="warn">아직 되돌릴 수 있는 추첨이 없어요.</p>';
+  else h+=o.map(function(x){return '<button class="rbtn" data-act="tracerPick" data-v="'+x.id+'"><span><b>'+esc(x.label)+'</b></span></button>';}).join('');
+  return h+'<button class="btn ghost block" style="margin-top:12px" data-act="modalClose">닫기</button></div></div>';
 }
 function recentUsed(){
   var u=(S.pub.used&&S.pub.used.used)||{};
@@ -1902,6 +1955,7 @@ function renderModal(){
   if(m.type==='pw')el.innerHTML=pwModal();
   else if(m.type==='lucky')el.innerHTML=luckyModal();
   else if(m.type==='rein')el.innerHTML=reinModal();
+  else if(m.type==='tracer')el.innerHTML=tracerModal();
   else if(m.type==='confirm'){
     el.innerHTML='<div class="ov"><div class="box big" data-stop="1"><h3>확인</h3><p>'+esc(m.msg)+'</p><div class="row" style="margin-top:14px"><button class="btn ghost" style="flex:1" data-act="modalClose">취소</button><button class="btn bad" style="flex:1" data-act="confirmYes">확인</button></div></div></div>';
   }
@@ -2016,6 +2070,8 @@ async function handle(act,v,t){
     case 'voteSet':return sendVote(v);
     case 'voteHide':{var av=activeVote();if(av)S.voteSeen[av.id]=true;break;}
     case 'reinOpen':S.modal={type:'rein'};break;
+    case 'tracerOpen':S.modal={type:'tracer'};break;
+    case 'tracerPick':{var tp=v,tl=tracerOptions().filter(function(x){return x.id===tp;})[0];ask((tl?tl.label:'이 추첨')+'을(를) 다시 진행할까요? 모두에게 바로 공개돼요.',function(){S.modal=null;sendUse('tracer',{target:tp});});return;}
     case 'reinPick':{var rp=v,rx=heroOf(rp);ask(rx.hero+' — '+rx.power+'을(를) 막을까요? 모두에게 공개돼요.',function(){S.modal=null;sendUse('reinhardt',{mode:'defend',evt:'pw:'+rp});});return;}
     case 'reinBonus':ask('방어 없이 보너스(+1점)를 받을까요? 모두에게 공개돼요.',function(){sendUse('reinhardt',{mode:'bonus'});});return;
     case 'owResult':{var pr=v.split(':');owResult(pr[0],+pr[1]);break;}
