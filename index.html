@@ -324,6 +324,9 @@ details.pl .bd{padding:0 12px 12px}
 .pcard .holder b{font-family:var(--f-d);font-size:30px;line-height:1.1;color:#fff;letter-spacing:.01em}
 .pcard .holder.none b{font-size:17px;opacity:.8}
 
+.lt2 .qline{flex-basis:100%;font-weight:700;font-size:15px;line-height:1.45}
+.qtag{display:inline-block;padding:1px 9px;border-radius:999px;background:var(--hot);color:#1a0d05;font-size:12px;font-weight:700;margin-right:4px}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
@@ -554,7 +557,7 @@ function startSubs(){
 function syncDeal(announce){
   var had=!!S.deal;
   S.deal=(S.dealRaw&&S.dealRaw.name===S.me)?S.dealRaw:null;     // 다른 사람 이름의 카드는 내 카드로 보여주지 않아요
-  if(announce&&S.deal&&!had&&Date.now()-(S.deal.ts||0)<30000)showPop({id:'deal'+S.deal.ts,kind:'mydeal',title:'나의 초능력',payload:{hero:S.deal.hero}});
+  if(announce&&S.deal&&!had&&S.me!==HOST&&Date.now()-(S.deal.ts||0)<30000)showPop({id:'deal'+S.deal.ts,kind:'mydeal',title:'나의 초능력',payload:{hero:S.deal.hero}});
 }
 function handlePub(m){
   var live=m.live;
@@ -1132,9 +1135,11 @@ function lunchAdmin(){
   h+='<div class="card"><b>팀별 성공 체크</b><p class="small mut">이구동성 2번, 릴레이 2번 — 팀마다 기회가 두 번씩이에요. <b>성공 / 실패</b>를 한 번만 누르면 점수가 자동 반영돼요. (성공 시 팀원 전원 +1점) 같은 버튼을 다시 누르면 선택이 취소돼요.</p>'+
     '<div class="chips" style="margin-top:6px">'+tot.map(function(x){return '<span class="chip">'+esc(x.n)+' 성공 <b>'+x.v+'</b></span>';}).join('')+'</div>';
   lunchRounds().forEach(function(r){
+    var list=c&&c.lunch?(r[0]==='u'?c.lunch.unison:c.lunch.relay):[],rn=+r.slice(1);
     h+='<div class="lrow2"><b>'+rLabel(r)+'</b><div class="lteams">'+t.groups.map(function(g,gi){
-      var st=lunchState(r,gi);
-      return '<div class="lt2"><div class="who"><span class="tag pri">'+esc(g.n)+'</span> <span class="small">'+g.m.map(esc).join(' · ')+'</span></div><span class="seg big">'+
+      var st=lunchState(r,gi),qi=(rn-1)*t.groups.length+gi,q=list[qi];
+      return '<div class="lt2"><div class="qline">'+(q?'<span class="qtag">'+(r[0]==='u'?'문제 ':'주제 ')+(qi+1)+'</span> '+esc(q):'<span class="warn small">문제 데이터 없음 (비밀 데이터를 올려주세요)</span>')+'</div>'+
+        '<div class="who"><span class="tag pri">'+esc(g.n)+'</span> <span class="small">'+g.m.map(esc).join(' · ')+'</span></div><span class="seg big">'+
         '<button class="'+(st==='ok'?'on win':'')+'" data-act="lunchT" data-r="'+r+'" data-v="'+gi+'" data-s="ok">성공</button>'+
         '<button class="'+(st==='no'?'on lose':'')+'" data-act="lunchT" data-r="'+r+'" data-v="'+gi+'" data-s="no">실패</button></span></div>';
     }).join('')+'</div></div>';
