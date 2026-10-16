@@ -441,6 +441,41 @@ details.pl .bd{padding:0 12px 12px}
 .bigcall{margin:12px 0;padding:18px 14px;border-radius:16px;background:var(--hot);color:#1a0d05;font-family:var(--f-d);font-size:25px;line-height:1.45;text-align:center;box-shadow:0 5px 0 rgba(0,0,0,.28)}
 .funny{margin:10px 0 0;padding:9px 12px;border-radius:12px;background:var(--panel2);border:2px dashed var(--hot);font-weight:700;font-size:16px;line-height:1.4}
 
+/* v9: 조별 공개 + 박빙 최종 연출 */
+.bl-head{font-family:var(--f-d);font-size:26px;margin-top:4px}
+.bl-head.ta{color:#6b7cff}.bl-head.tb{color:var(--good)}
+.bl-t{font-family:var(--f-d);font-size:20px;margin-top:2px}
+.bl-names{margin:8px 0;font-size:22px;font-weight:700;line-height:1.35}
+.bl-calc{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin:10px 0;flex-wrap:wrap}
+.bl-calc .st{opacity:0;transform:scale(.7);transition:all .45s;text-align:center}
+.bl-calc .st.show{opacity:1;transform:none}
+.bl-calc b{font-family:var(--f-d);font-size:44px;line-height:1}.bl-calc small{display:block;font-size:13px;color:var(--mut)}
+.bl-calc .x,.bl-calc .eq{font-family:var(--f-d);font-size:30px;color:var(--hot);padding-bottom:16px}
+.bl-calc .tot{color:var(--gold);font-size:54px}
+.bb{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.bb th,.bb td{padding:5px 4px;text-align:center;border-bottom:1.5px solid var(--line)}
+.bb td:first-child{text-align:left;font-weight:700}
+.bb .ra td:first-child{color:#6b7cff}.bb .rb td:first-child{color:var(--good)}
+.bb td.cur{background:var(--gold);color:#1a1400;font-weight:700;border-radius:6px}
+.bf{text-align:left}
+.bf-row{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;padding:8px 6px;margin-top:6px;border-radius:12px;background:var(--panel2);border:2px solid var(--line);opacity:0;transform:translateY(10px);transition:all .45s}
+.bf-row.show{opacity:1;transform:none}
+.bf-row .l{color:#6b7cff}.bf-row .r{color:var(--good);text-align:right}
+.bf-row small{display:block;color:var(--mut);font-size:12px}.bf-row span{font-size:15px}.bf-row b{font-family:var(--f-d);font-size:19px;color:var(--ink)}
+.bf-row .mid{font-family:var(--f-d);font-size:13px;color:var(--hot)}
+.bf-tot{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;margin-top:12px;text-align:center}
+.bf-tot b{font-family:var(--f-d);font-size:42px;display:block;line-height:1.1}
+.bf-tot small{display:block;color:var(--mut)}
+.bf-tot .l b{color:#6b7cff}.bf-tot .r b{color:var(--good)}.bf-tot .mid{font-family:var(--f-d);font-size:30px;color:var(--mut)}
+.bf-tot b.shake{animation:shake .12s infinite}
+@keyframes shake{0%{transform:translate(0,0)}25%{transform:translate(-3px,2px)}50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,-2px)}100%{transform:translate(2px,2px)}}
+.tug{display:flex;height:16px;border-radius:999px;overflow:hidden;margin:10px 2px;border:2px solid var(--line)}
+.tugA{background:#6b7cff;width:50%;transition:width .9s cubic-bezier(.3,1.4,.5,1)}.tugB{background:var(--good);width:50%;transition:width .9s cubic-bezier(.3,1.4,.5,1)}
+.tug.sway .tugA{animation:sway .5s ease-in-out infinite alternate}
+@keyframes sway{from{width:42%}to{width:58%}}
+.bf-msg{min-height:84px;text-align:center}
+.bf-m{margin-top:8px;font-weight:700;font-size:16px}.bf-m.big{font-family:var(--f-d);font-size:24px;color:var(--hot)}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
@@ -478,8 +513,8 @@ function bowlDraft(key){
   var d=S.ui.bs[key];
   if(!d){
     var saved=(A().state&&A().state.bowl&&A().state.bowl[key])||null;
-    d={lanes:['L1','L2','L3','L4','L5','L6'],A:t.groups[0].m.slice(),B:t.groups[1].m.slice(),sA:['','',''],sB:['','','']};
-    if(saved){[['lanes',6],['A',5],['B',5],['sA',3],['sB',3]].forEach(function(p){if(saved[p[0]]&&saved[p[0]].length===p[1])d[p[0]]=saved[p[0]].slice();});}
+    d={A:t.groups[0].m.slice(),B:t.groups[1].m.slice(),sA:['','',''],sB:['','','']};
+    if(saved){[['A',5],['B',5],['sA',3],['sB',3]].forEach(function(p){if(saved[p[0]]&&saved[p[0]].length===p[1])d[p[0]]=saved[p[0]].slice();});}
     S.ui.bs[key]=d;
   }
   if(!uniqOk(d.A,t.groups[0].m))d.A=t.groups[0].m.slice();   // 팀이 바뀌었다면(스카우트 등) 조 편성을 팀 순서로 다시 맞춰요
@@ -1623,14 +1658,16 @@ function zoneCard(title,mult,sub,lanes){
 function bowlScoreTable(){
   var BS=S.pub.bscores||{},out='';
   ['bowl1','bowl2'].forEach(function(k){
-    var p=BS[k];if(!p)return;
-    out+='<div class="card"><b>📊 '+p.set+'세트 점수표</b> <span class="small mut">'+esc(p.teamA)+' '+fmtN(p.totA)+' : '+fmtN(p.totB)+' '+esc(p.teamB)+'</span>'+
-      p.rows.map(function(r){
-        return '<div class="bsrow"><div class="bst">'+esc(r.t)+' <span class="mult">×'+r.m+'</span></div>'+
-          '<div class="bsp"><span>'+esc(r.a.names.join(' · '))+'<br><small>'+esc(r.a.lane)+' 레인 <b>'+r.a.s+'</b></small></span><span class="mid">vs</span><span>'+esc(r.b.names.join(' · '))+'<br><small>'+esc(r.b.lane)+' 레인 <b>'+r.b.s+'</b></small></span></div>'+
-          '<div class="bsp sum"><span>'+r.a.s+'×'+r.m+' = <b>'+fmtN(r.ta)+'</b></span><span class="mid">=</span><span><b>'+fmtN(r.tb)+'</b> = '+r.b.s+'×'+r.m+'</span></div></div>';
+    var p=BS[k];if(!p||!p.lines)return;
+    var cnt=Object.keys(p.lines).length;if(!cnt)return;
+    var b=bowlBoard(p),sum=function(a){return a.reduce(function(x,y){return x+(y||0);},0);};
+    out+='<div class="card"><b>📊 '+p.set+'세트 점수표</b> <span class="small mut">공개 '+cnt+'/6'+(p.final?' · '+esc(p.teamA)+' '+fmtN(p.final.totA)+' : '+fmtN(p.final.totB)+' '+esc(p.teamB):'')+'</span>'+
+      BGROUP.map(function(G){
+        var a=p.lines['A'+G.g],c=p.lines['B'+G.g];
+        function cell(l){return l?'<span>'+esc(l.names.join(' · '))+'<br><small>'+l.s+'점 × '+l.m+'배 = <b>'+fmtN(l.total)+'</b></small></span>':'<span class="mut">비공개</span>';}
+        return '<div class="bsrow"><div class="bst">'+esc(G.t)+' <span class="mult">×'+G.m+'</span></div><div class="bsp">'+cell(a)+'<span class="mid">vs</span>'+cell(c)+'</div></div>';
       }).join('')+
-      '<div class="bsp fin"><span>'+esc(p.teamA)+' <b>'+fmtN(p.totA)+'</b></span><span class="mid">:</span><span><b>'+fmtN(p.totB)+'</b> '+esc(p.teamB)+'</span></div></div>';
+      '<div class="bsp fin"><span>'+esc(p.teamA)+' <b>'+fmtN(sum(b.A))+'</b></span><span class="mid">:</span><span><b>'+fmtN(sum(b.B))+'</b> '+esc(p.teamB)+'</span></div></div>';
   });
   return out;
 }
@@ -1648,10 +1685,10 @@ function viewBowl(){
     '<p class="small mut" style="margin:6px 2px 0">같은 조 선수들은 <b>레인 하나를 함께</b> 쓰고, 그 레인의 점수를 기록해요. (처음엔 1조 ×3, 2조 ×2였지만 점수 차이가 너무 커서 ×2 / ×1.5로 조정했어요.) <b>팀 점수가 높은 팀이 승리</b>합니다.</p>'+
     '<h3 class="h3">① 조 편성 · 레인 배치</h3><div class="card"><p class="small" style="margin:0 0 8px">팀 상의로 각 팀 5명을 <b>뉴비 2명 · 미들 2명 · 고수 1명</b>으로 나눠요. 같은 조 선수들은 <b>레인 하나를 함께</b> 쓰고(고수는 혼자), 그 레인에서 <b>1게임(10프레임)</b>을 쳐요. 팀마다 레인 3개, 두 팀 합쳐 <b>레인 6개</b>예요. 같은 조끼리 상대 팀과 점수로 맞붙어요.</p>'+
     '<div class="zones">'+
-      zoneCard('1조 뉴비','×2','팀당 1레인 · 뉴비 2명이 함께',[['L1 vs L4','A 뉴비 2명','B 뉴비 2명']])+
-      zoneCard('2조 미들','×1.5','팀당 1레인 · 미들 2명이 함께',[['L2 vs L5','A 미들 2명','B 미들 2명']])+
-      zoneCard('3조 고수','×1','팀당 1레인 · 고수 1명',[['L3 vs L6','A 고수','B 고수']])+
-    '</div><p class="small mut" style="margin:8px 0 0">실제 레인 번호는 당일 배정된 번호로 안내해요.</p></div>'+
+      zoneCard('1조 뉴비','×2','팀당 1레인 · 뉴비 2명이 함께',[['한 레인','A 뉴비 2명','B 뉴비 2명']])+
+      zoneCard('2조 미들','×1.5','팀당 1레인 · 미들 2명이 함께',[['한 레인','A 미들 2명','B 미들 2명']])+
+      zoneCard('3조 고수','×1','팀당 1레인 · 고수 1명',[['한 레인','A 고수','B 고수']])+
+    '</div><p class="small mut" style="margin:8px 0 0">조별 경기가 끝날 때마다 그 조의 점수가 공개되고, 6개가 모두 공개되면 최종 점수 계산이 시작돼요!</p></div>'+
     '<h3 class="h3">② 기본 점수</h3>'+baseTable('1 / 2 / 2 / 3 / 3')+
     '<h3 class="h3">③ 🍀 럭키 찬스</h3><div class="card"><p style="margin:0 0 8px">스트라이크 또는 스페어를 성공하면 <b>1회 추첨</b>!</p>'+
     '<div class="luckycards"><div><b>팀 보너스</b><small>팀원 전원 +1점</small></div><div><b>개인 보너스</b><small>본인 +1점</small></div><div><b>행운 나눔</b><small>우리 팀 한 명을 지목해 +1점</small></div></div>'+
@@ -1670,24 +1707,25 @@ function bowlAdmin(){
 function bowlScoreCard(key){
   var t=team(key),d=bowlDraft(key),res=S.pub.results&&S.pub.results[key];
   if(!t||!d)return '';
-  var c=bowlCalc(d),lead=c.totA-c.totB;
-  var h='<div class="bcard"><b>🧮 '+(key==='bowl1'?1:2)+'세트 점수 입력 · 공개</b><p class="small mut" style="margin:4px 0 8px">같은 조 선수들은 <b>레인 하나를 함께</b> 써요. 팀마다 레인 3개(뉴비·미들·고수), 두 팀 합쳐 6개 — <b>레인 점수 하나</b>만 입력하면 배율이 곱해져 <b>팀 점수가 자동 계산</b>돼요.</p>';
+  var c=bowlCalc(d),lead=c.totA-c.totB,rec=(S.pub.bscores&&S.pub.bscores[key])||{lines:{}},cnt=Object.keys(rec.lines||{}).length;
+  var h='<div class="bcard"><b>🧮 '+(key==='bowl1'?1:2)+'세트 점수 입력 · 조별 공개</b> <span class="tag'+(cnt===6?' good':'')+'">공개 '+cnt+'/6</span>'+
+    '<p class="small mut" style="margin:4px 0 8px">같은 조 선수들은 <b>레인 하나를 함께</b> 써요. 조별 경기가 끝나면 그 조의 점수를 입력하고 <b>📣 공개</b>를 눌러요. <b>6개가 모두 공개되면 자동으로</b> 최종 점수 계산 연출(박빙!)이 시작되고, 이어서 승패와 점수 봉투가 진행돼요.</p>';
   ['A','B'].forEach(function(side,ti){
     var names=t.groups[ti].m,sc=d['s'+side],tot=ti?c.totB:c.totA,win=ti?lead<0:lead>0,diff=Math.abs(lead);
-    h+='<div class="bpanel'+(win?' lead':'')+'"><div class="bph"><b>'+esc(t.groups[ti].n)+'</b>'+(win&&diff>0?'<span class="tag good">+'+fmtN(diff)+' 리드</span>':'')+'</div>'+
+    h+='<div class="bpanel'+(win?' lead':'')+'"><div class="bph"><b>'+esc(t.groups[ti].n)+'</b>'+(win&&diff>0?'<span class="tag good">+'+fmtN(diff)+' 리드 (입력 기준)</span>':'')+'</div>'+
       BGROUP.map(function(G,gi){
-        var prod=(parseFloat(sc[gi])||0)*G.m;
-        return '<div class="blane"><div class="blh"><span><b>'+G.g+'조 '+G.t.replace(' 라인','')+'</b> <small class="mult">×'+G.m+'</small></span><span class="small">레인 <input class="lane" data-bind="ui.bs.'+key+'.lanes.'+(ti*3+gi)+'" value="'+esc(d.lanes[ti*3+gi])+'" maxlength="4"></span></div>'+
+        var prod=(parseFloat(sc[gi])||0)*G.m,done=!!(rec.lines&&rec.lines[side+G.g]);
+        return '<div class="blane'+(done?' done':'')+'"><div class="blh"><span><b>'+G.g+'조 '+G.t.replace(' 라인','')+'</b> <small class="mult">×'+G.m+'</small></span>'+(done?'<span class="tag good">✅ 공개됨</span>':'<span class="tag">대기</span>')+'</div>'+
           '<div class="bsel">'+G.slots.map(function(si){
             return '<select data-bind="ui.bs.'+key+'.'+side+'.'+si+'" aria-label="'+BSLOT[si].l+'">'+names.map(function(n){return '<option value="'+esc(n)+'"'+(d[side][si]===n?' selected':'')+'>'+esc(n)+'</option>';}).join('')+'</select>';
           }).join('')+'</div>'+
-          '<div class="bscore"><input type="number" inputmode="numeric" min="0" max="300" placeholder="레인 점수" data-bind="ui.bs.'+key+'.s'+side+'.'+gi+'" value="'+esc(sc[gi])+'"><span class="bp">× '+G.m+' = <b>'+fmtN(prod)+'</b></span></div></div>';
+          '<div class="bscore"><input type="number" inputmode="numeric" min="0" max="300" placeholder="레인 점수" data-bind="ui.bs.'+key+'.s'+side+'.'+gi+'" value="'+esc(sc[gi])+'"><span class="bp">× '+G.m+' = <b>'+fmtN(prod)+'</b></span></div>'+
+          '<button class="btn '+(done?'ghost':'hot')+' block" style="margin-top:6px" data-act="bowlLine" data-v="'+key+':'+side+':'+G.g+'"'+(res?' disabled':'')+'>'+(done?'🔄 다시 공개':'📣 '+esc(t.groups[ti].n)+' '+G.t.replace(' 라인','')+' 점수 공개')+'</button></div>';
       }).join('')+
-      '<div class="bpt"><span>팀 점수</span><b>'+fmtN(tot)+'</b></div></div>';
+      '<div class="bpt"><span>팀 점수 (입력 기준)</span><b>'+fmtN(tot)+'</b></div></div>';
   });
-  h+='<button class="btn hot block" style="margin-top:10px" data-act="bowlReveal" data-v="'+key+'"'+(res?' disabled':'')+'>📣 점수 공개 · VS 연출'+(res?' (결과 취소 후 가능)':'')+'</button>'+
-    '<p class="small mut" style="margin-top:6px">공개하면 모두의 폰에 왼쪽(A팀)·오른쪽(B팀) VS 연출이 나오고, 약 19초 뒤 <b>승패와 기본 점수 봉투가 자동으로 진행</b>돼요. 동점이면 아래 버튼으로 직접 정하세요.</p>'+
-    (S.autoRes&&S.autoRes.key===key?'<div class="note">⏱ 자동 진행 대기 중… <button class="btn ghost" data-act="bowlAutoCancel">자동 진행 취소</button></div>':'')+'</div>';
+  h+=(res?'<p class="small mut">결과가 나왔어요. 다시 공개하려면 아래 “결과 취소”를 먼저 누르세요.</p>':'')+
+    (S.autoRes&&S.autoRes.key===key?'<div class="note">⏱ 최종 점수 연출 후 자동으로 승패가 확정돼요… <button class="btn ghost" data-act="bowlAutoCancel">자동 진행 취소</button></div>':'')+'</div>';
   return h;
 }
 function bowlSet(key){
@@ -1947,15 +1985,27 @@ function renderPop(){
           '<p style="font-weight:700">'+(me.total>=3?'🎉 대단해요! 최고의 팀워크예요!':me.total>0?'👏 수고했어요! 점심 맛있게 드세요 :)':'😅 이번엔 아쉬웠지만 괜찮아요! 점심 맛있게 드세요 :)')+'</p>';
       }
       break;}
-    case 'bowlvs':
+    case 'bowlline':{
       big=true;
-      inner='<div class="bvs"><div class="bvs-head"><span class="ta">'+esc(p.teamA)+'</span><span class="vs">VS</span><span class="tb">'+esc(p.teamB)+'</span></div>'+
+      var bd=p.board||{A:[],B:[]},sm=function(a){return a.reduce(function(x,y){return x+(y||0);},0);};
+      var cell=function(side,i){var v=bd[side][i];return '<td class="'+((p.side===side&&p.g-1===i)?'cur':'')+'">'+(v==null?'?':fmtN(v))+'</td>';};
+      inner='<div class="bl-head '+(p.side==='A'?'ta':'tb')+'">'+esc(p.team)+'</div><div class="bl-t">'+esc(p.t)+' <span class="mult">×'+p.m+'</span></div>'+
+        '<div class="bl-names">'+p.names.map(esc).join(' · ')+'</div>'+
+        '<div class="bl-calc"><span class="st st1"><b class="cnt" data-to="'+p.s+'">0</b><small>점</small></span><span class="st st2 x">×</span><span class="st st2"><b>'+p.m+'</b><small>배</small></span><span class="st st3 eq">=</span><span class="st st3"><b class="cnt tot" data-to="'+p.total+'">0</b><small>점</small></span></div>'+
+        '<table class="bb"><tr><th></th><th>뉴비</th><th>미들</th><th>고수</th><th>합계</th></tr>'+
+        '<tr class="ra"><td>'+esc(p.teamA)+'</td>'+cell('A',0)+cell('A',1)+cell('A',2)+'<td><b>'+fmtN(sm(bd.A))+'</b></td></tr>'+
+        '<tr class="rb"><td>'+esc(p.teamB)+'</td>'+cell('B',0)+cell('B',1)+cell('B',2)+'<td><b>'+fmtN(sm(bd.B))+'</b></td></tr></table>'+
+        '<p class="small mut" style="margin-top:6px">공개 '+p.done+'/6'+(p.done===6?' · 곧 최종 점수 계산이 시작돼요!':'')+'</p>';
+      break;}
+    case 'bowlfinal':{
+      big=true;
+      inner='<div class="bf"><div class="bvs-head"><span class="ta">'+esc(p.teamA)+'</span><span class="vs">VS</span><span class="tb">'+esc(p.teamB)+'</span></div>'+
         (p.rows||[]).map(function(r,i){
-          return '<div class="bvs-sec" data-i="'+i+'"><div class="bvs-t">'+esc(r.t)+' <span class="mult">×'+r.m+'</span></div>'+
-            '<div class="bvs-row"><div class="l"><b>'+esc(r.a.names.join(' · '))+'</b><span class="cnt" data-to="'+r.a.s+'">0</span></div><div class="mid">'+esc(r.a.lane)+'<br>·<br>'+esc(r.b.lane)+'</div><div class="r"><span class="cnt" data-to="'+r.b.s+'">0</span><b>'+esc(r.b.names.join(' · '))+'</b></div></div>'+
-            '<div class="bvs-sum"><div class="l"><small>'+r.a.s+' ×'+r.m+'</small><span class="cnt big" data-to="'+r.ta+'">0</span></div><div class="mid">=</div><div class="r"><span class="cnt big" data-to="'+r.tb+'">0</span><small>'+r.b.s+' ×'+r.m+'</small></div></div></div>';
-        }).join('')+'<div class="bvs-final" id="bvsfinal"></div></div>';
-      break;
+          return '<div class="bf-row" data-i="'+i+'"><div class="l"><small>'+esc(r.a.names.join(' · '))+'</small><span>'+r.a.s+' × '+r.m+' = <b>'+fmtN(r.a.total)+'</b></span></div><div class="mid">'+esc(r.t.replace(' 라인',''))+'</div><div class="r"><small>'+esc(r.b.names.join(' · '))+'</small><span><b>'+fmtN(r.b.total)+'</b> = '+r.b.s+' × '+r.m+'</span></div></div>';
+        }).join('')+
+        '<div class="bf-tot"><div class="l"><small>합계</small><b id="bfA">0</b></div><div class="mid">:</div><div class="r"><small>합계</small><b id="bfB">0</b></div></div>'+
+        '<div class="tug"><div class="tugA" id="tugA"></div><div class="tugB" id="tugB"></div></div><div id="bfmsg" class="bf-msg"></div></div>';
+      break;}
     case 'swap':
       big=true;
       inner='<p class="pop-note" style="margin:0 0 8px">'+esc(p.who)+' 님이 '+esc(p.b.name)+' 님과 점수를 맞바꿔요!</p>'+(p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'')+
@@ -1990,7 +2040,8 @@ function renderPop(){
   if(ev.kind==='draw')runDraw(ev);
   if(ev.kind==='cards')runCards(ev);
   if(ev.kind==='swap')runSwap(ev);
-  if(ev.kind==='bowlvs')runBowlVs(ev);
+  if(ev.kind==='bowlline')runBowlLine(ev);
+  if(ev.kind==='bowlfinal')runBowlFinal(ev);
   if(ev.kind==='mydeal')runReel(ev);
   if(ev.kind==='private'&&P.open&&P.env)runEnvs(ev);
 }
@@ -2055,44 +2106,62 @@ function runReel(ev){
     var b=$('#pop .box');if(b)b.scrollTop=b.scrollHeight;
   },4700);
 }
-function runBowlVs(ev){
+function countUpEl(el,ms,okf){
+  var to=+el.getAttribute('data-to'),t0=Date.now();
+  var iv=setInterval(function(){
+    if(okf&&!okf()){clearInterval(iv);return;}
+    var k=Math.min(1,(Date.now()-t0)/ms);
+    el.textContent=fmtN(to*k);
+    if(k>=1)clearInterval(iv);
+  },40);
+}
+function runBowlLine(ev){
+  function ok(){return S.pop&&S.pop.ev.id===ev.id;}
+  var st1=document.querySelector('#pop .st1'),sts=document.querySelectorAll('#pop .st2'),st3=document.querySelectorAll('#pop .st3');
+  setTimeout(function(){if(!ok())return;st1.classList.add('show');var c=st1.querySelector('.cnt');if(c)countUpEl(c,900,ok);},300);
+  setTimeout(function(){if(!ok())return;sts.forEach(function(e){e.classList.add('show');});},1500);
+  setTimeout(function(){if(!ok())return;st3.forEach(function(e){e.classList.add('show');});var c=document.querySelector('#pop .st3 .cnt');if(c)countUpEl(c,1100,ok);},2400);
+}
+/* 최종 점수 계산: 조별 점수가 하나씩 더해지며 시소처럼 앞서거니 뒤서거니 → 두구두구 → 결과! */
+function runBowlFinal(ev){
   var p=ev.payload||{};
   function ok(){return S.pop&&S.pop.ev.id===ev.id;}
   function down(){var b=$('#pop .box');if(b)b.scrollTop=b.scrollHeight;}
-  function countUp(el,ms){
-    var to=+el.getAttribute('data-to'),t0=Date.now();
-    var iv=setInterval(function(){
-      if(!ok()){clearInterval(iv);return;}
-      var k=Math.min(1,(Date.now()-t0)/ms);
-      el.textContent=fmtN(to*k);
-      if(k>=1)clearInterval(iv);
-    },50);
-  }
-  document.querySelectorAll('#pop .bvs-sec').forEach(function(sec,i){
+  var rows=document.querySelectorAll('#pop .bf-row'),A=$('#bfA'),B=$('#bfB'),tA=$('#tugA'),tB=$('#tugB'),msg=$('#bfmsg');
+  var cumA=0,cumB=0,prevLead=null;
+  function tug(a,b){var s=a+b||1,pa=Math.max(8,Math.min(92,Math.round(a/s*100)));tA.style.width=pa+'%';tB.style.width=(100-pa)+'%';}
+  tug(1,1);
+  (p.rows||[]).forEach(function(r,i){
     setTimeout(function(){
       if(!ok())return;
-      sec.classList.add('show');down();
-      sec.querySelectorAll('.bvs-row .cnt').forEach(function(c){countUp(c,1100);});
-      setTimeout(function(){
-        if(!ok())return;
-        sec.classList.add('sum');down();
-        sec.querySelectorAll('.bvs-sum .cnt').forEach(function(c){countUp(c,1100);});
-      },1700);
-    },600+i*4300);
+      rows[i].classList.add('show');
+      cumA+=r.a.total;cumB+=r.b.total;
+      A.textContent=fmtN(cumA);B.textContent=fmtN(cumB);tug(cumA,cumB);
+      var lead=cumA>cumB?'A':cumA<cumB?'B':'T',nm=lead==='A'?p.teamA:lead==='B'?p.teamB:'';
+      msg.innerHTML=lead==='T'?'<div class="bf-m">😮 동점!! 숨 막히는 접전…</div>':'<div class="bf-m">'+(prevLead&&prevLead!==lead&&prevLead!=='T'?'🔥 <b>역전!!</b> ':'')+esc(nm)+' '+fmtN(Math.abs(cumA-cumB))+'점 앞서요</div>';
+      prevLead=lead;down();
+    },700+i*1900);
   });
+  var T1=700+3*1900+300;      // 모든 조 합산이 끝난 시점
   setTimeout(function(){
     if(!ok())return;
-    var f=$('#bvsfinal');if(!f)return;
-    var lead=Math.abs(p.totA-p.totB);
-    f.innerHTML='<div class="fin"><div class="fl'+(p.winner===0?' w':'')+'"><small>'+esc(p.teamA)+'</small><b class="cnt" data-to="'+p.totA+'">0</b></div><div class="fm">:</div><div class="fr'+(p.winner===1?' w':'')+'"><b class="cnt" data-to="'+p.totB+'">0</b><small>'+esc(p.teamB)+'</small></div></div>';
-    f.classList.add('show');down();
-    f.querySelectorAll('.cnt').forEach(function(c){countUp(c,1600);});
-    setTimeout(function(){
-      if(!ok())return;
-      f.insertAdjacentHTML('beforeend',p.winner==null?'<div class="outc lose">🤝 동점! 관리자가 승리팀을 정해요</div>':'<div class="outc win" style="font-size:18px">🏆 <b>'+esc(p.winner===0?p.teamA:p.teamB)+' 승리!</b> (+'+fmtN(lead)+'점 리드)</div>');
-      down();
-    },1800);
-  },600+3*4300);
+    A.textContent='???';B.textContent='???';A.classList.add('shake');B.classList.add('shake');
+    document.querySelector('#pop .tug').classList.add('sway');
+    msg.innerHTML='<div class="bf-m big">😳 '+(p.close?'초박빙!!':'박빙!!')+' 과연 승자는…?</div><div class="bf-m">두구두구두구두구…</div>';down();
+  },T1);
+  setTimeout(function(){
+    if(!ok())return;
+    A.classList.remove('shake');B.classList.remove('shake');document.querySelector('#pop .tug').classList.remove('sway');
+    A.setAttribute('data-to',p.totA);B.setAttribute('data-to',p.totB);
+    countUpEl(A,1800,ok);countUpEl(B,1800,ok);tug(p.totA,p.totB);
+    msg.innerHTML='<div class="bf-m">🥁 최종 점수는…!!</div>';
+  },T1+3600);
+  setTimeout(function(){
+    if(!ok())return;
+    if(p.winner==null){msg.innerHTML='<div class="outc lose" style="font-size:18px">🤝 <b>동점!!</b> 관리자가 승리팀을 정해요</div>';}
+    else msg.innerHTML='<div class="outc win" style="font-size:19px">🏆 <b>'+esc(p.winner===0?p.teamA:p.teamB)+' 승리!!</b><br><span style="font-size:15px">'+(p.close?'단 ':'')+fmtN(p.diff)+'점 차이'+(p.close?'로 갈렸어요!!':'')+'</span></div><div style="font-size:24px;margin-top:6px">🎉🎊🎉</div>';
+    down();
+  },T1+3600+2100);
 }
 function runSwap(ev){
   var p=ev.payload||{};
@@ -2293,40 +2362,61 @@ function addPools(pool,members,assign,vals,kind){
 }
 
 /* =============== 관리자: 볼링 세트 결과 / 스카우트·방출 / 럭키 찬스 =============== */
-var BVS_MS=19000;
-/* 팀별 점수를 입력한 뒤 "공개": 뉴비/미들/고수 라인을 VS로 보여주고 팀 점수로 승패를 정해요 */
-function bowlReveal(key){
+var LINE_MS=6000,FINAL_MS=17000;
+function bowlBoard(rec){
+  var b={A:[null,null,null],B:[null,null,null]};
+  Object.keys(rec.lines||{}).forEach(function(k){var l=rec.lines[k];b[l.side][l.g-1]=l.total;});
+  return b;
+}
+/* 조별(팀 안의 뉴비/미들/고수 레인) 경기가 끝나면 그 조 점수를 공개해요. 6개가 모두 공개되면 자동으로 최종 점수 계산 연출! */
+function bowlRevealLine(key,side,g){
   var t=team(key),d=bowlDraft(key);
   if(!t||!d)return toast('먼저 팀을 만들어 주세요');
   if(S.pub.results&&S.pub.results[key])return toast('이미 결과가 나왔어요. 다시 공개하려면 결과를 먼저 취소하세요');
-  for(var g=0;g<3;g++){
-    var a=parseFloat(d.sA[g]),b=parseFloat(d.sB[g]);
-    if(isNaN(a)||isNaN(b))return toast('모든 레인 점수를 입력하세요 ('+BGROUP[g].t+')');
-    if(a<0||a>300||b<0||b>300)return toast('볼링 점수는 0~300점이에요 ('+BGROUP[g].t+')');
-  }
+  var G=BGROUP[g-1],ti=side==='A'?0:1,sc=parseFloat(d['s'+side][g-1]);
+  if(isNaN(sc))return toast('먼저 점수를 입력하세요 ('+t.groups[ti].n+' '+G.t+')');
+  if(sc<0||sc>300)return toast('볼링 점수는 0~300점이에요');
   saveBowlDraft(key);
-  var c=bowlCalc(d),n=key==='bowl1'?1:2;
-  var rows=BGROUP.map(function(G,gi){
-    var names=function(arr){return G.slots.map(function(si){return arr[si];});};
-    return {t:G.t,m:G.m,
-      a:{names:names(d.A),lane:d.lanes[gi]||('L'+(gi+1)),s:c.a[gi]},
-      b:{names:names(d.B),lane:d.lanes[3+gi]||('L'+(4+gi)),s:c.b[gi]},
-      ta:c.pa[gi],tb:c.pb[gi]};
+  var n=key==='bowl1'?1:2,names=G.slots.map(function(si){return d[side][si];});
+  var BS=clone(S.pub.bscores)||{};
+  var rec=BS[key]||{set:n,key:key,lines:{}};
+  rec.teamA=t.groups[0].n;rec.teamB=t.groups[1].n;
+  rec.lines[side+g]={side:side,g:g,t:G.t,m:G.m,names:names,s:sc,total:sc*G.m};
+  delete rec.final;
+  BS[key]=rec;S.pub.bscores=BS;saveBScores();
+  var cnt=Object.keys(rec.lines).length,all=cnt===6;
+  var payload={set:n,key:key,side:side,g:g,team:t.groups[ti].n,t:G.t,m:G.m,names:names,s:sc,total:sc*G.m,board:bowlBoard(rec),teamA:rec.teamA,teamB:rec.teamB,done:cnt};
+  if(all){payload.wait=true;payload.waitMs=LINE_MS+1500;}
+  announce('bowlline','🎳 '+n+'세트 · '+t.groups[ti].n+' '+G.t+' 공개!',payload,
+    '🎳 '+n+'세트 '+t.groups[ti].n+' '+G.t+' 공개!! '+names.join(' · ')+' '+sc+'점 × '+G.m+'배 = '+fmtN(sc*G.m)+'점 ('+cnt+'/6 공개)');
+  S.autoRes=null;
+  var tok=uuid();S.finalTok=tok;
+  if(all)setTimeout(function(){if(S.finalTok===tok&&!(S.pub.results&&S.pub.results[key]))bowlFinal(key,tok);},LINE_MS);
+  else toast('✅ '+cnt+'/6 공개 · 6개가 모두 공개되면 자동으로 최종 점수 계산 연출이 시작돼요');
+}
+function bowlFinal(key,tok){
+  var BS=clone(S.pub.bscores)||{},rec=BS[key];
+  if(!rec)return;
+  var L=rec.lines,totA=0,totB=0;
+  var rows=BGROUP.map(function(G){
+    var a=L['A'+G.g],b=L['B'+G.g];
+    totA+=a.total;totB+=b.total;
+    return {t:G.t,m:G.m,a:{names:a.names,s:a.s,total:a.total},b:{names:b.names,s:b.s,total:b.total}};
   });
-  var win=c.totA>c.totB?0:c.totA<c.totB?1:null;
-  var payload={set:n,key:key,teamA:t.groups[0].n,teamB:t.groups[1].n,rows:rows,totA:c.totA,totB:c.totB,winner:win,wait:true,waitMs:BVS_MS+4000};
-  var BS=clone(S.pub.bscores)||{};BS[key]=payload;S.pub.bscores=BS;saveBScores();
-  announce('bowlvs','🎳 '+n+'세트 점수 공개!',payload,'🎳 '+n+'세트 점수 공개!!!! '+t.groups[0].n+' '+fmtN(c.totA)+' : '+fmtN(c.totB)+' '+t.groups[1].n+(win==null?' — 동점!':' → '+t.groups[win].n+' 승리!'));
-  var tok=uuid();
-  S.autoRes=win==null?null:{key:key,tok:tok,gi:win};
-  if(win==null){toast('동점이에요! 승리팀을 직접 선택해 주세요');return;}
+  var win=totA>totB?0:totA<totB?1:null,diff=Math.abs(totA-totB),tot=totA+totB;
+  rec.final={totA:totA,totB:totB,winner:win};
+  BS[key]=rec;S.pub.bscores=BS;saveBScores();
+  var payload={set:rec.set,key:key,teamA:rec.teamA,teamB:rec.teamB,rows:rows,totA:totA,totB:totB,winner:win,diff:diff,close:tot>0&&diff/tot<=0.06,wait:true,waitMs:FINAL_MS+3000};
+  announce('bowlfinal','🎳 '+rec.set+'세트 최종 점수 계산!',payload,'🎳 '+rec.set+'세트 최종 점수!!!! '+rec.teamA+' '+fmtN(totA)+' : '+fmtN(totB)+' '+rec.teamB+(win==null?' — 동점!':' → '+(win===0?rec.teamA:rec.teamB)+' 승리! ('+fmtN(diff)+'점 차)'));
+  if(win==null){S.autoRes=null;toast('동점이에요! 승리팀을 직접 선택해 주세요');return;}
+  var t2=uuid();S.autoRes={key:key,tok:t2,gi:win};
   setTimeout(function(){
-    if(S.autoRes&&S.autoRes.tok===tok){
+    if(S.autoRes&&S.autoRes.tok===t2){
       S.autoRes=null;
       if(!(S.pub.results&&S.pub.results[key]))bowlResult(key,win);
       render(true);
     }
-  },BVS_MS);
+  },FINAL_MS);
 }
 function bowlResult(key,gi,via){
   S.autoRes=null;
@@ -2344,7 +2434,7 @@ function bowlResult(key,gi,via){
   S.ui.scout=null;
 }
 function bowlCancel(key){
-  S.autoRes=null;
+  S.autoRes=null;S.finalTok=null;
   var BS=clone(S.pub.bscores)||{};delete BS[key];S.pub.bscores=BS;saveBScores();
   var R=clone(S.pub.results)||{};delete R[key];S.pub.results=R;saveResults();
   delEvt('base:'+key);
@@ -3084,7 +3174,7 @@ async function handle(act,v,t){
     case 'tPick':tPick();break;
     case 'luckyOpen':S.modal={type:'lucky',key:v,stage:0,thrower:null,kind:null,rec:null,hit:'X'};break;
     case 'luckyHit':if(S.modal)S.modal.hit=v;break;
-    case 'bowlReveal':bowlReveal(v);break;
+    case 'bowlLine':{var bp=String(v).split(':');bowlRevealLine(bp[0],bp[1],+bp[2]);break;}
     case 'bowlAutoCancel':S.autoRes=null;toast('자동 진행을 취소했어요. 아래 승리팀 버튼으로 직접 확정하세요');break;
     case 'luckyPick':luckyPick(v);break;
     case 'luckyRandom':luckyRandom();break;
