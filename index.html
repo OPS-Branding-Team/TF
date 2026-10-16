@@ -1220,6 +1220,18 @@ async function doLogout(){
 function viewSetup(){
   return '<div class="card tool"><h3>🛠 초기 설정 (한 번만)</h3><p class="small mut">행사 준비 때 딱 한 번만 하는 화면이에요. 참가자 PIN이 들어있는 seed.json 파일을 선택하면 PIN이 암호화되어 서버에 등록돼요. 이미 등록돼 있으면 실패해요.</p><input type="file" id="pinfile" accept=".json,application/json">'+(S.ui.setupMsg?'<p class="'+(S.ui.setupOk?'win':'err')+'" style="margin-top:10px">'+esc(S.ui.setupMsg)+'</p>':'')+'<button class="btn ghost block" style="margin-top:14px" data-act="setupDone">처음 화면으로</button></div>';
 }
+async function doPinChange(obj){
+  try{
+    var pins=obj.pins||{},map={};
+    for(var i=0;i<PLAYERS.length;i++){
+      var n=PLAYERS[i];
+      if(!/^\d{4}$/.test(String(pins[n]||'')))throw new Error(n+' 님의 PIN이 없거나 4자리가 아니에요');
+      map[n]=await sha(n+':'+pins[n]);
+    }
+    await S.db.doc('pins/all').set({map:map});
+    toast('🔑 PIN을 새로 등록했어요 (10명). 이제부터 새 PIN으로 로그인해요');
+  }catch(e){toast('PIN 변경 실패: '+(e.code==='permission-denied'?'관리자(이유정)로 로그인해야 해요':(e.message||e.code)));}
+}
 async function doSetup(obj){
   try{
     var pins=obj.pins||{},map={};
@@ -1643,6 +1655,9 @@ function dupPlayers(){
   Object.keys(by).forEach(function(n){var l=by[n].sort(function(a,b){return b.ts-a.ts;});for(var i=1;i<l.length;i++)list.push(l[i].uid);});
   return list;
 }
+function pinCard(){
+  return tool('🔑 PIN 변경','참가자 PIN이 들어 있는 비공개_seed.json을 선택하면 PIN이 새로 등록돼요. (이미 로그인한 사람은 그대로 쓰고, 다음 로그인부터 새 PIN이 필요해요)','<input type="file" id="pinfile2" accept=".json,application/json">');
+}
 function gcCard(){
   var d=dupPlayers();
   return tool('🧹 접속 기록 정리','같은 이름으로 여러 번 로그인한 옛 기록이 쌓이면 서버 사용량이 늘어요. 가장 최근 로그인만 남기고 정리해요. (현재 접속 기록 '+Object.keys(S.players).length+'건 · 정리 대상 '+d.length+'건)',
@@ -1669,6 +1684,7 @@ function viewScore(){
     '<div class="chips">'+PLAYERS.map(function(n){return '<button class="chip'+(S.ui.gpool[n]===false?' dim':' on')+'" data-act="tog" data-k="ui.gpool" data-v="'+esc(n)+'" data-def="1">'+esc(n)+'</button>';}).join('')+'</div>'+
     '<div class="row" style="margin-top:8px">뽑을 인원 '+[1,2,3,4,5].map(function(n){return '<button class="chip'+(S.ui.gn===n?' on':'')+'" data-act="gn" data-v="'+n+'">'+n+'</button>';}).join('')+'</div>'+
     '<button class="btn hot block" data-act="tPick">'+pool.length+'명 중 '+S.ui.gn+'명 뽑기 · 공개</button>');
+  h+=pinCard();
   h+=gcCard();
   h+=sampleCard();
   h+=seedCard();
@@ -2630,12 +2646,13 @@ document.addEventListener('keydown',function(e){
 document.addEventListener('change',function(e){
   var t=e.target;
   if(!t||!t.files||!t.files[0])return;
-  if(t.id!=='seedfile'&&t.id!=='pinfile')return;
+  if(t.id!=='seedfile'&&t.id!=='pinfile'&&t.id!=='pinfile2')return;
   var r=new FileReader();
   r.onload=function(){
     try{
       var o=JSON.parse(r.result);
       if(t.id==='pinfile')return doSetup(o);
+      if(t.id==='pinfile2')return doPinChange(o);
       if(!o.powers||!o.lunch)throw new Error('파일 형식이 달라요');
       put('adminonly/content',{powers:o.powers,params:o.params,lunch:o.lunch,quotes:o.quotes||{},guides:o.guides||{}});
       toast('비밀 데이터를 올렸어요');
