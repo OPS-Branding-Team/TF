@@ -364,6 +364,13 @@ details.pl .bd{padding:0 12px 12px}
 .chip.predok{background:var(--gold);color:#1a1400;border-color:var(--gold);font-weight:700;box-shadow:0 0 0 3px rgba(245,183,0,.35)}
 .cd.dim{opacity:.45;filter:grayscale(.55)}
 
+.chance{margin-top:8px;padding:9px 12px;border-radius:12px;font-size:14px;line-height:1.5;background:rgba(255,255,255,.14)}
+.chance.last{background:var(--hot);color:#1a0d05;font-weight:700;animation:pulse 1.4s ease-in-out infinite}
+.chance.now{background:var(--good);color:#04251c;font-weight:700}
+.chance.soon{background:var(--gold);color:#1a1400;font-weight:700}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.025)}}
+@media (prefers-reduced-motion:reduce){.chance.last{animation:none}}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
@@ -478,7 +485,7 @@ var S={
   ui:{pin:'',loginName:null,err:'',busy:false,setupMsg:'',
       manual:{name:null,d:1,note:''},gpool:{},gn:3,focus:null,gifts:null,chat:'',asNotice:false,
       use:{inc:null,target:null,mode:null,evt:null},ws:{bowl1:[],bowl2:[]},lt:{A:[],B:[],C:[]},mt:{key:'bowl2',sel:[]},outSel:[],owbet:{ow1:{},ow2:{}}},
-  handledUse:{},availPrev:{},expNotice:[],resetting:false,epoch:0,
+  handledUse:{},availPrev:{},expNotice:[],chancePrev:{},chanceNotice:[],resetting:false,epoch:0,
   broadcast:true,modal:null,pop:null,busy:0,dealing:false,dealAgain:false,seenLive:false,lastLive:null,pending:false
 };
 function A(){return S.adm;}
@@ -599,6 +606,61 @@ function startSubs(){
   },subErr);
 }
 /* 카드는 뽑기를 열 때 이미 배정돼 있고, 플레이어가 "카드 뽑기"를 누르는 순간 내 카드가 공개돼요 */
+/* ===== 경기 진행 상황 + "지금 쓰는 게 좋아요" 추천 ===== */
+var GAMES=['bowl1','bowl2','ow1','ow2'];
+function flow(){
+  var R=S.pub.results||{},T=S.pub.teams||{},sets=T.sets||{},cur=T.current,idx=GAMES.indexOf(cur);
+  return {cur:cur,idx:idx,inWindow:idx>=0&&!!sets[cur]&&!R[cur],afterWindow:idx>=0&&!!R[cur],
+          left:idx>=0?GAMES.length-1-idx:GAMES.length,finalGame:cur==='ow2',finalDone:!!R.ow2};
+}
+function chanceInfo(hero,who){
+  var f=flow(),c=canUseNow(hero,who);
+  if(!c.ok)return {lvl:'none'};
+  var R=S.pub.results||{};
+  if(hero==='tracer'){
+    var o=tracerOptions()[0];
+    if(!o)return {lvl:'none'};
+    if(o.id.indexOf('ow2')>=0)return {lvl:'last',key:'tr:'+o.id,msg:'이번이 마지막 되돌리기 기회예요! 오버워치 2경기가 마지막 추첨이에요 — 지금 사용하는 게 좋아요!'};
+    return {lvl:'now',key:'tr:'+o.id,msg:'방금 진행된 “'+o.label+'”을(를) 되돌릴 수 있어요! 다음 추첨이 시작되면 이 기회는 사라져요.'};
+  }
+  if(hero==='symmetra'){
+    if(f.finalGame)return {lvl:'last',key:'sym:ow2',msg:'이번이 마지막 기회예요! 오버워치 2경기 결과가 나오면 더 이상 팀을 바꿀 수 없어요 — 지금 사용하는 게 좋아요!'};
+    return {lvl:'now',key:'sym:'+f.cur,msg:'지금 팀을 바꿀 수 있는 구간이에요! 이 경기 결과가 나오면 이 구간은 끝나요. (이 뒤로 팀 교환 기회가 '+f.left+'번 더 남아 있어요)'};
+  }
+  if(hero==='reinhardt'){
+    var u=(S.pub.used&&S.pub.used.used)||{},rel=recentUsed().filter(function(k){return u[k]&&(!u[k].aff||u[k].aff.indexOf(who)>=0);});
+    if(rel.length){var x=heroOf(rel[0]);return {lvl:'now',key:'rein:'+rel[0]+u[rel[0]].ts,msg:'나를 대상으로 한 “'+x.hero+' — '+x.power+'”이(가) 방금 쓰였어요! 지금 방어할 수 있어요. 다음 초능력이 쓰이면 밀려나요.'};}
+    if(f.finalDone||f.finalGame)return {lvl:'last',key:'rein:bonus',msg:'마지막 기회예요! 공격받지 않았다면 정산 전에 “방어 안 함 (+1점)” 보너스를 받아 두세요.'};
+    return {lvl:'info',key:'rein:info',msg:'나를 대상으로 한 초능력이 쓰이면 바로 방어할 수 있어요. 공격받지 않았다면 정산 전에 보너스를 받아 두세요.'};
+  }
+  // 최종 정산 전까지 아무 때나 쓰는 초능력들
+  if(f.finalDone)return {lvl:'last',key:'any:done',msg:'마지막 경기가 끝났어요! 곧 최종 정산이에요 — 아직 안 썼다면 지금 사용하세요!'};
+  if(f.finalGame&&f.inWindow)return {lvl:'last',key:'any:ow2',msg:'마지막 경기(오버워치 2경기)가 진행 중이에요. 이 경기가 끝나면 곧 정산이에요 — 지금 사용하는 게 좋아요!'};
+  if(f.cur==='ow1')return {lvl:'soon',key:'any:ow1',msg:'다음 경기(오버워치 2경기)가 마지막이에요. 잊지 말고 쓰세요!'};
+  return {lvl:'info',key:'any:'+(f.cur||'pre'),msg:'아직 기회가 남아 있어요. 쓰고 싶은 타이밍에 쓰세요. (마지막 경기가 시작되면 알려 드릴게요)'};
+}
+function chanceHTML(x){
+  var c=chanceInfo(x.id,S.me);
+  if(!c||c.lvl==='none')return '';
+  var head=c.lvl==='last'?'🔥 <b>마지막 기회!</b> ':c.lvl==='now'?'👉 <b>지금 사용하는 게 좋아요!</b> ':c.lvl==='soon'?'⏳ <b>곧 마지막이에요</b> ':'ℹ️ ';
+  return '<div class="chance '+c.lvl+'">'+head+esc(c.msg)+'</div>';
+}
+function checkChance(){
+  if(!S.me||!S.deal||!revealed())return;
+  var h=S.deal.hero,cu=canUseNow(h,S.me);
+  if(!cu.ok){S.chancePrev[h]=null;return;}
+  var c=chanceInfo(h,S.me),key=c.lvl+'|'+(c.key||''),prev=S.chancePrev[h];
+  S.chancePrev[h]=key;
+  if(prev!==undefined&&prev!==key&&(c.lvl==='last'||c.lvl==='now')){
+    S.chanceNotice.push({lvl:c.lvl,msg:c.msg});
+    toast(c.lvl==='last'?'🔥 마지막 기회예요! 지금 사용하세요':'👉 지금 사용할 수 있어요!');
+  }
+}
+function chanceBanner(){
+  if(!S.chanceNotice||!S.chanceNotice.length)return '';
+  var n=S.chanceNotice[S.chanceNotice.length-1];
+  return '<div class="loginbar" style="border-color:var(--hot);flex-direction:column;align-items:stretch;background:var(--panel2)"><div style="font-weight:700">'+(n.lvl==='last'?'🔥 마지막 기회!':'👉 지금 사용하는 게 좋아요!')+'</div><div class="small">'+esc(n.msg)+'</div><div class="row" style="margin-top:8px"><button class="btn hot" data-act="go" data-v="power">지금 사용하러 가기</button><button class="btn ghost" data-act="chanceOk">확인</button></div></div>';
+}
 /* ===== 초능력 사용 가능 여부 (플레이어 화면 표시 + 관리자 화면의 검증에 같이 써요) ===== */
 var GUIDE_DEFAULT='원하는 타이밍에 사용해요. 손을 들고 이름을 크게 외친 뒤 공개 버튼을 눌러요.';
 function canUseNow(hero,who){
@@ -608,7 +670,7 @@ function canUseNow(hero,who){
   if(S.pub.final&&S.pub.final.published)return {ok:false,why:'점수가 공개돼서 사용 기간이 끝났어요'};
   if(f.powerClosed)return {ok:false,why:'관리자가 초능력 사용을 마감했어요'};
   if(hero==='symmetra'){
-    if(!cur||!sets[cur]||teamOf(cur,who)<0)return {ok:false,why:'팀이 정해진 뒤, 경기 시작 전에만 사용할 수 있어요'};
+    if(GAMES.indexOf(cur)<0||!sets[cur]||teamOf(cur,who)<0)return {ok:false,why:'볼링·오버워치 팀이 정해진 뒤, 그 경기 시작 전에만 사용할 수 있어요 (점심 때는 못 써요)'};
     if(R[cur])return {ok:false,why:'이 경기는 이미 끝났어요. 다음 경기 팀이 정해진 뒤 사용할 수 있어요'};
   }
   if(hero==='lucio'&&(!cur||!sets[cur]||teamOf(cur,who)<0))return {ok:false,why:'우리 팀이 정해진 뒤에 사용할 수 있어요'};
@@ -652,7 +714,7 @@ function playersChanged(){
 }
 function syncDeal(announce){
   S.deal=(S.dealRaw&&S.dealRaw.name===S.me)?S.dealRaw:null;     // 다른 사람 이름의 카드는 내 카드로 보여주지 않아요
-  if(!S.deal)S.availPrev={};
+  if(!S.deal){S.availPrev={};S.chancePrev={};}
   if(announce)maybeDealPop();
 }
 /* 뽑기를 여는 순간 10명 전원의 초능력을 한꺼번에 랜덤 배정해요 (이유정은 항상 메르시) */
@@ -1041,6 +1103,7 @@ function render(force){
   var app=$('#app');if(!app)return;
   renderVote();   // 투표 창은 입력 중이어도 바로 떠야 해요
   checkExpiry();
+  checkChance();
   var a=document.activeElement,keep=null;
   if(!force&&a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA')&&app.contains(a)){
     // 입력 중이어도 화면은 실시간으로 갱신하고, 입력칸의 내용·커서는 그대로 유지해요
@@ -1091,7 +1154,7 @@ function body(){
     case 'mine':h=viewMine();break;
     default:h=viewHome();
   }
-  return loginBar()+voteBanner()+expBanner()+adminBar()+h;
+  return loginBar()+voteBanner()+expBanner()+chanceBanner()+adminBar()+h;
 }
 function voteBanner(){
   var v=activeVote();
@@ -1358,7 +1421,7 @@ function viewPower(){
     var x0=heroOf(S.deal.hero);
     mine='<div class="mycard" style="--c:'+x0.c+'"><div class="em">'+x0.em+'</div><h3>'+x0.hero+'</h3><div class="pn">'+x0.power+'</div>'+
       '<p style="margin-top:8px"><span class="tag">'+(x0.last?'⏳ 마지막에 발동':'⚡ 원하는 타이밍에 발동')+'</span></p>'+
-      '<div class="guide"><b>⏱ 사용 타이밍 가이드</b><br>'+esc(S.deal.guide||GUIDE_DEFAULT)+'<div style="margin-top:8px">'+usageStatus(x0)+'</div></div><ul>'+(S.deal.detail||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+
+      '<div class="guide"><b>⏱ 사용 타이밍 가이드</b><br>'+esc(S.deal.guide||GUIDE_DEFAULT).replace(/\n/g,'<br>')+'<div style="margin-top:8px">'+usageStatus(x0)+'</div>'+chanceHTML(x0)+'</div><ul>'+(S.deal.detail||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+
       (used[x0.id]?'<p style="margin-top:12px"><span class="tag good">✅ 사용 완료 · 모두에게 공개됨</span></p>':'<p style="margin-top:12px"><span class="tag">🤫 아직 비공개 · 손을 들고 이름을 외친 뒤 아래 버튼으로 공개</span></p>')+'</div>'+(used[x0.id]?'':usePanel(x0));
   }else if(S.deal){
     mine='<div class="card drawbox"><div class="back">?</div>'+(f.drawOpen?'<p><b>카드가 이미 준비됐어요! 🎴</b></p><p class="small mut">내 타이밍에 눌러서 확인하세요</p><button class="btn hot block" style="margin-top:10px" data-act="draw">초능력 카드 뽑기</button>':'<p><b>아직 뽑기 전이에요</b></p><p class="small mut">관리자가 뽑기를 열면 카드를 확인할 수 있어요.</p>')+'</div>';
@@ -1401,7 +1464,7 @@ function usePanel(x){
   var h='<div class="card"><b>📢 초능력 사용 공개</b><p class="small mut">손을 들고 이름을 외친 뒤 버튼을 누르면 모두의 폰에 팝업이 떠요. 한 번 공개하면 되돌릴 수 없어요.</p>';
   if(p.useDone&&p.useDone.ok===false)h+='<p class="err">⚠️ '+esc(p.useDone.msg||'공개하지 못했어요')+' 다시 시도해 주세요.</p>';
   var cu=canUseNow(x.id,S.me);
-  h+='<div style="margin:6px 0">'+usageStatus(x)+'</div><div class="shout">🙋 <b>손을 들고 크게 외치세요!</b><div class="shouttxt">“'+esc(x.hero)+' '+esc(x.power)+'!!!”</div></div>';
+  h+='<div style="margin:6px 0">'+usageStatus(x)+'</div>'+chanceHTML(x)+'<div class="shout">🙋 <b>손을 들고 크게 외치세요!</b><div class="shouttxt">“'+esc(x.hero)+' '+esc(x.power)+'!!!”</div></div>';
   var id=x.id;
   if(id==='sigma')h+='<p class="small">① 본인 포함 여부를 정하세요</p><div class="chips"><button class="chip'+(uo.inc===true?' on':'')+'" data-act="sel" data-k="ui.use.inc" data-v="1">본인 포함 (나 ↔ 무작위 1명)</button><button class="chip'+(uo.inc===false?' on':'')+'" data-act="sel" data-k="ui.use.inc" data-v="0">본인 제외 (무작위 2명 교환)</button></div>';
   if(id==='moira'||id==='cassidy'||id==='symmetra')h+='<p class="small">'+(id==='moira'?'① 점수를 빼앗을 사람':id==='cassidy'?'① 결투를 신청할 사람':'① 팀을 바꿀 사람')+'</p>'+chipsSel(PLAYERS,'ui.use.target',uo.target,S.me);
@@ -2297,6 +2360,7 @@ function execPower(hero,o){
       if(!okT(o.target))return fail('바꿀 상대를 선택하세요');
       var T2=clone(S.pub.teams),cur=T2&&T2.current,st=cur&&T2.sets[cur];
       if(!st)return fail('현재 팀이 없어요');
+      if(GAMES.indexOf(cur)<0)return fail('점심 팀은 바꿀 수 없어요. 볼링·오버워치 팀이 정해진 뒤에 사용하세요');
       var gi=-1,gj=-1;st.groups.forEach(function(g,i){if(g.m.indexOf(holder)>=0)gi=i;if(g.m.indexOf(o.target)>=0)gj=i;});
       if(gi<0||gj<0||gi===gj)return fail('두 사람이 서로 다른 팀에 있어야 해요');
       st.groups[gi].m[st.groups[gi].m.indexOf(holder)]=o.target;
@@ -2705,6 +2769,7 @@ async function handle(act,v,t){
         toast('🧹 '+dups.length+'건을 정리했어요');render(true);
       });return;}
     case 'expOk':S.expNotice=[];break;
+    case 'chanceOk':S.chanceNotice=[];break;
     case 'powerClose':{
       var pf=clone(S.pub.flags)||{};pf.powerClosed=!pf.powerClosed;S.pub.flags=pf;saveFlags();
       if(pf.powerClosed)announce('announce','⏰ 초능력 사용 마감!',{emoji:'⏰',lines:['초능력 사용이 마감됐어요!','에코를 제외한 초능력은 이제 사용할 수 없어요','아직 안 쓴 사람은 관리자에게 문의하세요']},'⏰ 초능력 사용이 마감됐어요!!!! 에코를 제외한 초능력은 이제 사용할 수 없어요');
