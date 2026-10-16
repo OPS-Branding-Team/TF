@@ -476,6 +476,10 @@ details.pl .bd{padding:0 12px 12px}
 .bf-msg{min-height:84px;text-align:center}
 .bf-m{margin-top:8px;font-weight:700;font-size:16px}.bf-m.big{font-family:var(--f-d);font-size:24px;color:var(--hot)}
 
+.bubble{margin:12px 0 4px;padding:10px 14px;border-radius:16px;background:var(--panel2);border:3px solid var(--hot);font-size:17px;line-height:1.45;text-align:left}
+.bubble b{font-family:var(--f-d);color:var(--hot)}
+.ttag{margin:6px 0}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
@@ -812,7 +816,21 @@ function chanceBanner(){
   return '<div class="loginbar" style="border-color:var(--hot);flex-direction:column;align-items:stretch;background:var(--panel2)"><div style="font-weight:700">'+(n.lvl==='last'?'🔥 마지막 기회!':'👉 지금 사용하는 게 좋아요!')+'</div><div class="small">'+esc(n.msg)+'</div><div class="row" style="margin-top:8px"><button class="btn hot" data-act="go" data-v="power">지금 사용하러 가기</button><button class="btn ghost" data-act="chanceOk">확인</button></div></div>';
 }
 /* ===== 초능력 사용 가능 여부 (플레이어 화면 표시 + 관리자 화면의 검증에 같이 써요) ===== */
-var GUIDE_DEFAULT='원하는 타이밍에 사용해요. 손을 들고 이름을 크게 외친 뒤 공개 버튼을 눌러요.';
+var GUIDE_DEFAULT='원하는 타이밍에 사용해요.';
+/* 초능력 유형별 사용 타이밍 (카드의 가이드 맨 위에 표시) */
+var TIMING_TYPE={
+  echo:{t:'⏳ 마지막에 관리자가 호출할 때',c:''},
+  moira:{t:'🟢 언제든 사용 가능',c:'(최종 정산 전까지)'},
+  junkrat:{t:'🟢 언제든 사용 가능',c:'(최종 정산 전까지)'},
+  cassidy:{t:'🟢 언제든 사용 가능',c:'(최종 정산 전까지)'},
+  sigma:{t:'🟢 언제든 사용 가능',c:'(최종 정산 전까지)'},
+  mercy:{t:'🟢 언제든 사용 가능',c:'(최종 정산 전까지)'},
+  symmetra:{t:'👥 팀이 정해진 직후 사용',c:'(그 경기 결과가 나오기 전까지)'},
+  lucio:{t:'👥 팀이 정해진 뒤 사용',c:'(최종 정산 전까지)'},
+  tracer:{t:'⏪ 방금 일어난 일의 직후 사용',c:'(다음 되돌릴 일이 생기기 전까지)'},
+  reinhardt:{t:'🛡️ 공격받은 직후 사용',c:'(방어 안 함 보너스는 정산 전까지 언제든)'}
+};
+function timingTag(h){var x=TIMING_TYPE[h];return x?'<span class="tag good">'+esc(x.t)+'</span> <span class="small">'+esc(x.c)+'</span>':'';}
 function canUseNow(hero,who){
   var f=S.pub.flags||{},R=S.pub.results||{},T=S.pub.teams||{},cur=T.current,sets=T.sets||{};
   if(isUsed(hero))return {ok:false,used:true,why:'이미 사용했어요'};
@@ -1597,8 +1615,8 @@ function viewPower(){
     var x0=heroOf(S.deal.hero);
     mine='<div class="mycard" style="--c:'+x0.c+'"><div class="em">'+x0.em+'</div><h3>'+x0.hero+'</h3><div class="pn">'+x0.power+'</div>'+
       '<p style="margin-top:8px"><span class="tag">'+(x0.last?'⏳ 마지막에 발동':'⚡ 원하는 타이밍에 발동')+'</span></p>'+
-      '<div class="guide"><b>⏱ 사용 타이밍 가이드</b><br>'+esc(S.deal.guide||GUIDE_DEFAULT).replace(/\n/g,'<br>')+'<div style="margin-top:8px">'+usageStatus(x0)+'</div>'+chanceHTML(x0)+'</div><ul>'+(S.deal.detail||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+
-      (used[x0.id]?'<p style="margin-top:12px"><span class="tag good">✅ 사용 완료 · 모두에게 공개됨</span></p>':'<p style="margin-top:12px"><span class="tag">🤫 아직 비공개 · 손을 들고 이름을 외친 뒤 아래 버튼으로 공개</span></p>')+'</div>'+(used[x0.id]?'':usePanel(x0));
+      '<div class="guide"><b>⏱ 사용 타이밍 가이드</b><div style="margin:6px 0">'+timingTag(x0.id)+'</div>'+esc(S.deal.guide||GUIDE_DEFAULT).replace(/\n/g,'<br>')+'<div style="margin-top:8px">'+usageStatus(x0)+'</div>'+chanceHTML(x0)+'</div><ul>'+(S.deal.detail||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+
+      (used[x0.id]?'<p style="margin-top:12px"><span class="tag good">✅ 사용 완료 · 모두에게 공개됨</span></p>':'<p style="margin-top:12px"><span class="tag">🤫 아직 비공개</span></p>')+'</div>'+(used[x0.id]?'':usePanel(x0));
   }else if(S.deal){
     mine='<div class="card drawbox"><div class="back">?</div>'+(f.drawOpen?'<p><b>🔔 띠링~~ 당신의 초능력이 도착했습니다!</b></p><p class="small mut">카드를 뽑아 초능력을 확인해주세요</p><button class="btn hot block" style="margin-top:10px" data-act="draw">초능력 카드 뽑기</button>':'<p><b>아직 뽑기 전이에요</b></p><p class="small mut">관리자가 뽑기를 열면 카드를 확인할 수 있어요.</p>')+'</div>';
   }else{
@@ -1629,7 +1647,7 @@ function viewPower(){
       }else s+='<div class="ghost"><i></i><i></i><i></i></div><div class="lock">🔒 효과는 사용 전까지 비밀</div>';
       return s+'</div>';
     }).join('')+'</div>'+
-   '<h3 class="h3">초능력 사용 규칙</h3><div class="card"><ol style="margin:0;padding-left:20px"><li>초능력은 사용 전까지 비공개.</li><li>모든 초능력은 반드시 1회 사용.</li><li><b>에코를 제외한 초능력은 원하는 타이밍에 발동</b>할 수 있어요. 손을 들고 초능력 이름을 크게 외친 뒤, 위 “나의 초능력”에서 <b>공개 버튼</b>을 눌러 발동!<br><span class="small mut">예: 🙋 “캐서디! 석양의 무법자!”</span></li><li>사용 즉시 초능력이 공개되고 효과가 적용돼요.</li><li>에코를 제외한 초능력은 최종 정산 전까지 사용.</li><li>에코는 <b>가장 마지막에</b> 관리자가 진행해요.</li></ol></div>';
+   '<h3 class="h3">초능력 사용 규칙</h3><div class="card"><ol style="margin:0;padding-left:20px"><li>초능력은 사용 전까지 비공개.</li><li>모든 초능력은 반드시 1회 사용.</li><li><b>에코를 제외한 초능력은 원하는 타이밍에 발동</b>할 수 있어요. 위 “나의 초능력”에서 <b>공개 버튼</b>을 눌러 발동!</li><li>사용 즉시 초능력이 공개되고 효과가 적용돼요.</li><li>에코를 제외한 초능력은 최종 정산 전까지 사용.</li><li>에코는 <b>가장 마지막에</b> 관리자가 진행해요.</li></ol></div>';
   return h;
 }
 
@@ -1637,14 +1655,14 @@ function usePanel(x){
   var p=S.players[S.uid]||{},uo=S.ui.use,used=(S.pub.used&&S.pub.used.used)||{};
   if(x.id==='echo')return '<div class="note">🪞 <b>에코는 마지막에 관리자가 진행해요.</b> “누구의 점수를 바꿀건가요?” 팝업이 뜨면 바꿀 사람을 크게 호명해 주세요.</div>';
   if(p.useReq)return '<div class="note">📡 <b>공개하는 중…</b> 잠시만 기다려 주세요. (관리자('+HOST+') 화면이 켜져 있어야 해요)</div>';
-  var h='<div class="card"><b>📢 초능력 사용 공개</b><p class="small mut">손을 들고 이름을 외친 뒤 버튼을 누르면 모두의 폰에 팝업이 떠요. 한 번 공개하면 되돌릴 수 없어요.</p>';
+  var h='<div class="card"><b>📢 초능력 사용 공개</b><p class="small mut">버튼을 누르면 모두의 폰에 팝업이 떠요. 한 번 공개하면 되돌릴 수 없어요.</p>';
   if(p.useDone&&p.useDone.ok===false)h+='<p class="err">⚠️ '+esc(p.useDone.msg||'공개하지 못했어요')+' 다시 시도해 주세요.</p>';
   var cu=canUseNow(x.id,S.me);
   h+='<div style="margin:6px 0">'+usageStatus(x)+'</div>'+chanceHTML(x)+'<div class="shout">🙋 <b>손을 들고 크게 외치세요!</b><div class="shouttxt">“'+esc(x.hero)+' '+esc(x.power)+'!!!”</div></div>';
   var id=x.id;
   if(id==='sigma')h+='<p class="small">① 본인 포함 여부를 정하세요</p><div class="chips"><button class="chip'+(uo.inc===true?' on':'')+'" data-act="sel" data-k="ui.use.inc" data-v="1">본인 포함 (나 ↔ 무작위 1명)</button><button class="chip'+(uo.inc===false?' on':'')+'" data-act="sel" data-k="ui.use.inc" data-v="0">본인 제외 (무작위 2명 교환)</button></div>';
   if(id==='moira'||id==='cassidy'||id==='symmetra')h+='<p class="small">'+(id==='moira'?'① 점수를 빼앗을 사람':id==='cassidy'?'① 결투를 신청할 사람':'① 팀을 바꿀 사람')+'</p>'+chipsSel(PLAYERS,'ui.use.target',uo.target,S.me);
-  if(id==='tracer')return h+'<p class="small">시간을 되돌려 <b>점수 봉투 또는 팀 배정 추첨</b>을 다시 뽑아요.<br>⚠️ <b>바로 직전에 진행된 추첨 1건만</b> 되돌릴 수 있어요! (럭키 찬스 같은 다른 이벤트는 상관없고, 경기 결과가 이미 나온 팀 추첨은 안 돼요)</p><button class="btn hot block" data-act="tracerOpen">⏪ 시간 되돌리기 (재추첨 선택)</button></div>';
+  if(id==='tracer')return h+'<p class="small">시간을 되돌려 <b>방금 일어난 일 1건</b>을 선택해서 되돌려요.<br>⚠️ <b>바로 직전에 일어난 되돌릴 수 있는 일 1건</b>만 가능해요: 팀·점수 봉투·방출 추첨, 캐서디 가위바위보, 시그마·메르시 추첨, 모이라 점수 빼앗기, 럭키 찬스. (<b>시메트라 팀 교환은 못 되돌려요</b>, 경기 결과가 이미 나온 팀 추첨도 안 돼요)</p><button class="btn hot block" data-act="tracerOpen">⏪ 시간 되돌리기 (재추첨 선택)</button></div>';
   if(id==='reinhardt')return h+'<p class="small">공격받았다면 <b>직전에 발동된 초능력 2건</b> 중 <b>나와 관련된 것만</b> 막을 수 있어요.</p><div class="row"><button class="btn hot" data-act="reinOpen">🛡️ 공격받아 방어!</button><button class="btn ghost" data-act="reinBonus">방어 안 함 (+1점)</button></div></div>';
   return h+'<button class="btn hot block" style="margin-top:12px" data-act="useGo"'+(cu.ok?'':' disabled')+'>'+(cu.ok?'📢 공개!':'🔴 지금은 사용할 수 없어요')+'</button></div>';
 }
@@ -2030,10 +2048,11 @@ function renderPop(){
     default:
       big=true;
       inner=(p.emoji?'<div class="emo">'+p.emoji+'</div>':'')+'<div class="lines">'+(p.lines||[]).map(function(l){return '<p>'+esc(l)+'</p>';}).join('')+'</div>'+
-        (p.gains&&p.gains.length?'<div class="gains">'+p.gains.map(function(g,i){return '<div class="gain'+(g.name===S.me?' me':'')+'" style="animation-delay:'+(i*0.4+0.2)+'s"><span class="gn">'+esc(g.name)+'</span><b class="'+(g.d>0?'plus':'minus')+'">'+fmt(g.d)+'점</b></div>';}).join('')+'</div>':'')+
+        (p.gains&&p.gains.length?(p.gainsTitle?'<p class="small mut" style="margin:8px 0 0">'+esc(p.gainsTitle)+'</p>':'')+'<div class="gains">'+p.gains.map(function(g,i){return '<div class="gain'+(g.name===S.me?' me':'')+'" style="animation-delay:'+(i*0.4+0.2)+'s"><span class="gn">'+esc(g.name)+'</span><b class="'+(g.d>0?'plus':'minus')+'">'+fmt(g.d)+'점</b></div>';}).join('')+'</div>':'')+
+        (p.bubble?'<div class="bubble"><b>'+esc(p.bubble.who)+'</b> : “'+esc(p.bubble.text)+'”</div>':'')+
         (p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'')+funnyLucky(ev);
   }
-  el.innerHTML='<div class="ov" data-act="popClose"><div class="box'+(big?' big':'')+'" data-stop="1"><h3>'+esc(ev.title||'')+'</h3>'+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+(p.go?'<button class="btn block hot" style="margin-top:14px" data-act="popGo" data-v="'+esc(p.go)+'">'+esc(p.goLabel||'이동')+'</button>':(p.wait?'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 기다려 주세요… 곧 이어서 진행돼요</button>':'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button>'))+'</div></div>';
+  el.innerHTML='<div class="ov" data-act="popClose"><div class="box'+(big?' big':'')+'" data-stop="1"><h3>'+esc(ev.title||'')+'</h3>'+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+((S.admin&&p.adminGo)?'<button class="btn block hot" style="margin-top:14px" data-act="popAdminGo">'+esc(p.adminGo.label||'입력하러 가기')+'</button><button class="btn block ghost" style="margin-top:8px" data-act="popClose">닫기</button>':p.go?'<button class="btn block hot" style="margin-top:14px" data-act="popGo" data-v="'+esc(p.go)+'">'+esc(p.goLabel||'이동')+'</button>':(p.wait?'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 기다려 주세요… 곧 이어서 진행돼요</button>':'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button>'))+'</div></div>';
   P.locked=!!(p.wait&&!p.go);
   if(P.locked)setTimeout(function(){unlockPop(ev.id);},p.waitMs||15000);
   if(ev.kind==='dice')rollDice(ev);
@@ -2530,6 +2549,8 @@ function luckyApply(){
     announce('announce','🍀 개인 보너스!',{emoji:'🙋',lines:[m.thrower+' 님 본인 +1점!','개인 보너스 획득 🎉'],lk:{kind:'self',who:m.thrower,team:mates.slice()}},'🍀 개인 보너스! '+m.thrower+' 님 본인 +1점 — 너만 받으면 다냐!! 😤 괜히 좋아했네…');
   else
     announce('announce','🤝 행운 나눔!',{emoji:'🤝',lines:[m.thrower+' 님이 '+m.rec+' 님에게 +1점!'],quote:'아이고 고마워요!',lk:{kind:'share',who:m.thrower,rec:m.rec,team:mates.slice()}},'🤝 행운 나눔! '+m.thrower+' 님이 '+m.rec+' 님에게 +1점! “아이고 고마워요!”');
+  A().state.lastLucky={key:m.key,ti:ti,g:m.grp,thrower:m.thrower,hit:m.hit||'X'};saveState();
+  setLast('lucky:'+m.key+':'+ti+':'+m.grp,m.thrower+' · '+m.grp+'조 '+k.t);
   S.modal=null;
 }
 function luckyModal(){
@@ -2693,6 +2714,7 @@ function pwModal(){
 }
 function fail(msg){return {ok:false,msg:msg};}
 /* 트레이서: 되돌릴 수 있는 추첨 목록 (공개 정보로 계산해서 플레이어 화면과 관리자가 똑같이 봐요) */
+var REWIND_PW={sigma:'🌌 시그마 점수 교환 다시 추첨',mercy:'😇 메르시 3명 다시 추첨',moira:'🧪 모이라 점수 빼앗기 취소 (없었던 일로)',cassidy:'🤠 캐서디 가위바위보 결과 취소 · 재대결'};
 function tracerCandidates(){
   var R=S.pub.results||{},T=(S.pub.teams&&S.pub.teams.sets)||{},o=[];
   ['bowl1','bowl2','ow1','ow2'].forEach(function(k){
@@ -2701,6 +2723,12 @@ function tracerCandidates(){
   ['ow1','ow2'].forEach(function(k){if(T[k]&&!R[k])o.push({id:'team:'+k,label:'🎮 '+GAME[k]+' 팀 정보 다시 뽑기'});});
   if(T.bowl1&&!R.bowl1)o.push({id:'team:bowl1',label:'🎳 '+GAME.bowl1+' 팀 다시 뽑기'});
   if(T.bowl2&&R.bowl1&&!R.bowl2)o.push({id:'scout:bowl2',label:'🥁 '+GAME.bowl2+' 방출 추첨 다시 하기'});
+  var LS=S.pub.last;
+  if(LS&&LS.id){
+    var hk=LS.id.indexOf('pw:')===0?LS.id.slice(3):null;
+    if(hk&&REWIND_PW[hk]&&isUsed(hk))o.push({id:LS.id,label:REWIND_PW[hk]+(LS.label?' — '+LS.label:'')});
+    else if(LS.id.indexOf('lucky:')===0)o.push({id:LS.id,label:'🍀 럭키 찬스 카드 다시 뽑기'+(LS.label?' — '+LS.label:'')});
+  }
   return o;
 }
 function tracerOptions(){
@@ -2708,8 +2736,8 @@ function tracerOptions(){
   if(!last||!last.id)return [];
   return tracerCandidates().filter(function(o){return o.id===last.id;});
 }
-function setLast(id){
-  S.pub.last=id?{id:id,ts:Date.now()}:null;
+function setLast(id,label){
+  S.pub.last=id?{id:id,ts:Date.now(),label:label||''}:null;
   if(id)put('public/last',S.pub.last);else enqueue(function(){return S.db.doc('public/last').delete();});
 }
 function redoTarget(id,holder){
@@ -2724,12 +2752,59 @@ function redoTarget(id,holder){
     if(key==='bowl1')tBowl1(via);else owDraw(key,via);
     return {ok:true};
   }
+  if(kind==='pw'){
+    var lp=A().state.lastPw;
+    if(!lp||lp.hero!==key)return fail('되돌릴 기록이 없어요');
+    if(key==='moira')return rewindMoira(via);
+    if(key==='cassidy')return rewindCassidy(lp,via);
+    delEvt('pw:'+key);                                   // 시그마 / 메르시: 이전 결과를 없애고 같은 조건으로 다시 추첨
+    var rr2=execPower(key,lp.opts||{},{via:via});
+    return rr2.ok?{ok:true}:rr2;
+  }
+  if(kind==='lucky')return rewindLucky(via);
   if(kind==='scout'){
     var tg=A().state.scoutTarget;
     if(!tg)return fail('영입 선수 정보가 없어요');
     var r=scoutDraw(tg,via);return r.ok?{ok:true}:fail(r.msg||'다시 뽑지 못했어요');
   }
   return fail('알 수 없는 선택이에요');
+}
+function voidUsed(hero,text){
+  var U=clone(S.pub.used)||{used:{}};
+  if(U.used&&U.used[hero]){U.used[hero].res=[text];S.pub.used=U;saveUsed();}
+}
+function rewindMoira(via){
+  var g={};
+  L().entries.filter(function(e){return e.evt==='pw:moira';}).forEach(function(e){g[e.name]=(g[e.name]||0)-e.d;});
+  var gains=Object.keys(g).filter(function(n){return g[n]!==0;}).map(function(n){return {name:n,d:g[n]};});
+  delEvt('pw:moira');
+  voidUsed('moira','⏪ 트레이서의 시간 역행으로 취소됐어요 (없었던 일)');
+  setLast(null);
+  announce('announce','⏪ 시간 역행! 모이라가 없었던 일이 됐어요',{emoji:'⏪',via:via,lines:['모이라 — 생체 흡수가 취소됐어요','빼앗겼던 점수가 원래대로 돌아가요 ↩'],gains:gains,gainsTitle:'원래대로 돌아가는 점수'},'⏪ 시간 역행!! 모이라가 점수를 빼앗은 일이 없었던 일이 됐어요. 점수가 원래대로 돌아가요');
+  return {ok:true};
+}
+function rewindCassidy(lp,via){
+  var tg=lp.opts&&lp.opts.target;
+  if(!tg)return fail('결투 상대 정보가 없어요');
+  delEvt('pw:cassidy');
+  A().state.duel={target:tg};saveState();
+  voidUsed('cassidy','⏪ 결투 결과가 취소됐어요 — 가위바위보 재대결 중… ('+lp.holder+' vs '+tg+')');
+  setLast(null);
+  announce('announce','⏪ 시간 역행! 결투 결과 취소',{emoji:'⏪',via:via,lines:['캐서디 결투 결과가 없었던 일이 됐어요!',lp.holder+' vs '+tg,'가위바위보 다시!! ✊✌️✋'],adminGo:{hero:'cassidy',label:'📝 재대결 결과 입력하러 가기'}},'⏪ 시간 역행!! '+lp.holder+' vs '+tg+' 결투 결과가 취소됐어요. 가위바위보 다시!!');
+  return {ok:true};
+}
+function rewindLucky(via){
+  var ll=A().state.lastLucky;
+  if(!ll)return fail('되돌릴 기록이 없어요');
+  var key=ll.key+':'+ll.ti+':'+ll.g,ev=L().evts.filter(function(e){return e.lk===key;})[0];
+  if(!ev)return fail('이미 취소된 럭키 찬스예요');
+  delEvt(ev.id);
+  setLast(null);
+  S.modal={type:'lucky',key:ll.key,stage:2,thrower:ll.thrower,hit:ll.hit||'X',grp:ll.g,ti:ll.ti,token:uuid(),kind:null,rec:null};
+  var tok=S.modal.token;
+  announce('announce','⏪ 시간 역행! 럭키 찬스 다시 뽑기',{emoji:'⏪',via:via,lines:[ll.thrower+' 님의 럭키 찬스 카드가 취소됐어요!','다시 뽑아요 🍀'],wait:true,waitMs:6000},'⏪ 시간 역행!! '+ll.thrower+' 님의 럭키 찬스 카드가 취소됐어요. 다시 뽑아요 🍀');
+  setTimeout(function(){if(luckyActive(tok)){luckyDraw();}},4200);
+  return {ok:true};
 }
 function quoteOf(key,vars){
   var q=(A().content&&A().content.quotes&&A().content.quotes[key])||'';
@@ -2740,7 +2815,7 @@ function duelStart(holder,target){
   A().state.duel={target:target};saveState();
   markUsed('cassidy',holder,['결투 신청 → '+target+' (가위바위보 결과 대기 중)'],[holder,target]);
   var dq=quoteOf('cassidy_duel',{target:target});
-  announce('announce','⚔️ 결투 신청!',{emoji:'⚔️',lines:[holder+' 님이 '+target+' 님에게 결투를 신청했어요!','캐서디 — 석양의 무법자 · 가위바위보 승부!'],quote:dq},
+  announce('announce','⚔️ 결투 신청!',{emoji:'⚔️',lines:[holder+' 님이 '+target+' 님에게 결투를 신청했어요!','캐서디 — 석양의 무법자 · 가위바위보 승부!'],quote:dq,adminGo:{hero:'cassidy',label:'📝 결투 결과 입력하러 가기'}},
     '⚔️ '+holder+' 님이 '+target+' 님에게 결투를 신청했어요!!!! (캐서디 — 석양의 무법자)'+(dq?' “'+dq+'”':''));
   return {ok:true};
 }
@@ -2755,17 +2830,17 @@ function echoCall(){
   A().state.echo={called:true};saveState();
   markUsed('echo',holder,['호명 대기 중… 🙋 누구의 점수를 바꿀까요?'],[holder]);
   var eq=quoteOf('echo_call',{});
-  announce('announce','🪞 에코 — 복제!',{emoji:'🪞',lines:['에코는 '+holder+' 님의 초능력이었습니다!','누구의 점수를 바꿀건가요?','지금 호명해주세요!'],quote:eq},
+  announce('announce','🪞 에코 — 복제!',{emoji:'🪞',lines:['에코는 '+holder+' 님의 초능력이었습니다!','누구의 점수를 바꿀건가요?','지금 호명해주세요!'],quote:eq,adminGo:{hero:'echo',label:'🪞 호명한 사람 입력하러 가기'}},
     '🪞 에코는 '+holder+' 님이었습니다!!!! '+(eq?'“'+eq+'” ':'')+'누구의 점수를 바꿀건가요? 지금 호명해주세요!');
   if(S.modal&&S.modal.hero==='echo')S.modal.called=true;
 }
 /* 초능력 실행 (관리자 창 / 플레이어 공개 요청 공통) */
 function uniq(a){var s={},o=[];a.forEach(function(x){if(x&&!s[x]){s[x]=1;o.push(x);}});return o;}
-function execPower(hero,o){
+function execPower(hero,o,ex){
   var holder=holderOf(hero),x=heroOf(hero),P=(A().content||{}).params,T=calc();
   if(!P)return fail('비밀 데이터가 없어요');
   if(!holder)return fail('보유자가 없어요');
-  var label=x.hero+' — '+x.power+' · '+holder,items=[],lines=[],kind='announce',payload=null,chat='',qk=hero,qv={target:o.target||''},gains=null,rl=[],extra=[holder];
+  var label=x.hero+' — '+x.power+' · '+holder,items=[],lines=[],kind='announce',payload=null,chat='',qk=hero,qv={target:o.target||''},gains=null,gainsTitle='',bubble=null,rl=[],extra=[holder];
   var okT=function(t){return t&&t!==holder&&PLAYERS.indexOf(t)>=0;};
   if(hero==='tracer'){
     var tl=tracerOptions().filter(function(z){return z.id===o.target;})[0];
@@ -2821,14 +2896,19 @@ function execPower(hero,o){
       items=lg.m.map(function(n){return {name:n,d:P.lucio,note:label};});
       lines=[holder+' 님의 팀 분위기 전환!',lg.n+' 팀원 전원 +'+P.lucio+'점','👥 '+lg.m.join(', ')];
       rl=[lg.n+' 팀원 전원 +'+P.lucio+'점: '+lg.m.join(', ')];break;
-    case 'cassidy':
+    case 'cassidy':{
       if(!okT(o.target)||!o.res)return fail('상대와 결과를 선택하세요');
-      var winner=o.res==='win'?holder:o.target;qv.winner=winner;
+      var winner=o.res==='win'?holder:o.target,loser=o.res==='win'?o.target:holder;
+      qk='cassidy_none';
       items=[{name:winner,d:P.cassidy,note:label}];
-      lines=[holder+' vs '+o.target+' 결투 결과',winner+' 님 승리! 🏆'];
-      gains=[{name:winner,d:P.cassidy}];
-      rl=[holder+' vs '+o.target+' → '+winner+' 승리 (+'+P.cassidy+'점)'];extra=[holder,o.target];
-      delete A().state.duel;saveState();break;
+      lines=[holder+' vs '+o.target+' 가위바위보 결과','🏆 '+winner+' 님이 이겼어요!','승리 보너스 +'+P.cassidy+'점을 받아요 (진 사람 '+loser+' 님의 점수는 그대로예요 ✋)'];
+      gains=[{name:winner,d:P.cassidy}];gainsTitle='승리 보너스 · 점수를 뺏는 게 아니에요!';
+      var OPP=['이기게 두지 않겠어요','결투는 제 앞에서 끝나는 법이죠 😎','캐서디? 오늘은 제가 더 빠르네요 ㅎㅎ','신청하신 건 그쪽인데 왜 제가 미안하죠? 😏'];
+      var HOLD=['석양이 지기 전에 끝냈죠 😎','결투는 이렇게 하는 겁니다 🤠','자, 보너스는 제 거예요 ㅎㅎ'];
+      bubble=o.res==='win'?{who:holder,text:HOLD[rnd(HOLD.length)]}:{who:o.target,text:OPP[rnd(OPP.length)]};
+      chat=lines.slice(1).join(' · ')+' '+bubble.who+' : “'+bubble.text+'”';
+      rl=[holder+' vs '+o.target+' → '+winner+' 승리 (+'+P.cassidy+'점, '+loser+' 점수는 그대로)'];extra=[holder,o.target];
+      delete A().state.duel;saveState();break;}
     case 'sigma':{
       if(o.inc!==true&&o.inc!==false)return fail('본인 포함 여부를 선택하세요');
       var a,b2,pk=shuffle(othersOf(holder));
@@ -2849,9 +2929,16 @@ function execPower(hero,o){
         if(!tg||o.evt==='pw:reinhardt')return fail('무효화할 초능력 기록이 없어요');
         var hid=String(o.evt).slice(3),tu=((S.pub.used&&S.pub.used.used)||{})[hid];
         if(tu&&tu.aff&&tu.aff.indexOf(holder)<0)return fail('나와 상관없는 초능력은 막을 수 없어요');
+        var xh=heroOf(hid),rv={};
+        L().entries.filter(function(e){return e.evt===o.evt;}).forEach(function(e){rv[e.name]=(rv[e.name]||0)-e.d;});
+        gains=Object.keys(rv).filter(function(n){return rv[n]!==0;}).map(function(n){return {name:n,d:rv[n]};});gainsTitle='원래대로 돌아가는 점수';
         delEvt(o.evt);
-        lines=[holder+' 님이 방벽으로 막았어요!','무효화: '+tg.label];label+=' (방어)';
-        rl=['방어 성공 — '+(heroOf(hid)?heroOf(hid).hero:hid)+(tu?' ('+tu.by+' 님)':'')+'의 초능력을 막았어요'];
+        lines=['🛡️ '+holder+' 님이 방벽으로 막았어요!',(tu?tu.by+' 님의 ':'')+(xh?xh.hero+' — '+xh.power:hid)+' 효과가 무효화됐어요','해당 내역은 없었던 일이 돼요 — 다시 추첨하지 않아요 🚫'];
+        chat=lines.join(' · ');label+=' (방어)';
+        var Uv=clone(S.pub.used)||{used:{}};
+        if(Uv.used&&Uv.used[hid]){Uv.used[hid].res=['🛡️ 라인하르트가 무효화했어요 — 없었던 일이 됐어요 (다시 추첨 안 함)'];Uv.used[hid].voided=true;S.pub.used=Uv;saveUsed();}
+        if(S.pub.last&&S.pub.last.id==='pw:'+hid)setLast(null);
+        rl=['방어 성공 — '+(xh?xh.hero:hid)+(tu?' ('+tu.by+' 님)':'')+'의 초능력을 무효화했어요 (없었던 일)'];
       }else return fail('방어 여부를 선택하세요');
       break;
     case 'mercy':
@@ -2867,8 +2954,13 @@ function execPower(hero,o){
   addEvt(label,'power',items,{id:'pw:'+hero});
   var aff=uniq(items.map(function(i){return i.name;}).concat(extra));
   markUsed(hero,holder,rl.length?rl:lines,aff);
-  if(kind==='announce')payload={emoji:x.em,lines:lines,gains:gains};
+  if(kind==='announce')payload={emoji:x.em,lines:lines,gains:gains,gainsTitle:gainsTitle,bubble:bubble};
   payload.quote=q;
+  if(ex&&ex.via)payload.via=ex.via;
+  if(['sigma','mercy','moira','cassidy'].indexOf(hero)>=0){
+    A().state.lastPw={hero:hero,holder:holder,opts:{inc:o.inc,target:o.target}};saveState();
+    setLast('pw:'+hero,x.hero+' — '+x.power+' ('+holder+')');
+  }
   announce(kind,'🔮 '+x.hero+' — '+x.power+'!',payload,
     '🔮 '+holder+' 님이 '+x.hero+' — '+x.power+' 발동!!!! '+(q?'“'+q+'” ':'')+(chat||lines.join(' · ')));
   return {ok:true};
@@ -2876,11 +2968,12 @@ function execPower(hero,o){
 function pwRun(){
   var m=S.modal,r=execPower(m.hero,m);
   if(!r.ok)return toast(r.msg);
-  S.modal=null;render(true);
+  if(S.modal===m)S.modal=null;
+  render(true);
 }
 function tracerModal(){
   var o=tracerOptions();
-  var h='<div class="ov" data-act="modalClose"><div class="box" data-stop="1"><h3>⏪ 시간 역행!</h3><div class="via" style="background:var(--hot)">⚠️ 트레이서는 <b>바로 직전에 진행된 추첨 1건</b>만 되돌릴 수 있어요!</div><p class="small mut">점수 봉투·팀 추첨·방출 추첨 중 가장 최근 1건이에요. 럭키 찬스 같은 다른 이벤트가 지나가도 상관없어요. 단, <b>팀을 정한 뒤 경기 결과가 이미 나왔다면</b> 그 팀 추첨은 되돌릴 수 없어요.</p><p class="small">아래 항목을 선택하면 모두의 화면에서 바로 다시 진행돼요.</p>';
+  var h='<div class="ov" data-act="modalClose"><div class="box" data-stop="1"><h3>⏪ 시간 역행!</h3><div class="via" style="background:var(--hot)">⚠️ 트레이서는 <b>바로 직전에 일어난 되돌릴 수 있는 일 1건</b>만 되돌릴 수 있어요!</div><p class="small mut">되돌릴 수 있는 일: 팀·점수 봉투·방출 추첨, 캐서디 가위바위보 결과, 시그마·메르시 추첨, 모이라 점수 빼앗기, 럭키 찬스 카드. 다음 되돌릴 일이 생기면 이전 것은 못 돼요. <b>시메트라 팀 교환은 못 되돌려요</b>, 경기 결과가 이미 나온 팀 추첨도 안 돼요. (되돌려도 이미 쓴 초능력은 다시 쓸 수 없어요)</p><p class="small">아래에서 <b>되돌릴 일을 선택</b>하면 바로 진행돼요. (추첨은 다시 추첨, 모이라는 취소, 캐서디는 재대결)</p>';
   if(!o.length)h+='<p class="warn">되돌릴 수 있는 추첨이 없어요. (아직 추첨이 없거나, 직전 추첨의 경기 결과가 이미 나왔어요)</p>';
   else h+=o.map(function(x){return '<button class="rbtn" data-act="tracerPick" data-v="'+x.id+'"><span><b>'+esc(x.label)+'</b></span></button>';}).join('');
   return h+'<button class="btn ghost block" style="margin-top:12px" data-act="modalClose">닫기</button></div></div>';
@@ -2891,7 +2984,7 @@ function recentUsed(){
 }
 function reinModal(){
   var u=(S.pub.used&&S.pub.used.used)||{},rec=recentUsed(),relN=0;
-  var h='<div class="ov" data-act="modalClose"><div class="box" data-stop="1"><h3>🛡️ 방벽 방어!</h3><p class="small">직전에 발동된 초능력 2건 중, <b>나와 관련된 것만</b> 막을 수 있어요.</p>';
+  var h='<div class="ov" data-act="modalClose"><div class="box" data-stop="1"><h3>🛡️ 방벽 방어!</h3><p class="small">직전에 발동된 초능력 2건 중, <b>나와 관련된 것만</b> 막을 수 있어요.<br>막으면 <b>다시 추첨하지 않고</b> 그 내역이 <b>없었던 일</b>이 돼요.</p>';
   if(!rec.length)h+='<p class="warn">아직 발동된 초능력이 없어요.</p>';
   else h+=rec.map(function(k,i){
     var x=heroOf(k),rel=(!u[k].aff)||u[k].aff.indexOf(S.me)>=0,r0=(u[k].res||[])[0]||(u[k].detail||[])[0]||'';
@@ -3250,6 +3343,15 @@ async function handle(act,v,t){
       var dl=(v==='cassidy'&&A().state.duel)?A().state.duel:null;
       S.modal={type:'pw',hero:v,target:dl?dl.target:null,res:null,inc:null,mode:null,evt:null,duel:!!dl,called:(v==='echo'&&!!A().state.echo)};break;}
     case 'duelOpen':duelOpen();break;
+    case 'popAdminGo':{
+      var ag=S.pop&&S.pop.ev&&S.pop.ev.payload&&S.pop.ev.payload.adminGo;
+      closePop();
+      if(ag&&ag.hero&&S.admin){
+        var dl2=(ag.hero==='cassidy'&&A().state.duel)?A().state.duel:null;
+        S.view='power';
+        S.modal={type:'pw',hero:ag.hero,target:dl2?dl2.target:null,res:null,inc:null,mode:null,evt:null,duel:!!dl2,called:(ag.hero==='echo'&&!!A().state.echo)};
+      }
+      break;}
     case 'echoCall':echoCall();break;
     case 'pwRun':return pwRun();
     case 'pwUndo':{var hh=v;ask('이 초능력 사용을 취소할까요? 공개와 점수 변동을 모두 되돌려요.',function(){pwUndo(hh);render(true);});return;}
