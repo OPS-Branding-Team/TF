@@ -393,6 +393,7 @@ var PLAYERS=['김세환','이유정','심승선','차한나','이수민','하지
 var HOST='이유정';                       // 관리자 (이유정으로 로그인하면 자동으로 관리자 화면)
 var STAFF=['이유정','김미송','최우재'];   // 채팅에서 "관리자"로 강조
 var CAPS=['심승선','최우재'];
+var MALES=['심승선','박온','임세호','최우재','김세환'];     // 볼링 밸런스 팀 나누기에 쓰는 남자 5명 (나머지 5명은 여자)
 var HEROES=[
   {id:'echo',hero:'에코',power:'복제',em:'🪞',c:'#34b8e8',last:true},
   {id:'moira',hero:'모이라',power:'생체 흡수',em:'🧪',c:'#9b5cf0'},
@@ -1965,10 +1966,19 @@ function clearBowl(){
   L().evts.filter(function(e){return e.cat==='bowl';}).forEach(function(e){delEvt(e.id,true);});
   saveLedger();S.ui.scout=null;
 }
+/* 볼링 1세트 밸런스 팀 나누기: 남자 2 + 여자 3 / 남자 3 + 여자 2 (김세환은 항상 "남자 2" 쪽) */
+function balancedBowl(){
+  var females=PLAYERS.filter(function(n){return MALES.indexOf(n)<0;});
+  var others=shuffle(MALES.filter(function(n){return n!=='김세환';}));
+  var f=shuffle(females);
+  var teamTwo=shuffle(['김세환',others[0]].concat(f.slice(0,3)));     // 남2 + 여3
+  var teamThree=shuffle(others.slice(1).concat(f.slice(3)));          // 남3 + 여2
+  return rnd(2)===0?[teamTwo,teamThree]:[teamThree,teamTwo];          // 어느 쪽이 A팀인지는 랜덤
+}
 function tBowl1(via){
   setLast('team:bowl1');
-  var pl=shuffle(PLAYERS);
-  setTeams('bowl1',[{n:'A팀',m:pl.slice(0,5)},{n:'B팀',m:pl.slice(5,10)}],'1세트 팀이 정해졌어요!','🎳 볼링 1세트 팀',via?{via:via}:null);
+  var tm=balancedBowl();
+  setTeams('bowl1',[{n:'A팀',m:tm[0]},{n:'B팀',m:tm[1]}],'1세트 팀이 정해졌어요!','🎳 볼링 1세트 팀',via?{via:via}:null);
 }
 function mtSave(){
   setLast(null);
@@ -2531,8 +2541,8 @@ function sampleTeams(){
   var T=clone(S.pub.teams)||{sets:{},current:null};T.sets=T.sets||{};
   var o=shuffle(lunchOthers());
   T.sets.lunch={groups:[0,1,2].map(function(i){return {n:'ABC'[i]+'팀',m:o.slice(i*3,i*3+3)};})};
-  var b=shuffle(PLAYERS);
-  T.sets.bowl1={groups:[{n:'A팀',m:b.slice(0,5)},{n:'B팀',m:b.slice(5,10)}]};
+  var b=balancedBowl();
+  T.sets.bowl1={groups:[{n:'A팀',m:b[0]},{n:'B팀',m:b[1]}]};
   T.sets.ow1={groups:capsTeams()};
   T.current='bowl1';
   S.pub.teams=T;saveTeams();
