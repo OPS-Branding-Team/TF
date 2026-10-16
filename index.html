@@ -1249,6 +1249,7 @@ function setTeams(key,groups,note,title,extra){
   S.pub.teams=T;saveTeams();
   var p={groups:groups,note:note};
   if(key.indexOf('bowl')===0)p.closeGo='bowl';else if(key.indexOf('ow')===0)p.closeGo='ow';
+  else if(key==='lunch'){p.closeGo='lunch';p.note=(p.note?p.note+'\n':'')+'👉 닫으면 점심 룰(이구동성 · 릴레이)로 이동해요';}
   if(key==='bowl1'||key==='bowl2'){p.note='';p.callout='각 팀별로 뉴비 2명 · 미들 2명 · 고수 1명을 정해주세요!';}   // 볼링 팀 공개 때는 조 편성 안내를 크게
   if(extra)Object.assign(p,extra);
   announce('teams',title,p,(p.via?'⏪ '+p.via+' ':'')+title+' — '+groups.map(function(g){return g.n+' ('+g.m.join(', ')+')';}).join(' / '));
