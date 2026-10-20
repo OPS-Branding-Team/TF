@@ -722,14 +722,12 @@ var HEROES=[
 ];
 var SCHEDULE=[
   ['11:30~12:00','집결 및 초능력 카드 추첨','🎴','power'],
-  ['12:00~13:00','점심 미니게임','🍽️','lunch'],
-  ['13:00~13:20','이동','🚗',null],
-  ['13:20~14:50','볼링 두 경기','🎳','bowl'],
-  ['14:50~15:20','이동 및 휴식','☕',null],
-  ['15:20~17:00','오버워치 두 경기','🎮','ow'],
-  ['17:00~17:30','초능력 사용 및 점수 정산','🔮','power'],
-  ['17:30~18:00','최종 복불복 및 순위 확정','🎁','award'],
-  ['18:00~18:20','최종 1등부터 선물 선택','🏆','award']
+  ['12:00~13:30','점심 미니게임','🍽️','lunch'],
+  ['13:30~14:00','이동','🚗',null],
+  ['14:00~16:00','볼링 두 경기','🎳','bowl'],
+  ['16:00~16:30','이동 및 휴식','☕',null],
+  ['16:30~18:30','오버워치 두 경기','🎮','ow'],
+  ['18:30~19:00','최종 순위 확정 및 선물 증정','🏆','award']
 ];
 var MENU=[
   {id:'home',t:'전체 일정',i:'🗓️'},
@@ -1383,7 +1381,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v20';
+var BUILD_ID='v21';
 var GATE_ON=!(typeof window!=='undefined'&&window.__TF_NOGATE);
 function settledOf(h){var st=(A().state||{}).settled||{};return st[h];}
 /* 점수 공개는 초능력 사용 처리(라인하르트·트레이서 정산, 에코 실행)가 끝난 뒤에만 */
@@ -2223,7 +2221,7 @@ function catLine(c){
   return keys.map(function(k){return (CATN[k]||k)+' '+((c&&c[k])||0);}).join(' / ');
 }
 function viewAward(){
-  var fin=S.pub.final,gifts=(S.pub.gifts&&S.pub.gifts.list)||[];
+  var fin=S.pub.final;
   var h='<h2 class="h2" style="margin-top:6px">🏆 시상식 · 최종 보상</h2>'+banner();
   if(fin&&fin.published){
     h+='<div class="note">🎉 점수가 공개됐어요! 내 이름을 눌러 점수 내역을 확인하세요.</div>';
@@ -2238,10 +2236,7 @@ function viewAward(){
   }else{
     h+='<div class="card"><b>🔒 점수는 아직 비공개예요</b><p class="small mut">관리자가 점수 공개 버튼을 누르면 전체 점수와 순위가 이 화면에 나타나요.</p></div>';
   }
-  h+='<div class="note" style="font-size:16px;line-height:1.65"><b>🎁 선물 안내</b><br>오버워치 경기가 모두 끝나면 선물이 공개돼요.<br>일등부터 먼저 선물을 선택할 수 있는 기회가 주어져요.</div>'+
-    '<h3 class="h3">🎁 최종 선물 선택</h3><div class="card"><p><b>최종 1등부터 원하는 선물 1개씩</b> 골라 가져가요.</p><table class="tbl" style="margin-top:8px"><tr><th>순위</th><th>선물</th></tr>'+
-    PLAYERS.map(function(_,i){return '<tr><td>'+(i+1)+'위</td><td>'+(gifts[i]?esc(gifts[i]):'🎁 ???')+'</td></tr>';}).join('')+'</table>'+
-    '<div class="note">동점 시 → 메인 경기 누적 점수 우선, 동일하면 가위바위보!</div></div>';
+  h+='<div class="note" style="font-size:15px;line-height:1.6"><b>🏆 최종 순위 확정 및 선물 증정</b><br>일정표의 마지막 시간(18:30~19:00)에 최종 순위를 확정하고 선물을 증정해요.<div class="small mut" style="margin-top:4px">동점이면 메인 경기 누적 점수 우선, 동일하면 가위바위보!</div></div>';
   if(S.admin)h+=awardAdmin();
   return h;
 }
@@ -2263,8 +2258,6 @@ function awardAdmin(){
   h+=tool('④ 📣 점수 공개 '+(fin&&fin.published?'<span class="tag good">공개 중</span>':''),'누르면 모든 참가자 폰의 “시상식” 화면에 전체 점수 내역과 순위가 나타나요.'+(ok?'':'<br><span class="warn">⚠️ 먼저 라인하르트·트레이서 정산과 에코 실행을 끝내 주세요.</span>'),
     '<button class="btn hot block" data-act="publish"'+(ok?'':' disabled')+'>'+(fin&&fin.published?'최신 점수로 다시 공개':'점수 공개하기')+'</button>'+(fin&&fin.published?'<button class="btn ghost block" style="margin-top:8px" data-act="unpublish">공개 취소 (다시 숨기기)</button>':''));
   h+='<div class="card"><b>순위 미리보기</b><table class="tbl" style="margin-top:6px"><tr><th>순위</th><th>이름 / 영웅</th><th>메인</th><th>합계</th></tr>'+R.map(function(r){var hx=as[r.name]?heroOf(as[r.name]):null;return '<tr><td>'+r.rank+(r.tie?'*':'')+'</td><td>'+esc(r.name)+(hx?' / '+esc(hx.hero):'')+'</td><td>'+r.main+'</td><td class="pt">'+r.total+'</td></tr>';}).join('')+'</table><p class="small mut">* 동점 — 메인 점수도 같으면 가위바위보로 정해요.</p></div>';
-  var g=S.ui.gifts||((S.pub.gifts&&S.pub.gifts.list)||[]);
-  h+=tool('🎁 선물 목록 입력 (선택)','순위별 선물 이름을 적으면 위 표에 보여요. 비워두면 ???로 보여요.',PLAYERS.map(function(_,i){return '<div class="row" style="margin-top:6px"><b style="width:38px">'+(i+1)+'위</b><input class="in" style="flex:1;width:auto" data-bind="ui.gifts.'+i+'" value="'+esc(g[i]||'')+'" placeholder="선물"></div>';}).join('')+'<button class="btn block" style="margin-top:8px" data-act="saveGifts">선물 목록 저장</button>');
   return h;
 }
 
