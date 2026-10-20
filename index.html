@@ -621,8 +621,12 @@ details.pl .bd{padding:0 12px 12px}
 .dicewrap .f1{transform:translateZ(50px)}.dicewrap .f6{transform:rotateY(180deg) translateZ(50px)}
 .dicewrap .f2{transform:rotateY(90deg) translateZ(50px)}.dicewrap .f5{transform:rotateY(-90deg) translateZ(50px)}
 .dicewrap .f3{transform:rotateX(90deg) translateZ(50px)}.dicewrap .f4{transform:rotateX(-90deg) translateZ(50px)}
-.dicewrap.landed .cube{filter:drop-shadow(0 0 14px rgba(255,210,63,.9))}
+/* (주의) preserve-3d 요소에 filter를 걸면 입체가 납작해져서 엉뚱한 면이 보여요 → 글로우는 뒤쪽 별도 요소로 */
+.dicewrap::before{content:'';position:absolute;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(255,210,63,.55),rgba(255,210,63,0) 70%);opacity:0;transition:opacity .5s;pointer-events:none}
+.dicewrap.landed::before{opacity:1}
 .dval{font-size:16px;color:var(--mut);margin:4px 0}.dval b{font-family:var(--f-d);font-size:28px;color:var(--gold)}
+
+.dicewrap .face{backface-visibility:hidden;-webkit-backface-visibility:hidden}
 
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
@@ -1365,7 +1369,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v15';
+var BUILD_ID='v16';
 var REIN_MAX=2;
 function reinUses(){var e=((S.pub&&S.pub.used&&S.pub.used.used)||{}).reinhardt||{};return (e.count||0)+(e.bonus?1:0);}
 function maxUses(id){return id==='reinhardt'?REIN_MAX:1;}
