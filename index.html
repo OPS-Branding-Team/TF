@@ -609,6 +609,21 @@ details.pl .bd{padding:0 12px 12px}
 .bf-row .calc{display:none;font-size:13px;color:var(--gold)}.bf-row.cx .calc{display:block;animation:rise .4s both}
 .bf-row .raw{display:block;font-size:20px}.bf-row .raw b{font-family:var(--f-d);font-size:26px}
 
+/* v15: 진짜 주사위 */
+.dicewrap{perspective:700px;height:170px;display:flex;align-items:center;justify-content:center;position:relative;margin:8px 0 4px}
+.dicewrap .cube{position:relative;width:100px;height:100px;transform-style:preserve-3d}
+.dicewrap.throw{animation:dthrow 2.05s cubic-bezier(.3,.8,.4,1) both}
+@keyframes dthrow{0%{transform:translateY(-190px) scale(.6)}28%{transform:translateY(0) scale(1)}44%{transform:translateY(-62px)}58%{transform:translateY(0)}70%{transform:translateY(-20px)}82%,100%{transform:translateY(0)}}
+.dshadow{position:absolute;bottom:6px;left:50%;margin-left:-46px;width:92px;height:16px;border-radius:50%;background:rgba(0,0,0,.5);filter:blur(5px)}
+.dicewrap .face{position:absolute;width:100px;height:100px;background:#fffdf6;border:3px solid #c9ccff;border-radius:18px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);padding:12px;box-sizing:border-box;box-shadow:inset 0 0 14px rgba(0,0,0,.12)}
+.dicewrap .face i{width:20px;height:20px;border-radius:50%;background:#1a1a2e;place-self:center;box-shadow:inset 0 2px 3px rgba(255,255,255,.25)}
+.dicewrap .face i.one{background:#e23b52;width:26px;height:26px}
+.dicewrap .f1{transform:translateZ(50px)}.dicewrap .f6{transform:rotateY(180deg) translateZ(50px)}
+.dicewrap .f2{transform:rotateY(90deg) translateZ(50px)}.dicewrap .f5{transform:rotateY(-90deg) translateZ(50px)}
+.dicewrap .f3{transform:rotateX(90deg) translateZ(50px)}.dicewrap .f4{transform:rotateX(-90deg) translateZ(50px)}
+.dicewrap.landed .cube{filter:drop-shadow(0 0 14px rgba(255,210,63,.9))}
+.dval{font-size:16px;color:var(--mut);margin:4px 0}.dval b{font-family:var(--f-d);font-size:28px;color:var(--gold)}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
@@ -1350,7 +1365,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v14';
+var BUILD_ID='v15';
 var REIN_MAX=2;
 function reinUses(){var e=((S.pub&&S.pub.used&&S.pub.used.used)||{}).reinhardt||{};return (e.count||0)+(e.bonus?1:0);}
 function maxUses(id){return id==='reinhardt'?REIN_MAX:1;}
@@ -1934,7 +1949,7 @@ function viewPower(){
         var hd=holderOf(x.id);
         s+='<ul class="dt">'+c.powers[x.id].detail.map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+
           '<div class="holder'+(hd?'':' none')+'"><small>보유자</small><b>'+(hd?esc(hd):'미배정')+'</b></div><span class="by">'+(u?'✅ 사용 공개됨':'🔒 비공개')+'</span>'+(u?resBox(u):'')+
-          '<div class="crow">'+(u?'<button class="cb" data-act="pwUndo" data-v="'+x.id+'">↩ 사용 취소 (점수도 취소)</button>'+((x.id==='cassidy'&&A().state.duel)?'<button class="cb" data-act="pwOpen" data-v="'+x.id+'">⚔️ 결과 입력</button>':'')+((x.id==='echo'&&A().state.echo)?'<button class="cb" data-act="pwOpen" data-v="echo">🪞 호명한 대상 입력</button>':'')+((x.id==='reinhardt'&&reinUses()<REIN_MAX)?'<button class="cb" data-act="pwOpen" data-v="reinhardt">🛡️ 방어/보너스 대신 처리 (관리자)</button>':''):
+          '<div class="crow">'+(u?'<button class="cb" data-act="pwUndo" data-v="'+x.id+'">↩ 사용 취소 (점수도 취소)</button>'+((x.id==='cassidy'&&A().state.duel)?'<button class="cb" data-act="pwOpen" data-v="'+x.id+'">⚔️ 결과 입력</button>':'')+((x.id==='echo'&&A().state.echo)?'<button class="cb" data-act="pwOpen" data-v="echo">🪞 호명한 대상 입력</button>':'')+((x.id==='reinhardt'&&reinUses()<REIN_MAX)?'<button class="cb" data-act="pwOpen" data-v="reinhardt">🛡️ 방어/보너스 대신 처리 (관리자) · '+reinUses()+'/'+REIN_MAX+'회 사용</button>':''):
             (x.id==='echo'?'<button class="cb" data-act="pwOpen" data-v="echo"'+(hd?'':' disabled')+'>🪞 에코 실행 (호명 팝업)</button>':
             '<button class="cb" data-act="pwOpen" data-v="'+x.id+'"'+(hd?'':' disabled')+'>🛠 대신 공개 (관리자)</button><button class="cb" data-act="revealUse" data-v="'+x.id+'"'+(hd?'':' disabled')+'>공개만 (점수 없이)</button>'))+'</div>';
       }else if(u){
@@ -2301,7 +2316,7 @@ function renderPop(){
       inner='<div style="margin-top:8px">'+(p.names||[]).map(function(n,i){return '<span class="pn2'+(n===S.me?' me':'')+'" style="animation-delay:'+(i*0.5+0.3)+'s;font-size:18px">'+esc(n)+'</span>';}).join('')+'</div>'+(p.note?'<p class="pop-note">'+esc(p.note)+'</p>':'')+funnyLucky(ev);break;
     case 'dice':
       big=true;
-      inner='<p>'+esc(p.who||'')+' 님의 주사위</p>'+(p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'')+'<div class="dice roll" id="dice">🎲</div><div id="dres" style="min-height:70px"></div>';break;
+      inner='<p>'+esc(p.who||'')+' 님의 주사위</p>'+(p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'')+''+diceHtml()+'<div id="dres" style="min-height:70px"></div>';break;
     case 'private':
       big=true;
       if(!S.me)inner='<p class="mut">참가자로 로그인하면 내 결과를 볼 수 있어요.</p>';
@@ -2814,19 +2829,30 @@ function runDraw(ev){
     }
   },last+500);
 }
+/* 진짜 주사위처럼: 던져서 → 굴러가다가 → 결과 눈이 위로 오며 멈춰요 */
+function diceHtml(){
+  var PIPS={1:[5],2:[1,9],3:[1,5,9],4:[1,3,7,9],5:[1,3,5,7,9],6:[1,3,4,6,7,9]};
+  function face(n){var c='';for(var k=1;k<=9;k++)c+=(PIPS[n].indexOf(k)>=0?'<i'+(n===1?' class="one"':'')+'></i>':'<b></b>');return '<div class="face f'+n+'">'+c+'</div>';}
+  return '<div class="dicewrap" id="dice"><div class="cube" id="cube" style="transform:rotateX(-14deg) rotateY(18deg) rotateX(0deg) rotateY(0deg)">'+[1,2,3,4,5,6].map(face).join('')+'</div><div class="dshadow"></div></div>';
+}
 function rollDice(ev){
-  var el=$('#dice'),p=ev.payload,n=0;
-  if(!el)return;
-  var iv=setInterval(function(){
-    var e2=$('#dice');if(!e2||!S.pop||S.pop.ev.id!==ev.id){clearInterval(iv);return;}
-    n++;e2.textContent=String(1+rnd(6));
-    if(n>=10){
-      clearInterval(iv);e2.classList.remove('roll');e2.textContent=String(p.value);
-      var r=$('#dres');
-      var hl=p.delta>0?'<div class="jk big win">🎰 대박!!!</div><div class="jk">인생은 한방~~ 🎉</div>':p.delta<0?'<div class="jk big lose">💸 쪽박 ㅠ,ㅠ</div><div class="jk">도박이 이렇게 위험합니다…</div>':'<div class="jk big">😶 …</div><div class="jk">아무 일도 없었죠? 🤫</div>';
-      if(r)r.innerHTML=hl+'<div class="bigtxt '+(p.delta>0?'plus':p.delta<0?'minus':'')+'">'+fmt(p.delta)+'점</div>'+diceReaction(ev);
-    }
-  },120);
+  var p=ev.payload,cube=$('#cube'),wrap=$('#dice');
+  if(!cube||!wrap)return;
+  var FX={1:[0,0],6:[0,180],2:[0,-90],5:[0,90],3:[-90,0],4:[90,0]},f=FX[p.value]||[0,0];
+  function ok(){return S.pop&&S.pop.ev.id===ev.id;}
+  wrap.classList.add('throw');
+  setTimeout(function(){
+    if(!ok())return;
+    cube.style.transition='transform 1.9s cubic-bezier(.12,.75,.25,1)';
+    cube.style.transform='rotateX(-14deg) rotateY(18deg) rotateX('+(f[0]+1080)+'deg) rotateY('+(f[1]+1440)+'deg)';
+  },40);
+  setTimeout(function(){
+    if(!ok())return;
+    wrap.classList.add('landed');
+    var r=$('#dres');
+    var hl=p.delta>0?'<div class="jk big win">🎰 대박!!!</div><div class="jk">인생은 한방~~ 🎉</div>':p.delta<0?'<div class="jk big lose">💸 쪽박 ㅠ,ㅠ</div><div class="jk">도박이 이렇게 위험합니다…</div>':'<div class="jk big">😶 …</div><div class="jk">아무 일도 없었죠? 🤫</div>';
+    if(r)r.innerHTML='<div class="dval">주사위 눈 <b>'+p.value+'</b></div>'+hl+'<div class="bigtxt '+(p.delta>0?'plus':p.delta<0?'minus':'')+'">'+fmt(p.delta)+'점</div>'+diceReaction(ev);
+  },2150);
 }
 
 /* =============== 관리자: 추첨 / 팀 =============== */
