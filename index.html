@@ -685,6 +685,11 @@ details.pl .bd{padding:0 12px 12px}
 .cdn{font-family:var(--f-d);font-size:92px;line-height:1;color:var(--hot);margin:6px 0;text-shadow:0 5px 0 rgba(0,0,0,.4)}
 .cdn.tick{animation:dak .5s cubic-bezier(.2,2,.4,1)}
 
+#snipe{position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);z-index:96;pointer-events:none}
+.snipebox{pointer-events:auto;padding:12px;border-radius:16px;border:3px solid #a052f0;background:rgba(13,15,37,.97);box-shadow:0 8px 28px rgba(0,0,0,.7);text-align:center}
+.snipebox .snt{font-family:var(--f-d);font-size:20px;color:var(--gold);margin:4px 0}
+.svote .chips{justify-content:center}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
@@ -696,6 +701,7 @@ details.pl .bd{padding:0 12px 12px}
 <div id="newver" style="position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:80;pointer-events:none"></div>
 <div id="ver"></div>
 <div id="openfab"></div>
+<div id="snipe"></div>
 <div id="missed"></div>
 <div id="pop"></div>
 <div id="toast" role="status"></div>
@@ -759,17 +765,40 @@ function saveBowlDraft(key){
 }
 var MALES=['심승선','박온','임세호','최우재','김세환'];     // 볼링 밸런스 팀 나누기에 쓰는 남자 5명 (나머지 5명은 여자)
 var HEROES=[
-  {id:'symmetra',hero:'시메트라',power:'순간이동기',em:'🌀',c:'#22c79a'},
-  {id:'lucio',hero:'루시우',power:'분위기 전환',em:'🎧',c:'#5fc42a'},
-  {id:'moira',hero:'모이라',power:'생체 흡수',em:'🧪',c:'#9b5cf0'},
+  {id:'sombra',hero:'솜브라',power:'해킹',em:'💜',c:'#a052f0'},
+  {id:'widowmaker',hero:'위도우메이커',power:'적외선 투시',em:'🎯',c:'#8a5cc4'},
   {id:'cassidy',hero:'캐서디',power:'석양의 무법자',em:'🤠',c:'#e8603a'},
-  {id:'junkrat',hero:'정크랫',power:'대박 아니면 쪽박',em:'💣',c:'#f0a030'},
-  {id:'reinhardt',hero:'라인하르트',power:'방벽 방어',em:'🛡️',c:'#d98a2b'},
+  {id:'moira',hero:'모이라',power:'생체 흡수',em:'🧪',c:'#9b5cf0'},
+  {id:'symmetra',hero:'시메트라',power:'순간이동기',em:'🌀',c:'#22c79a'},
   {id:'tracer',hero:'트레이서',power:'시간 역행',em:'⏪',c:'#e8b800'},
-  {id:'sigma',hero:'시그마',power:'중력 붕괴',em:'🌌',c:'#5878f0'},
-  {id:'mercy',hero:'메르시',power:'발키리',em:'😇',c:'#d9b84a'},
-  {id:'echo',hero:'에코',power:'복제',em:'🪞',c:'#34b8e8',last:true}
+  {id:'echo',hero:'에코',power:'복제',em:'🪞',c:'#34b8e8',last:true},
+  {id:'reinhardt',hero:'라인하르트',power:'방벽 방어',em:'🛡️',c:'#d98a2b'},
+  {id:'lucio',hero:'루시우',power:'분위기 전환',em:'🎧',c:'#5fc42a'},
+  {id:'kiriko',hero:'키리코',power:'치유의 부적',em:'🍃',c:'#e8607a'}
 ];
+/* 상세가 처음부터 모두에게 공개되는 영웅 (보유자만 비밀, 키리코는 보유자도 공개) */
+var PUB_DETAIL={
+  sombra:['은밀하게 해킹할 사람과 추리한 영웅을 골라 제출해요 (총 2회, 성공·실패 모두 1회 소모)','이유정이 찾아와 대상의 초능력을 물어보고, 맞으면 대상의 초능력이 모두에게 공개돼요','첫 성공 +2점 · 두 번째 성공 +1점 추가 (누적 +3점)','틀리면 전원이 솜브라가 누구인지 투표해요. 4명 이상이 맞히면 정체가 들통나 초능력을 잃어요','끝까지 들키지 않으면 은닉 보너스 +1점'],
+  widowmaker:['이유정이 [봉투 개봉 · 저격 타임]을 누르면 봉투가 열리고, 본인 폰에 1분짜리 저격 팝업이 열려요','승리팀에서 최고 득점자(5점)일 것 같은 사람 1명을 저격해요 (라운드당 1회, 총 4회)','맞히면 대상 -1점 / 첫 성공 +2점 · 이후 성공 +1점 (성공하면 정체가 공개돼요)','내가 최고 득점자인 라운드는 저격 대신 척만 해요','실패 · 시간 초과 · 건너뛰기는 0점'],
+  kiriko:['볼링이 끝나면 1회, 오버워치가 끝나면 1회 자동으로 발동해요','이유정을 뺀 하위권 4명 중 무작위 2명에게 +1점씩 (누구인지는 비밀)','키리코는 이유정 고정이에요 — 진행 보너스 +1점(1회) · +2점(2회)']
+};
+function revealedNames(){
+  var n={},u=(S.pub.used&&S.pub.used.used)||{},rv=S.pub.reveal||{};
+  Object.keys(u).forEach(function(k){if(u[k]&&u[k].by)n[u[k].by]=1;});
+  Object.keys(rv).forEach(function(k){if(rv[k]&&rv[k].by)n[rv[k].by]=1;});
+  n[HOST]=1;return Object.keys(n);
+}
+function revealedHeroes(){
+  var h={kiriko:1},u=(S.pub.used&&S.pub.used.used)||{},rv=S.pub.reveal||{};
+  Object.keys(u).forEach(function(k){h[k]=1;});Object.keys(rv).forEach(function(k){h[k]=1;});
+  return Object.keys(h);
+}
+/* 본인에게만 전달되는 알림 (관리자가 deal 문서에 적어요) */
+function dealPatch(name,obj){
+  var uid=Object.keys(S.players).filter(function(u){return S.players[u]&&S.players[u].name===name;})[0];
+  if(!uid||!S.db)return;S.db.doc('deal/'+uid).update(obj).catch(function(){});
+}
+function dealNote(name,text){dealPatch(name,{note:{id:uuid(),text:text,ts:Date.now()}});}
 var SCHEDULE=[
   ['11:30~12:00','집결 및 초능력 카드 추첨','🎴','power'],
   ['12:00~13:30','점심 미니게임','🍽️','lunch'],
@@ -976,12 +1005,12 @@ function startSubs(){
 /* 카드는 뽑기를 열 때 이미 배정돼 있고, 플레이어가 "카드 뽑기"를 누르는 순간 내 카드가 공개돼요 */
 /* ===== 경기 진행 상황 + "지금 쓰는 게 좋아요" 추천 ===== */
 var GAMES=['bowl1','bowl2','ow1','ow2'];
-var TAGLINE={symmetra:'경기 시작 전, 상대 팀 1명과 자리 바꾸기!',lucio:'우리 팀 전원 +1점!',moira:'원하는 사람의 점수 2점 빼앗기!',cassidy:'원하는 사람과 가위바위보! 이기면 +2점!',junkrat:'주사위 대박 아니면 쪽박! (-2 ~ +4점)',reinhardt:'나를 노린 초능력 막기! (2번 · 끝까지 안 쓰면 +1점)',tracer:'방금 일어난 일 시간 되돌리기! (끝까지 안 쓰면 +1점)',sigma:'무작위 2명의 점수 맞바꾸기!',mercy:'무작위 3명에게 +1점씩!',echo:'마지막에 원하는 사람과 전체 점수 교환!'};
+var TAGLINE={sombra:'은밀하게 해킹! 맞히면 대상의 초능력이 공개돼요',widowmaker:'표정을 읽고 최고 득점자를 저격해요!',cassidy:'원하는 사람과 가위바위보! 이기면 +2점!',moira:'원하는 사람의 점수 2점 빼앗기!',symmetra:'경기 시작 전, 상대 팀 1명과 자리 바꾸기!',tracer:'방금 일어난 일 시간 되돌리기! (끝까지 안 쓰면 +1점)',echo:'마지막에 원하는 사람과 전체 점수 교환!',reinhardt:'나를 노린 초능력 막기! (2번 · 끝까지 안 쓰면 +1점)',lucio:'우리 팀 전원 +1점!',kiriko:'하위권 2명에게 부적을 날려요 (자동)'};
 function tagline(id){return TAGLINE[id]||'';}
-var TIMING={symmetra:'🎯 특정 타이밍 — 팀이 정해진 직후 ~ 경기 결과 전',lucio:'🎯 특정 타이밍 — 우리 팀이 정해진 뒤',tracer:'🎯 특정 타이밍 — 되돌릴 일이 생긴 직후',reinhardt:'🎯 특정 타이밍 — 공격받은 직후',echo:'⏳ 마지막에 발동'};
+var TIMING={sombra:'⚡ 원하는 타이밍에 발동',widowmaker:'🎯 특정 타이밍 — 저격 타임(봉투 개봉 직후 1분)',kiriko:'🤖 자동 발동 — 볼링 후 · 오버워치 후',symmetra:'🎯 특정 타이밍 — 팀이 정해진 직후 ~ 경기 결과 전',lucio:'🎯 특정 타이밍 — 우리 팀이 정해진 뒤',tracer:'🎯 특정 타이밍 — 되돌릴 일이 생긴 직후',reinhardt:'🎯 특정 타이밍 — 공격받은 직후',echo:'⏳ 마지막에 발동'};
 function timingLabel(x){return TIMING[x.id]||'⚡ 원하는 타이밍에 발동';}
 function heroImg(id,cls){return (typeof HERO_IMG!=='undefined'&&HERO_IMG[id])?'<img class="himg '+(cls||'')+'" src="'+HERO_IMG[id]+'" alt="">':'';}
-var BLOCKABLE=['moira','echo','sigma','symmetra'];     // 라인하르트 방벽으로 막을 수 있는 (나에게 불리한) 초능력
+var BLOCKABLE=['moira','echo','symmetra','widowmaker'];     // 라인하르트 방벽으로 막을 수 있는 (나에게 불리한) 초능력
 /* 라인하르트 알림은 "나에게 불리한" 경우에만: 점수가 낮아졌을 때(모이라·에코·시그마) 또는 팀 교환을 당했을 때 */
 function reinPromptTargets(who){
   var u=(S.pub.used&&S.pub.used.used)||{},rn=(S.deal&&S.deal.rein)||null;
@@ -1000,6 +1029,7 @@ function flow(){
           left:idx>=0?GAMES.length-1-idx:GAMES.length,finalGame:cur==='ow2',finalDone:!!R.ow2};
 }
 function chanceInfo(hero,who){
+  if(hero==='sombra'||hero==='widowmaker'||hero==='kiriko')return {lvl:'none'};
   var f=flow(),c=canUseNow(hero,who);
   if(!c.ok)return {lvl:'none'};
   var R=S.pub.results||{};
@@ -1094,6 +1124,17 @@ var TIMING_TYPE={
 function timingTag(h){var x=TIMING_TYPE[h];return x?'<span class="tag good">'+esc(x.t)+'</span> <span class="small">'+esc(x.c)+'</span>':'';}
 function canUseNow(hero,who){
   var f=S.pub.flags||{},R=S.pub.results||{},T=S.pub.teams||{},cur=T.current,sets=T.sets||{};
+  if(hero==='kiriko')return {ok:false,auto:true,why:'볼링·오버워치가 끝나면 자동으로 발동해요'};
+  if(hero==='widowmaker')return {ok:false,wait:true,why:'저격 타임(봉투 개봉 직후)에 팝업으로 열려요'};
+  if(hero==='sombra'){
+    var sd=(S.deal&&S.deal.sombra)||{};
+    if(S.pub.final&&S.pub.final.published)return {ok:false,why:'점수가 공개돼서 사용 기간이 끝났어요'};
+    if(f.powerClosed)return {ok:false,why:'관리자가 초능력 사용을 마감했어요'};
+    if(sd.exposed)return {ok:false,used:true,why:'정체가 들통나 초능력을 잃었어요'};
+    if((sd.n||0)>=2)return {ok:false,used:true,why:'해킹을 모두 사용했어요 (2/2)'};
+    if(sd.pending)return {ok:false,why:'이유정의 판정을 기다리는 중이에요'};
+    return {ok:true};
+  }
   if(hero!=='reinhardt'&&isUsed(hero))return {ok:false,used:true,why:'이미 사용했어요'};
   if(hero==='reinhardt'&&reinUses()>=REIN_MAX)return {ok:false,used:true,why:'방벽을 2번 모두 사용했어요'};
   if(hero==='reinhardt'&&!reinTargets(who).length)return {ok:false,why:'나를 노린 모이라·에코·시그마·시메트라 팀 교환이 쓰인 직후에만 사용할 수 있어요'};
@@ -1155,8 +1196,8 @@ async function assignAll(){
   for(var attempt=0;attempt<3;attempt++){
     try{
       await withTimeout(assignTx(function(map){
-        Object.keys(map).forEach(function(n){if(map[n]==='mercy'&&n!==HOST)delete map[n];});   // 메르시는 이유정 전용
-        map[HOST]='mercy';
+        Object.keys(map).forEach(function(n){if(map[n]==='kiriko'&&n!==HOST)delete map[n];if(['mercy','sigma','junkrat'].indexOf(map[n])>=0)delete map[n];});   // 키리코는 이유정 전용
+        map[HOST]='kiriko';
         var taken=Object.keys(map).map(function(k){return map[k];});
         var pool=shuffle(HEROES.map(function(h){return h.id;}).filter(function(id){return taken.indexOf(id)<0;}));
         PLAYERS.forEach(function(n){if(!map[n]&&pool.length)map[n]=pool.shift();});
@@ -1431,11 +1472,12 @@ function announce(kind,title,payload,chat){
   if(S.broadcast){
     enqueue(function(){return S.db.doc('public/live').set(ev);});
     pushFeed(ev);
+    if(kind==='private'&&S.winKey&&holderOf('widowmaker')){var wk=S.winKey;widowOpen(wk,(payload&&payload.assign)||{});setTimeout(function(){sysChat('🎯 저격 타임이 끝났어요. 표정 관리 해제!');},60000);}
     if(chat)sysChat(chat);
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v25';
+var BUILD_ID='v26';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:90000;
 var DETAIL_PUBLIC=['sombra','widowmaker','kiriko'];                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -1446,11 +1488,11 @@ var GATE_ON=!(typeof window!=='undefined'&&window.__TF_NOGATE);
 function settledOf(h){var st=(A().state||{}).settled||{};return st[h];}
 /* 점수 공개는 초능력 사용 처리(라인하르트·트레이서 정산, 에코 실행)가 끝난 뒤에만 */
 function settleOk(){
-  return (!holderOf('reinhardt')||!!settledOf('reinhardt'))&&(!holderOf('tracer')||!!settledOf('tracer'))&&(!holderOf('echo')||isUsed('echo'));
+  return (!holderOf('reinhardt')||!!settledOf('reinhardt'))&&(!holderOf('tracer')||!!settledOf('tracer'))&&(!holderOf('sombra')||!!settledOf('sombra'))&&(!holderOf('echo')||isUsed('echo'));
 }
 var REIN_MAX=2;
 function reinUses(){var e=((S.pub&&S.pub.used&&S.pub.used.used)||{}).reinhardt||{};return (e.count||0)+(e.bonus?1:0);}
-function maxUses(id){return id==='reinhardt'?REIN_MAX:1;}
+function maxUses(id){return id==='reinhardt'?REIN_MAX:id==='sombra'?2:id==='widowmaker'?4:id==='kiriko'?2:1;}
 /* 지금 열린 화면이 최신 빌드인지 확인해요: 왼쪽 아래에 빌드 번호를 보여주고, 새 버전이 올라오면 새로고침 안내를 띄워요 */
 function initVersion(){
   var v=document.getElementById('ver');if(v)v.textContent='';
@@ -1498,6 +1540,19 @@ function renderOpenFab(){
   el.innerHTML='<div class="openfab"><div class="small">🏆 승리팀을 주목시킨 뒤 눌러요 · '+left+'초 뒤 자동 실행</div><button class="btn hot block" data-act="openEnv">🎯 봉투 개봉 · 저격 타임</button><div class="small mut">누르면 전원에게 "표정 관리" 안내가 뜨고, 3초 카운트다운 뒤 모두의 봉투가 동시에 열려요</div></div>';
 }
 setInterval(function(){try{renderOpenFab();}catch(e){}},1000);
+/* 위도우메이커 본인 폰: 저격 패널 (봉투 팝업과 함께 보이는 아래쪽 패널, 1분 타이머) */
+function renderSnipe(){
+  var el=$('#snipe');if(!el)return;
+  var sn=S.deal&&S.deal.snipe;
+  if(!S.me||!sn||sn.done||!sn.until||Date.now()>sn.until+3000){el.innerHTML='';return;}
+  var left=Math.max(0,Math.ceil((sn.until-Date.now())/1000)),mm=Math.floor(left/60),ss=('0'+(left%60)).slice(-2);
+  var h='<div class="snipebox"><b>🎯 '+esc(sn.label||'')+' 저격 타임</b> <span class="tag">'+sn.n+'/'+sn.total+'회</span><div class="snt">⏱️ 남은 시간 '+mm+':'+ss+(left<=10?' — 10초 남았어요!':'')+'</div>';
+  if(S.snipeSent===sn.id)h+='<p>🎯 조준 완료. 결과를 확인하는 중…</p>';
+  else if(sn.self)h+='<p>🎯 당신이 <b>'+esc(sn.label||'')+'</b> 최고 득점자예요! 저격하는 척만 하며 표정 관리하세요. (이번 라운드는 저격이 진행되지 않아요)</p>';
+  else h+='<p>🎯 봉투가 열렸어요! 최고 득점자일 것 같은 사람 1명을 골라주세요.</p><div class="chips">'+(sn.cands||[]).map(function(n){return '<button class="chip'+(S.snipePick===n?' on':'')+'" data-act="snipePick" data-v="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div><div class="row" style="margin-top:8px"><button class="btn hot" data-act="snipeGo"'+(S.snipePick?'':' disabled')+'>🎯 저격</button><button class="btn ghost" data-act="snipeSkip">건너뛰기</button></div>';
+  el.innerHTML=h+'</div>';
+}
+setInterval(function(){try{renderSnipe();}catch(e){}},1000);
 function renderMissed(){
   renderOpenFab();
   var el=$('#missed');if(!el)return;
@@ -1672,6 +1727,9 @@ function render(force){
   if(S.me&&!S.seenInit){S.seenInit=true;computeMissed();}
   var ud=S.players&&S.uid&&S.players[S.uid]&&S.players[S.uid].useDone;
   if(ud&&ud.ok&&ud.ts!==S.useDoneSeen){S.useDoneSeen=ud.ts;ownUseFallback(ud);}      // 처음 로그인하면 "읽은 알림 기준선"을 만들어 둬요
+  var nt=S.deal&&S.deal.note;
+  if(nt&&nt.id&&nt.id!==S.noteSeen){S.noteSeen=nt.id;if(Date.now()-(nt.ts||0)<180000)showPrompt({id:'note'+nt.id,ts:nt.ts,kind:'announce',title:'🔔 알림',payload:{emoji:'🔔',lines:[nt.text]}});}
+  renderSnipe();
   var app=$('#app');if(!app)return;
   renderVote();   // 투표 창은 입력 중이어도 바로 떠야 해요
   checkExpiry();
@@ -1976,7 +2034,7 @@ function powerAdminTop(){
   var f=S.pub.flags||{},as=A().state.assign;
   var undrawn=PLAYERS.filter(function(n){return !as[n];});
   return '<div class="card"><label class="tgl" data-act="drawOpen"><span class="sw'+(f.drawOpen?' on':'')+'"></span>초능력 뽑기 '+(f.drawOpen?'열림':'닫힘')+'</label>'+
-    '<p class="small mut" style="margin-top:6px">열면 참가자 폰의 “카드 뽑기” 버튼이 켜지고, 요청이 오면 이 화면이 자동으로 카드를 나눠줘요. '+HOST+'에게는 <b>메르시가 고정</b>이고, 나머지 9명은 완전 랜덤이에요.</p>'+
+    '<p class="small mut" style="margin-top:6px">열면 참가자 폰의 “카드 뽑기” 버튼이 켜지고, 요청이 오면 이 화면이 자동으로 카드를 나눠줘요. '+HOST+'에게는 <b>키리코가 고정</b>이고, 나머지 9명은 완전 랜덤이에요.</p>'+hackPanel()+
     '<div style="margin-top:8px"><button class="btn ghost" data-act="sampleAssign">🧪 샘플: 초능력 10종 랜덤 배정</button></div>'+
     (function(){
       var as=A().state.assign||{},wait=[];
@@ -2045,9 +2103,9 @@ function viewPower(){
   h+='<h2 class="h2">전체 초능력 카드</h2><p class="mut">오버워치 영웅 10종 · 전원 1장씩 랜덤 배정 · 처음부터 공개되는 건 <b>영웅 이름 · 초능력 이름 · 사용 횟수</b>뿐이에요. <b>상세 내용은 사용(공개)되기 전까지 비밀</b>이라 🔒로 보이고, 공개되면 🔓로 바뀌어요.</p>'+publicNotice()+''+
    '<div class="funbox"><b>🎲 오늘의 초능력 놀이</b><ul><li>🤫 내 초능력은 <b>절대 다른 사람에게 공개하지 마세요!</b> 쓰는 순간까지 비밀이에요.</li><li>⏰ <b>오늘이 가기 전에</b> 꼭 사용하세요. 안 쓰고 퇴근하면 너무 아깝잖아요!</li><li>🕵️ 다른 사람은 어떤 초능력일까? 표정·눈치·점수 변화로 <b>마음껏 추측</b>해 보세요.</li><li>🎭 능청스러운 연기도 실력이에요. 일부러 속여도 좋아요 😏</li><li>👀 점수가 이상하게 흔들리면… 누군가의 초능력일지도 몰라요!</li></ul></div>'+
    '<div class="pgrid" style="margin-top:12px">'+HEROES.map(function(x){
-      var u=used[x.id],adm=S.admin&&c&&c.powers&&c.powers[x.id],open=!!u||!!adm;
+      var u=used[x.id],adm=S.admin&&c&&c.powers&&c.powers[x.id],open=!!u||!!adm||!!(S.pub.reveal||{})[x.id]||detailPublic(x.id);
       var hd0=adm?holderOf(x.id):null;
-      var pubD=detailPublic(x.id),rev=!!u||!!adm||pubD;
+      var rvl=(S.pub.reveal||{})[x.id],pubD=detailPublic(x.id),rev=!!u||!!rvl||!!adm||pubD;
       var s='<div class="pcard'+(open?' open':'')+(adm&&!hd0?' off':'')+'" style="--c:'+x.c+'"><div class="em">'+(heroImg(x.id,'cimg')||x.em)+'</div><div class="hn">'+x.hero+'</div><div class="pn">'+heroIcon(x.id)+x.power+'</div><div class="usesb">🔢 '+maxUses(x.id)+'회 사용 가능</div>';
       s+=rev?'<div class="tagl">'+esc(tagline(x.id))+'</div><span class="last">'+timingLabel(x)+'</span><span class="lockb open">'+(pubD?'📢 처음부터 공개':'🔓 공개됨')+'</span>':'<span class="lockb">🔒 상세는 공개 전까지 비밀</span>';
       if(adm){
@@ -2059,6 +2117,10 @@ function viewPower(){
             '<button class="cb" data-act="pwOpen" data-v="'+x.id+'"'+(hd?'':' disabled')+'>🛠 대신 공개 (관리자)</button><button class="cb" data-act="revealUse" data-v="'+x.id+'"'+(hd?'':' disabled')+'>공개만 (점수 없이)</button>'))+'</div>';
       }else if(u){
         s+='<div class="holder big">'+heroImg(x.id,'hs')+'<small>공개!</small><b>'+esc(x.hero)+'는 '+esc(u.by)+' 님이었습니다!!</b></div>'+resBox(u)+'<ul class="dt">'+(u.detail||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>';
+      }else if(rvl){
+        s+='<div class="holder big">'+heroImg(x.id,'hs')+'<small>공개!</small><b>'+esc(x.hero)+'는 '+esc(rvl.by)+' 님이었습니다!!</b></div><ul class="dt">'+((rvl.detail||PUB_DETAIL[x.id]||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join(''))+'</ul>';
+      }else if(pubD){
+        s+='<ul class="dt">'+(PUB_DETAIL[x.id]||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+(x.id==='kiriko'?'<div class="holder big"><small>보유자 (고정)</small><b>'+esc(HOST)+'</b></div>':'<div class="holder none"><small>보유자</small><b>비밀 🤫</b></div>');
       }else s+='<div class="ghost"><i></i><i></i><i></i></div><div class="lock">🔒 효과는 사용 전까지 비밀</div>';
       return s+'</div>';
     }).join('')+'</div>'+
@@ -2066,8 +2128,31 @@ function viewPower(){
   return h;
 }
 
+
+function sombraPanel(x){
+  var d=(S.deal&&S.deal.sombra)||{n:0,succ:0},uo=S.ui.use||{},left=2-(d.n||0);
+  var h='<div class="card"><b>💜 해킹</b><p class="small mut">초반에 빨리 추리하세요! 능력이 공개된 사람이 늘수록 솜브라인 것을 들키기 쉬워요. 끝까지 들키지 않으면 보너스 +1점을 받아요.</p>';
+  if(d.exposed)return h+'<p class="warn">💜 정체가 들통나 초능력을 잃었어요.</p></div>';
+  if(d.pending)return h+'<p class="win">💜 해킹 신호 전송 완료. 이유정이 찾아갈 거예요.</p></div>';
+  if(left<=0)return h+'<p class="mut">해킹을 모두 사용했어요 (2/2). 이제 정체를 지켜내세요!</p></div>';
+  var ex=revealedNames(),rh=revealedHeroes();
+  var tg=PLAYERS.filter(function(n){return n!==S.me&&ex.indexOf(n)<0;}),hx=HEROES.filter(function(y){return y.id!=='sombra'&&rh.indexOf(y.id)<0;});
+  return h+'<p class="small">남은 해킹 '+left+'회 · ① 해킹할 사람</p>'+chipsSel(tg,'ui.use.target',uo.target,S.me)+
+    '<p class="small" style="margin-top:8px">② 그 사람의 영웅은?</p><div class="chips">'+hx.map(function(y){return '<button class="chip'+(uo.guess===y.id?' on':'')+'" data-act="sel" data-k="ui.use.guess" data-v="'+y.id+'">'+esc(y.hero)+'</button>';}).join('')+'</div>'+
+    '<button class="btn hot block" style="margin-top:12px" data-act="hackGo">💜 해킹</button></div>';
+}
+function hackPanel(){
+  var st=A().state.sombra,pd=st&&st.pending,sv=A().state.svote,h='';
+  if(pd)h+='<div class="note"><b>💜 솜브라 해킹 판정</b><br>솜브라['+esc(holderOf('sombra')||'?')+'] → 대상 <b>'+esc(pd.target)+'</b>, 추리: <b>'+esc(heroOf(pd.guess).hero)+'</b><p class="small">솜브라에게 조용히 “'+esc(pd.target)+'의 초능력이 뭐야?”라고 묻고, 대답을 듣고 판정하세요.</p><div class="row"><button class="btn good" data-act="hackYes">맞았다</button><button class="btn bad" data-act="hackNo">틀렸다</button></div></div>';
+  if(sv)h+='<div class="note">💜 솜브라 투표 진행 중 (60초) <button class="btn ghost" data-act="svClose">지금 마감</button></div>';
+  return h;
+}
+
 function usePanel(x){
   var p=S.players[S.uid]||{},uo=S.ui.use,used=(S.pub.used&&S.pub.used.used)||{};
+  if(x.id==='kiriko')return '<div class="note">🍃 <b>키리코의 부적은 자동으로 발동해요.</b> 볼링 후 1회, 오버워치 후 1회 — 이유정을 뺀 하위권 4명 중 무작위 2명에게 +1점씩, 진행 보너스는 +1점(1회)·+2점(2회)이에요. 누르실 건 없어요!</div>';
+  if(x.id==='widowmaker')return '<div class="note">🎯 <b>저격 타임에 팝업이 열려요.</b> 이유정이 [봉투 개봉 · 저격 타임]을 누르면 봉투가 열리고, 이 폰에 1분짜리 저격 팝업이 떠요. 승리팀에서 최고 득점자(5점)일 것 같은 사람 1명을 고르세요. (라운드당 1회, 총 4회)<br><span class="small">내가 최고 득점자인 라운드에는 저격 대신 척만 하면 돼요.</span></div>';
+  if(x.id==='sombra')return sombraPanel(x);
   if(x.id==='echo')return '<div class="note">🪞 <b>에코는 마지막에 관리자가 진행해요.</b> “누구의 점수를 바꿀건가요?” 팝업이 뜨면 바꿀 사람을 크게 호명해 주세요.</div>';
   if(p.useReq)return '<div class="note">📡 <b>공개하는 중…</b> 잠시만 기다려 주세요. (관리자('+HOST+') 화면이 켜져 있어야 해요)</div>';
   var h='<div class="card"><b>📢 초능력 사용 공개</b><p class="small mut">버튼을 누르면 모두의 폰에 팝업이 떠요. 한 번 공개하면 되돌릴 수 없어요.</p>';
@@ -2345,9 +2430,9 @@ function viewAward(){
   return h;
 }
 function settleTool(hid,num){
-  var holder=holderOf(hid),x=heroOf(hid),st=settledOf(hid),n=hid==='reinhardt'?reinUses():(isUsed('tracer')?1:0);
+  var holder=holderOf(hid),x=heroOf(hid),st=settledOf(hid),n=hid==='reinhardt'?reinUses():hid==='sombra'?(((A().state.sombra||{}).exposed)?1:0):(isUsed('tracer')?1:0);
   var title=num+' '+x.em+' '+x.hero+' 정산 '+(st?'<span class="tag good">완료</span>':'');
-  var desc='보유자: '+(holder?esc(holder):'미추첨')+' · 지금까지 사용 '+n+'회 → '+(n===0?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'사용했어요 (보너스 없음)');
+  var desc=hid==='sombra'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+(n===0?'<b>끝까지 들키지 않았어요 (은닉 보너스 +1점 지급 대상)</b>':'정체가 들통났어요 (보너스 없음)')):'보유자: '+(holder?esc(holder):'미추첨')+' · 지금까지 사용 '+n+'회 → '+(n===0?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'사용했어요 (보너스 없음)');
   var btn=st?'<div class="small">'+(st.unused?'✅ +'+st.pts+'점 지급 완료':'ℹ️ 사용했어서 보너스 없음 · 정산 완료')+'</div><button class="btn ghost block" style="margin-top:6px" data-act="unsettleHero" data-v="'+hid+'">↩ 정산 취소</button>':
     '<button class="btn block" data-act="settleHero" data-v="'+hid+'"'+(holder?'':' disabled')+'>'+x.hero+' 정산 (한 번도 안 썼으면 +1점)</button>';
   return tool(title,desc,btn);
@@ -2358,6 +2443,7 @@ function awardAdmin(){
   h+='<div class="card"><b>정산 순서</b><ol class="small" style="padding-left:18px;margin:6px 0 0"><li>에코를 제외한 초능력 사용 (초능력 메뉴)</li><li>라인하르트 정산 (한 번도 안 썼으면 +1점)</li><li>트레이서 정산 (한 번도 안 썼으면 +1점)</li><li>에코 강제 발동</li><li>점수 공개 (위 정산이 모두 끝나야 눌러져요)</li></ol></div>';
   h+=settleTool('reinhardt','①');
   h+=settleTool('tracer','②');
+  h+=settleTool('sombra','②-2');
   h+=tool('③ 🪞 에코 강제 발동 '+(isUsed('echo')?'<span class="tag good">완료</span>':''),'가장 마지막에 사용해요. 점수를 보지 않고 고른 대상과 전체 점수를 교환해요.','<button class="btn block" data-act="pwOpen" data-v="echo"'+(holderOf('echo')&&(!isUsed('echo')||A().state.echo)?'':' disabled')+'>에코 실행</button>');
   h+=tool('④ 📣 점수 공개 '+(fin&&fin.published?'<span class="tag good">공개 중</span>':''),'누르면 모든 참가자 폰의 “시상식” 화면에 전체 점수 내역과 순위가 나타나요.'+(ok?'':'<br><span class="warn">⚠️ 먼저 라인하르트·트레이서 정산과 에코 실행을 끝내 주세요.</span>'),
     '<button class="btn hot block" data-act="publish"'+(ok?'':' disabled')+'>'+(fin&&fin.published?'최신 점수로 다시 공개':'점수 공개하기')+'</button>'+(fin&&fin.published?'<button class="btn ghost block" style="margin-top:8px" data-act="unpublish">공개 취소 (다시 숨기기)</button>':''));
@@ -2506,6 +2592,11 @@ function renderPop(){
           '<div class="rankmsg r'+(rk>=3?4:rk)+'">'+esc(RMSG[rk>=3?4:rk])+'</div>'+
           '<p class="small mut" style="margin:8px 0 0">나의 점심 미니게임 획득 점수</p><div class="bigtxt '+(me.total>0?'plus':'')+'">'+fmt(me.total)+'점</div>';
       }
+      break;}
+    case 'sombravote':{
+      big=true;noFoot=false;
+      var vo=P.voted;
+      inner='<div class="svote"><b style="font-size:20px">💜 솜브라가 누구일까요?</b><p class="small">해킹이 실패했어요! 솜브라일 것 같은 사람을 한 명 고르세요.<br>이미 정체가 공개된 사람은 후보에서 빠져 있어요. (투표 인원수는 공개되지 않아요)</p><div class="chips">'+(p.cands||[]).map(function(n){return '<button class="chip'+(vo===n?' on':'')+'" data-act="svPick" data-v="'+esc(n)+'"'+(n===S.me?' disabled':'')+'>'+esc(n)+'</button>';}).join('')+'</div>'+(vo?'<p class="win">✅ '+esc(vo)+' 님에게 투표했어요 (마감 전엔 바꿀 수 있어요)</p>':'<p class="mut small">60초 안에 골라주세요</p>')+'</div>';
       break;}
     case 'swapteams':{
       big=true;
@@ -3149,7 +3240,7 @@ function bowlRevealAll(key){
 /* 승패가 정해지면 먼저 "○팀 누구누구 승리!"를 보여주고, 잠시 뒤 점수 봉투 뽑기를 시작해요 */
 var WIN_MS=(typeof window!=='undefined'&&window.__TF_WINMS!=null)?+window.__TF_WINMS:4600;
 function winThenPriv(teamName,names,game,fn,chat,needNext){
-  var tok=uuid();S.winTok=tok;
+  var tok=uuid();S.winTok=tok;S.winKey=Object.keys(GAME).filter(function(k){return GAME[k]===game;})[0]||'';
   var nn=!!(needNext&&NEXT_ON);
   announce('pick','🏆 '+teamName+' 승리!',{names:names,note:nn?(game+' — '+teamName+' 이(가) 이겼습니다!! 🎉\n'+(OPEN_MANUAL?'승리팀을 주목시킨 뒤 이유정이 [봉투 개봉]을 누르면 봉투가 한꺼번에 열려요 ✉️':'승리팀 · 패배팀 모두 점수 봉투를 뽑아주세요 ✉️')):(game+' — '+teamName+' 승리!! 🎉'+(WIN_MS>0?' 곧 점수 봉투를 뽑아요':'')),emoji:'🏆',wait:!nn&&WIN_MS>0,waitMs:WIN_MS+1500,needNext:nn},chat);
   setTimeout(function(){
@@ -3171,6 +3262,7 @@ function openEnvelopes(auto){
   if(openTimer){clearTimeout(openTimer);openTimer=null;}
   delete st.pendingOpen;saveState();
   var pl=Object.assign({},po.payload,{countdown:OPEN_SEC,sniper:!!holderOf('widowmaker')});
+  S.winKey=po.key||S.winKey||'';
   announce('private',po.title,pl,po.chat||'');
   if(auto)toast('⏱ 90초가 지나 봉투를 자동으로 열었어요');
   render(true);
@@ -3186,6 +3278,7 @@ function bowlResult(key,gi,via){
   addEvt(GAME[key]+' 기본 점수','bowl',items,{id:'base:'+key});
   var R=clone(S.pub.results)||{};R[key]={win:win,team:gi};S.pub.results=R;saveResults();
   var pool={};addPools(pool,win,assign,BOWL_WIN,'win');addPools(pool,lose,assign,BOWL_LOSE,'lose');
+  if(key==='bowl2')kirikoFire(1);
   var wn=t.groups[gi].n;
   winThenPriv(wn,win,GAME[key],function(){
     announce('private','✉️ '+GAME[key]+' 점수 봉투'+(via?' (다시 뽑기)':''),{assign:assign,pool:pool,unit:'점',fmt:'plain',label:'기본 점수',via:via||'',winName:t.groups[gi].n,loseName:t.groups[1-gi].n},'');
@@ -3391,6 +3484,7 @@ function owResult(key,gi,via){
   });
   var R=clone(S.pub.results)||{};R[key]={win:win,team:gi,pred:predNames};S.pub.results=R;saveResults();
   var pool={};addPools(pool,win,assign,OW_WIN,'win');addPools(pool,lose,assign,OW_LOSE,'lose');
+  if(key==='ow2')kirikoFire(2);
   winThenPriv(t.groups[gi].n,win,GAME[key],function(){
     announce('private','✉️ '+GAME[key]+' 점수 봉투'+(via?' (다시 뽑기)':''),{assign:assign,bonus:bonus,pool:pool,unit:'점',fmt:'plain',label:'기본 점수',via:via||'',winName:t.groups[gi].n,loseName:t.groups[1-gi].n,predWinners:predNames,predView:predView},'');
   },(via?'⏪ '+via+' ':'')+'🎮 '+GAME[key]+' 결과! '+t.groups[gi].n+' 승리!!!! '+(pi.length?'예측 성공: '+pi.map(function(x){return x.name;}).join(', ')+' (+1점)':'예측 성공자 없음'));
@@ -3485,7 +3579,7 @@ function pwModal(){
 }
 function fail(msg){return {ok:false,msg:msg};}
 /* 트레이서: 되돌릴 수 있는 추첨 목록 (공개 정보로 계산해서 플레이어 화면과 관리자가 똑같이 봐요) */
-var REWIND_PW={sigma:'🌌 시그마 점수 교환 다시 추첨',mercy:'😇 메르시 3명 다시 추첨',moira:'🧪 모이라 점수 빼앗기 취소 (없었던 일로)',cassidy:'🤠 캐서디 가위바위보 결과 취소 · 재대결'};
+var REWIND_PW={moira:'🧪 모이라 점수 빼앗기 취소 (없었던 일로)',cassidy:'🤠 캐서디 가위바위보 결과 취소 · 재대결'};
 function usedNames(k,e){
   var i=(e&&e.info)||{};
   if(k==='moira')return [e.by,i.target].filter(Boolean);
@@ -3888,6 +3982,8 @@ function runUse(uid,p,u){
     var hero=a.state.assign[p.name];
     if(!hero||hero!==u.hero)res=fail('내 초능력이 아니에요');
     else if(hero==='echo')res=fail('에코는 관리자가 진행해요');
+    else if(hero==='sombra')res=sombraRequest(p.name,o);
+    else if(hero==='widowmaker'||hero==='kiriko')res=fail('이 초능력은 팝업/자동으로 진행돼요');
     else if(hero!=='reinhardt'&&isUsed(hero))res=fail('이미 사용한 초능력이에요');
     else{
       var cu=canUseNow(hero,p.name);
@@ -3905,6 +4001,10 @@ function processUses(){
   if(!S.db||!a.content||!a.loaded.main||!a.state)return;
   Object.keys(S.players).forEach(function(uid){
     var p=S.players[uid];
+    if(p&&p.snipeReq){
+      var sk=uid+':s:'+p.snipeReq.ts;
+      if(!S.handledUse[sk]){S.handledUse[sk]=true;var sr=p.snipeReq;S.db.doc('players/'+uid).update({snipeReq:null}).catch(function(){});widowResolve(sr.id,sr.pick||null,sr.why||'');}
+    }
     if(!p||!p.useReq)return;
     var u=p.useReq,key=uid+':'+u.ts;
     if(S.handledUse[key])return;
@@ -3918,9 +4018,116 @@ function processUses(){
 }
 
 /* =============== 관리자: 샘플 데이터 (테스트용) =============== */
+/* v26 신규 영웅 로직 */
+/* ===================== 솜브라 · 위도우메이커 · 키리코 ===================== */
+function floorLoss(name,d){          // 점수는 0점 아래로 내려가지 않아요
+  if(d>=0)return d;
+  var T=calc(),cur=(T[name]&&T[name].total)||0;
+  return -Math.min(-d,Math.max(0,cur));
+}
+function sombraSt(){var s=A().state;s.sombra=s.sombra||{n:0,succ:0,exposed:false,pending:null};return s.sombra;}
+function sombraSync(){var st=sombraSt(),h=holderOf('sombra');if(h)dealPatch(h,{sombra:{n:st.n,succ:st.succ,exposed:!!st.exposed,pending:!!st.pending}});}
+/* 솜브라가 해킹 요청을 보냈어요 → 이유정 화면에 판정 카드가 떠요 */
+function sombraRequest(name,o){
+  var st=sombraSt();
+  if(st.exposed)return fail('정체가 들통나 초능력을 잃었어요');
+  if(st.n>=2)return fail('해킹을 모두 사용했어요');
+  if(st.pending)return fail('이전 해킹의 판정을 기다리는 중이에요');
+  if(!o.target||!o.guess)return fail('해킹할 사람과 추리한 영웅을 고르세요');
+  if(o.target===name)return fail('나는 고를 수 없어요');
+  if(revealedNames().indexOf(o.target)>=0)return fail('이미 공개된 사람은 고를 수 없어요');
+  if(revealedHeroes().indexOf(o.guess)>=0)return fail('이미 정체가 공개된 영웅은 고를 수 없어요');
+  st.n++;st.pending={target:o.target,guess:o.guess,ts:Date.now()};saveState();
+  sombraSync();
+  dealNote(name,'💜 해킹 신호 전송 완료. 이유정이 찾아갈 거예요.');
+  render(true);return {ok:true};
+}
+function hackJudge(yes){
+  var st=sombraSt(),pd=st.pending;if(!pd)return;
+  var holder=holderOf('sombra'),th=(A().state.assign||{})[pd.target];
+  st.pending=null;
+  if(yes){
+    st.succ++;var pts=st.succ===1?2:1;
+    addEvt('솜브라 해킹 성공 #'+st.succ,'power',[{name:holder,d:pts,note:'솜브라 해킹 성공('+st.succ+'회)'}],{id:'pw:sombra:'+st.succ});
+    var rv=clone(S.pub.reveal)||{};
+    rv[th]={by:pd.target,detail:(((A().content||{}).powers||{})[th]||{}).detail||[]};
+    S.pub.reveal=rv;put('public/reveal',rv);                                  // 대상의 초능력이 모두에게 공개돼요 (능력은 그대로 쓸 수 있어요)
+    sysChat('💜 솜브라가 '+pd.target+'의 정체를 해킹했다. '+heroOf(th).hero+' '+pd.target+'의 초능력이 공개되었다.');
+    dealNote(holder,'💜 해킹 성공. +'+pts+'점');
+  }else{
+    sysChat('💜 솜브라가 '+pd.target+'의 해킹을 실패했다. 솜브라가 누구일지 투표해주세요.');
+    sombraVoteStart();
+  }
+  saveState();sombraSync();render(true);
+}
+function sombraVoteStart(){
+  var vid=uuid(),ex=revealedNames();
+  var cands=PLAYERS.filter(function(n){return ex.indexOf(n)<0;});
+  A().state.svote={vid:vid,ts:Date.now()};saveState();
+  announce('sombravote','💜 솜브라가 누구일까요?',{vid:vid,cands:cands,sec:60},'');
+  setTimeout(function(){sombraVoteClose(vid);},60000);
+}
+function sombraVoteClose(vid){
+  var sv=A().state.svote;if(!sv||sv.vid!==vid)return;
+  delete A().state.svote;
+  var holder=holderOf('sombra'),cnt=0,st=sombraSt(),need=((((A().content||{}).params)||{}).sombraExposeVotes)||4;
+  Object.keys(S.players).forEach(function(uid){var p=S.players[uid];if(!p||p.name===holder)return;if(p.sv&&p.sv.id===vid&&p.sv.pick===holder)cnt++;});   // 솜브라 본인 표는 더미
+  if(cnt>=need){
+    st.exposed=true;
+    var rv=clone(S.pub.reveal)||{};rv.sombra={by:holder,detail:PUB_DETAIL.sombra};S.pub.reveal=rv;put('public/reveal',rv);
+    sysChat('💜 정체가 들통났다. 솜브라는 '+holder+'였다. 초능력을 잃었다.');
+  }else sysChat('💜 솜브라는 아직 숨어 있다. 정체를 숨겨라.');
+  saveState();sombraSync();render(true);
+}
+/* 위도우메이커: 봉투가 열릴 때 본인 폰에 1분짜리 저격 팝업 */
+function widowSt(){var s=A().state;s.widow=s.widow||{n:0,rounds:{},succ:0,cur:null};return s.widow;}
+function widowOpen(key,assign){
+  var holder=holderOf('widowmaker');if(!holder||!key)return;
+  var w=widowSt(),R=S.pub.results&&S.pub.results[key],win=(R&&R.win)||[];
+  if(w.n>=4||w.rounds[key]||!win.length)return;            // 4번을 다 썼거나 이미 쓴 라운드: 팝업 없이 개봉만
+  w.rounds[key]=true;w.n++;
+  var vals=win.map(function(n){return assign[n]||0;}),mx=Math.max.apply(null,vals.concat([0]));
+  var top=win.filter(function(n){return assign[n]===mx;})[0]||'',self=(top===holder),id=uuid();
+  w.cur={id:id,key:key,top:top,self:self,ts:Date.now()};saveState();
+  dealPatch(holder,{snipe:{id:id,label:GAME[key],cands:win.filter(function(n){return n!==holder;}),self:self,until:Date.now()+60000,n:w.n,total:4}});
+  setTimeout(function(){widowResolve(id,null,'timeout');},60000);
+}
+function widowResolve(id,pick,why){
+  var w=widowSt(),cur=w.cur;if(!cur||cur.id!==id)return;
+  var holder=holderOf('widowmaker'),msg='';w.cur=null;
+  if(cur.self){msg='';}
+  else if(why==='timeout')msg='⏱️ 시간 초과! 저격에 실패했다. 이번 라운드 기회가 끝났다.';
+  else if(why==='skip')msg='🎯 이번 라운드는 건너뛰었다.';
+  else if(pick&&pick===cur.top){
+    w.succ=(w.succ||0)+1;var pts=w.succ===1?2:1,loss=floorLoss(pick,-1);
+    addEvt('위도우메이커 저격 성공 ('+GAME[cur.key]+')','power',[{name:holder,d:pts,note:'저격 성공('+w.succ+'회)'},{name:pick,d:loss,note:'위도우메이커에게 저격당함'}],{id:'pw:widow:'+cur.key});
+    sysChat('🎯 위도우메이커['+holder+']가 '+GAME[cur.key]+' 최고 득점자를 저격했다.');
+    var rv=clone(S.pub.reveal)||{};rv.widowmaker={by:holder,detail:PUB_DETAIL.widowmaker};S.pub.reveal=rv;put('public/reveal',rv);
+    msg=(w.succ===1?'🎯 저격 첫 성공! ':'🎯 저격 성공. ')+pick+' -1점, 나 +'+pts+'점';
+    dealNote(pick,'🎯 위도우메이커에게 저격당했다. -1점');
+  }else msg='🎯 빗나갔다.';
+  saveState();
+  dealPatch(holder,{snipe:{id:id,done:true}});
+  if(msg)dealNote(holder,msg);
+}
+/* 키리코: 볼링 2세트 / 오버워치 2경기 결과가 입력되는 순간 자동 발동 */
+function kirikoFire(n){
+  if(!holderOf('kiriko'))return;
+  var id='kiriko:'+n;
+  if(L().evts.some(function(e){return e.id===id;}))delEvt(id,true,'다시 계산');
+  var T=calc(),pool=shuffle(PLAYERS.filter(function(x){return x!==HOST;})).map(function(x){return {n:x,t:(T[x]||{}).total||0};}).sort(function(a,b){return a.t-b.t;}).slice(0,4).map(function(x){return x.n;});
+  var picks=shuffle(pool).slice(0,2);
+  var items=picks.map(function(x){return {name:x,d:1,note:'키리코 부적('+n+'회)'};});
+  items.push({name:HOST,d:n,note:'키리코 진행 보너스('+n+'회)'});
+  addEvt('키리코 부적 '+n+'회','power',items,{id:id});
+  sysChat('🍃 키리코['+HOST+']의 부적이 하위권 2명에게 내려앉았다. 누구에게 갔는지는 비밀이다.');
+  picks.forEach(function(x){dealNote(x,'🍃 키리코['+HOST+']의 부적이 당신에게 내려앉았다. +1점');});
+  dealNote(HOST,'🍃 부적이 자동으로 날아갔다. 하위권 2명이 선택되었다. 진행 보너스 +'+n+'점');
+}
+
 async function sampleAssign(){
   var ids=shuffle(HEROES.map(function(h){return h.id;})),names=shuffle(PLAYERS.slice()),as={};
-  ids=ids.filter(function(i){return i!=='mercy';});names=names.filter(function(n){return n!==HOST;});as[HOST]='mercy';
+  ids=ids.filter(function(i){return i!=='kiriko';});names=names.filter(function(n){return n!==HOST;});as[HOST]='kiriko';
   names.forEach(function(n,i){as[n]=ids[i];});
   try{await assignTx(function(map){Object.keys(map).forEach(function(k){delete map[k];});Object.keys(as).forEach(function(k){map[k]=as[k];});});}
   catch(e){return toast('배정 실패: '+(e.message||e.code));}
@@ -3963,9 +4170,10 @@ function settleHero(h){
   var st=A().state;st.settled=st.settled||{};
   if(st.settled[h])return toast('이미 정산했어요');
   var P=(A().content||{}).params||{},x=heroOf(h);
-  var unused=h==='tracer'?!isUsed('tracer'):reinUses()===0;
-  var pts=h==='tracer'?(P.tracer!=null?P.tracer:1):(P.reinhardt!=null?P.reinhardt:1);
-  if(unused)addEvt(x.hero+' — 끝까지 사용하지 않아 보너스','power',[{name:holder,d:pts,note:x.hero+' 끝까지 사용하지 않은 보너스'}],{id:'bonus:'+h});
+  var unused=h==='tracer'?!isUsed('tracer'):h==='sombra'?!((A().state.sombra||{}).exposed):reinUses()===0;
+  var pts=h==='tracer'?(P.tracer!=null?P.tracer:1):h==='sombra'?(P.sombraHideBonus!=null?P.sombraHideBonus:1):(P.reinhardt!=null?P.reinhardt:1);
+  if(unused)addEvt(x.hero+(h==='sombra'?' — 끝까지 들키지 않은 은닉 보너스':' — 끝까지 사용하지 않아 보너스'),'power',[{name:holder,d:pts,note:x.hero+(h==='sombra'?' 끝까지 들키지 않은 은닉 보너스':' 끝까지 사용하지 않은 보너스')}],{id:'bonus:'+h});
+  if(unused&&h==='sombra')dealNote(holder,'💜 끝까지 들키지 않았다. 은닉 보너스 +'+pts+'점');
   st.settled[h]={unused:unused,pts:unused?pts:0,ts:Date.now()};saveState();
   toast(unused?'✅ '+x.hero+'('+holder+') 한 번도 안 써서 +'+pts+'점 지급':'ℹ️ '+x.hero+'('+holder+')는 사용했어서 보너스 없음 · 정산 완료');
   render(true);
@@ -4019,7 +4227,7 @@ async function resetAll(){
       set('adminonly/ledger',{gen:gen,evts:[],entries:[],del:{},hist:[]}),set('adminonly/state',{stage:{}}),set('adminonly/assign',{map:{}}),
       set('public/teams',{sets:{},current:null}),set('public/used',{used:{}}),
       set('public/bets',{}),set('public/results',{}),set('public/bscores',{}),set('public/final',{published:false,rows:[]}),
-      del('public/live'),del('public/vote'),del('public/last'),del('public/feed')
+      del('public/live'),del('public/vote'),del('public/last'),del('public/feed'),del('public/reveal')
     ]);
     var colls=['deal','chat','myscore'];
     for(var pass=0;pass<2;pass++){
@@ -4152,6 +4360,14 @@ async function handle(act,v,t){
       break;
     case 'replay':if(S.pub.live)showPop(S.pub.live);return;
     case 'openEnv':openEnvelopes(false);return;
+    case 'hackGo':{var uh=S.ui.use||{};if(!uh.target||!uh.guess)return toast('해킹할 사람과 영웅을 모두 고르세요');ask('💜 '+uh.target+' 님을 '+heroOf(uh.guess).hero+'로 추리해 해킹할까요?\n성공·실패 모두 해킹 횟수가 1회 소모돼요.',function(){sendUse('sombra',{target:uh.target,guess:uh.guess});});return;}
+    case 'hackYes':if(S.admin)hackJudge(true);return;
+    case 'hackNo':if(S.admin)hackJudge(false);return;
+    case 'svClose':{var svv=A().state.svote;if(S.admin&&svv)sombraVoteClose(svv.vid);return;}
+    case 'svPick':{var pv=S.pop&&S.pop.ev&&S.pop.ev.payload;if(!pv||!S.uid)return;S.pop.voted=v;S.db.doc('players/'+S.uid).update({sv:{id:pv.vid,pick:v,ts:Date.now()}}).catch(function(){});renderPop();return;}
+    case 'snipePick':S.snipePick=v;renderSnipe();return;
+    case 'snipeGo':{var sn=S.deal&&S.deal.snipe;if(!sn||!S.snipePick||!S.uid)return;S.snipeSent=sn.id;S.db.doc('players/'+S.uid).update({snipeReq:{id:sn.id,pick:S.snipePick,ts:Date.now()}}).catch(function(){});S.snipePick=null;renderSnipe();return;}
+    case 'snipeSkip':{var sn2=S.deal&&S.deal.snipe;if(!sn2||!S.uid)return;S.snipeSent=sn2.id;S.db.doc('players/'+S.uid).update({snipeReq:{id:sn2.id,why:'skip',ts:Date.now()}}).catch(function(){});renderSnipe();return;}
     case 'settleHero':settleHero(v);return;
     case 'unsettleHero':unsettleHero(v);return;
     case 'popNext':{var qn=(S.liveQ||[]).shift();if(S.pop)S.pop.nextOk=true;if(qn)showPop(qn);else closePop();return;}
