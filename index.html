@@ -1005,9 +1005,9 @@ function startSubs(){
 /* 카드는 뽑기를 열 때 이미 배정돼 있고, 플레이어가 "카드 뽑기"를 누르는 순간 내 카드가 공개돼요 */
 /* ===== 경기 진행 상황 + "지금 쓰는 게 좋아요" 추천 ===== */
 var GAMES=['bowl1','bowl2','ow1','ow2'];
-var TAGLINE={sombra:'은밀하게 해킹! 맞히면 대상의 초능력이 공개돼요',widowmaker:'표정을 읽고 최고 득점자를 저격해요!',cassidy:'원하는 사람과 가위바위보! 이기면 +2점!',moira:'원하는 사람의 점수 2점 빼앗기!',symmetra:'경기 시작 전, 상대 팀 1명과 자리 바꾸기!',tracer:'방금 일어난 일 시간 되돌리기! (끝까지 안 쓰면 +1점)',echo:'마지막에 원하는 사람과 전체 점수 교환!',reinhardt:'나를 노린 초능력 막기! (2번 · 끝까지 안 쓰면 +1점)',lucio:'우리 팀 전원 +1점!',kiriko:'하위권 2명에게 부적을 날려요 (자동)'};
+var TAGLINE={sombra:'은밀하게 해킹! 맞히면 대상의 초능력이 공개돼요',widowmaker:'표정을 읽고 최고 득점자를 저격해요!',cassidy:'도전장을 내고 하나빼기 결투! 이기면 +2점',moira:'나보다 점수 높은 3명에게서 1점씩 흡수!',symmetra:'경기 시작 전, 상대 팀 1명과 자리 바꾸기! (이기면 +3점)',tracer:'방금 일어난 일 시간 되돌리기! (끝까지 안 쓰면 +1점)',echo:'마지막에 원하는 사람과 전체 점수 교환!',reinhardt:'나를 노린 초능력 막기! (2번 · 끝까지 안 쓰면 +1점)',lucio:'진 경기 뒤 분위기 전환! 팀 전원 +1점 (춤·노래 성공 시 +2점)',kiriko:'하위권 2명에게 부적을 날려요 (자동)'};
 function tagline(id){return TAGLINE[id]||'';}
-var TIMING={sombra:'⚡ 원하는 타이밍에 발동',widowmaker:'🎯 특정 타이밍 — 저격 타임(봉투 개봉 직후 1분)',kiriko:'🤖 자동 발동 — 볼링 후 · 오버워치 후',symmetra:'🎯 특정 타이밍 — 팀이 정해진 직후 ~ 경기 결과 전',lucio:'🎯 특정 타이밍 — 우리 팀이 정해진 뒤',tracer:'🎯 특정 타이밍 — 되돌릴 일이 생긴 직후',reinhardt:'🎯 특정 타이밍 — 공격받은 직후',echo:'⏳ 마지막에 발동'};
+var TIMING={lucio:'🎯 특정 타이밍 — 우리 팀이 진 경기 뒤',sombra:'⚡ 원하는 타이밍에 발동',widowmaker:'🎯 특정 타이밍 — 저격 타임(봉투 개봉 직후 1분)',kiriko:'🤖 자동 발동 — 볼링 후 · 오버워치 후',symmetra:'🎯 특정 타이밍 — 팀이 정해진 직후 ~ 경기 결과 전',lucio:'🎯 특정 타이밍 — 우리 팀이 정해진 뒤',tracer:'🎯 특정 타이밍 — 되돌릴 일이 생긴 직후',reinhardt:'🎯 특정 타이밍 — 공격받은 직후',echo:'⏳ 마지막에 발동'};
 function timingLabel(x){return TIMING[x.id]||'⚡ 원하는 타이밍에 발동';}
 function heroImg(id,cls){return (typeof HERO_IMG!=='undefined'&&HERO_IMG[id])?'<img class="himg '+(cls||'')+'" src="'+HERO_IMG[id]+'" alt="">':'';}
 var BLOCKABLE=['moira','echo','symmetra','widowmaker'];     // 라인하르트 방벽으로 막을 수 있는 (나에게 불리한) 초능력
@@ -1141,13 +1141,15 @@ function canUseNow(hero,who){
   if(hero==='echo')return {ok:false,wait:true,why:'마지막에 관리자가 호출하면 진행해요'};
   if(S.pub.final&&S.pub.final.published)return {ok:false,why:'점수가 공개돼서 사용 기간이 끝났어요'};
   if(f.powerClosed)return {ok:false,why:'관리자가 초능력 사용을 마감했어요'};
+  if(hero==='cassidy'&&!sets.bowl1)return {ok:false,why:'점심이 끝난 뒤(볼링 팀이 정해진 뒤)부터 사용할 수 있어요'};
+  if(hero==='moira'&&!R.bowl2)return {ok:false,why:'볼링이 끝난 뒤(2세트 결과 후)부터 사용할 수 있어요'};
   if(hero==='symmetra'){
     if(GAMES.indexOf(cur)<0||!sets[cur]||teamOf(cur,who)<0)return {ok:false,why:'팀이 정해진 직후 ~ 경기 결과 전에만 사용할 수 있어요 (볼링·오버워치 때만, 점심 때는 못 써요)'};
     if(R[cur])return {ok:false,why:'이 경기는 이미 끝났어요. 다음 경기 팀이 정해진 뒤 사용할 수 있어요'};
     if(cur.indexOf('ow')===0&&S.pub.vote&&S.pub.vote.key===cur)return {ok:false,why:'승부 예측이 시작돼서 이제 팀을 바꿀 수 없어요'};
   }
   if(hero==='tracer'&&!tracerOptions(who).length)return {ok:false,why:'되돌릴 수 있는 일이 생긴 직후에만 사용할 수 있어요 (직전 일 1건 · 나와 관련된 일만)'};
-  if(hero==='lucio'&&(!cur||!sets[cur]||teamOf(cur,who)<0))return {ok:false,why:'우리 팀이 정해진 뒤에 사용할 수 있어요'};
+  if(hero==='lucio'&&!lucioLost(who).length)return {ok:false,why:'🎧 아직 진 경기가 없어요. 지면 분위기를 전환해주세요!'};
   return {ok:true};
 }
 function usageStatus(x){
@@ -1477,7 +1479,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v26';
+var BUILD_ID='v27';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:90000;
 var DETAIL_PUBLIC=['sombra','widowmaker','kiriko'];                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -1488,7 +1490,7 @@ var GATE_ON=!(typeof window!=='undefined'&&window.__TF_NOGATE);
 function settledOf(h){var st=(A().state||{}).settled||{};return st[h];}
 /* 점수 공개는 초능력 사용 처리(라인하르트·트레이서 정산, 에코 실행)가 끝난 뒤에만 */
 function settleOk(){
-  return (!holderOf('reinhardt')||!!settledOf('reinhardt'))&&(!holderOf('tracer')||!!settledOf('tracer'))&&(!holderOf('sombra')||!!settledOf('sombra'))&&(!holderOf('echo')||isUsed('echo'));
+  return (!holderOf('reinhardt')||!!settledOf('reinhardt'))&&(!holderOf('tracer')||!!settledOf('tracer'))&&(!holderOf('sombra')||!!settledOf('sombra'))&&(!holderOf('lucio')||!!settledOf('lucio'))&&(!holderOf('echo')||isUsed('echo'));
 }
 var REIN_MAX=2;
 function reinUses(){var e=((S.pub&&S.pub.used&&S.pub.used.used)||{}).reinhardt||{};return (e.count||0)+(e.bonus?1:0);}
@@ -2087,7 +2089,7 @@ function viewPower(){
     mine='<div class="mycard" style="--c:'+x0.c+'"><div class="em">'+(heroImg(x0.id,'mimg')||x0.em)+'</div><div class="tagl big">'+esc(tagline(x0.id))+'</div><div class="usesb big">🔢 '+maxUses(x0.id)+'회 사용 가능</div><h3>'+x0.hero+'</h3><div class="pn">'+heroIcon(x0.id)+x0.power+'</div>'+
       '<p style="margin-top:8px"><span class="tag">'+(x0.last?'⏳ 마지막에 발동':'⚡ 원하는 타이밍에 발동')+'</span></p>'+
       '<div class="guide"><b>⏱ 사용 타이밍 가이드</b><div style="margin:6px 0">'+timingTag(x0.id)+'</div>'+esc(S.deal.guide||GUIDE_DEFAULT).replace(/\n/g,'<br>')+'<div style="margin-top:8px">'+usageStatus(x0)+'</div>'+chanceHTML(x0)+'</div><ul>'+(S.deal.detail||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+
-      (x0.id==='reinhardt'?'<p style="margin-top:12px"><span class="tag good">🛡️ 방벽 '+reinUses()+'/'+REIN_MAX+'회 사용</span></p>':used[x0.id]?'<p style="margin-top:12px"><span class="tag good">✅ 사용 완료 · 모두에게 공개됨</span></p>':'<p style="margin-top:12px"><span class="tag">🤫 아직 비공개</span></p>')+'</div>'+((used[x0.id]&&x0.id!=='reinhardt')?'':usePanel(x0));
+      (x0.id==='reinhardt'?'<p style="margin-top:12px"><span class="tag good">🛡️ 방벽 '+reinUses()+'/'+REIN_MAX+'회 사용</span></p>':used[x0.id]?'<p style="margin-top:12px"><span class="tag good">✅ 사용 완료 · 모두에게 공개됨</span></p>':'<p style="margin-top:12px"><span class="tag">🤫 아직 비공개</span></p>')+'</div>'+((used[x0.id]&&x0.id!=='reinhardt'&&x0.id!=='cassidy')?'':usePanel(x0));
   }else if(S.deal){
     mine='<div class="card drawbox"><div class="back">?</div>'+(f.drawOpen?'<p><b>🔔 띠링~~ 당신의 초능력이 도착했습니다!</b></p><p class="small mut">카드를 뽑아 초능력을 확인해주세요</p><button class="btn hot block" style="margin-top:10px" data-act="draw">초능력 카드 뽑기</button>':'<p><b>아직 뽑기 전이에요</b></p><p class="small mut">관리자가 뽑기를 열면 카드를 확인할 수 있어요.</p>')+'</div>';
   }else{
@@ -2144,12 +2146,37 @@ function sombraPanel(x){
 function hackPanel(){
   var st=A().state.sombra,pd=st&&st.pending,sv=A().state.svote,h='';
   if(pd)h+='<div class="note"><b>💜 솜브라 해킹 판정</b><br>솜브라['+esc(holderOf('sombra')||'?')+'] → 대상 <b>'+esc(pd.target)+'</b>, 추리: <b>'+esc(heroOf(pd.guess).hero)+'</b><p class="small">솜브라에게 조용히 “'+esc(pd.target)+'의 초능력이 뭐야?”라고 묻고, 대답을 듣고 판정하세요.</p><div class="row"><button class="btn good" data-act="hackYes">맞았다</button><button class="btn bad" data-act="hackNo">틀렸다</button></div></div>';
+  h+=duelPanel();
+  var lp=A().state.lucioPending;
+  if(lp)h+='<div class="note"><b>🎧 루시우 적극적 무대 판정</b><br>루시우['+esc(lp.by)+'] · '+esc(GAME[lp.key])+' '+esc(lp.team)+'<p class="small">춤이나 노래가 끝나면 판정하세요 (60초 안에 안 누르면 [성공]으로 처리돼요)</p><div class="row"><button class="btn good" data-act="lucioYes">성공</button><button class="btn bad" data-act="lucioNo">실패</button></div></div>';
   if(sv)h+='<div class="note">💜 솜브라 투표 진행 중 (60초) <button class="btn ghost" data-act="svClose">지금 마감</button></div>';
   return h;
 }
 
+
+function duelPanel(){
+  var d=A().state.duel2,h='';
+  if(!d)return h;
+  if(d.stage==='accept')h+='<div class="note"><b>🤠 캐서디 도전장</b> — 수락 대기 중 ('+Object.keys(d.resp).length+'/'+(PLAYERS.length-1)+'명 응답) <button class="btn ghost" data-act="duelCloseNow">지금 마감</button></div>';
+  if(d.stage==='pick')h+='<div class="note"><b>🤠 캐서디가 상대를 고르는 중</b> (수락자 '+d.cands.map(esc).join(', ')+') <button class="btn ghost" data-act="duelAutoPick">자동 지목 (먼저 수락한 2명)</button></div>';
+  if(d.stage==='result')h+='<div class="note"><b>🤠 결투 결과 입력</b> — 실제로 하나빼기를 하고 결과만 눌러요<br>'+d.picks.map(function(n){var r=d.res[n];return '<div class="row" style="margin-top:6px"><b style="min-width:70px">'+esc(d.holder)+' vs '+esc(n)+'</b>'+(r===undefined?'<button class="btn good" data-act="duelRes" data-v="'+esc(n)+':1">캐서디 승</button><button class="btn bad" data-act="duelRes" data-v="'+esc(n)+':0">'+esc(n)+' 승</button>':'<span class="tag good">'+(r?esc(d.holder)+' 승':esc(n)+' 승')+' 입력됨</span>')+'</div>';}).join('')+'</div>';
+  return h;
+}
+function cassidyPanel(){
+  var dl=S.deal&&S.deal.duel,uo=S.ui.use||{},used=(S.pub.used&&S.pub.used.used)||{};
+  if(dl&&!dl.done&&dl.stage==='pick'){
+    var pk=uo.picks||[];
+    return '<div class="card"><b>🤠 결투 상대 고르기</b><p class="small">수락한 사람 중 최대 2명을 골라요 (수락한 순서대로 보여요). 점수는 보이지 않아요.</p><div class="chips">'+dl.cands.map(function(n,i){return '<button class="chip'+(pk.indexOf(n)>=0?' on':'')+'" data-act="duelPickT" data-v="'+esc(n)+'">'+(i+1)+'. '+esc(n)+'</button>';}).join('')+'</div><button class="btn hot block" style="margin-top:10px" data-act="duelPickGo"'+(pk.length?'':' disabled')+'>🎯 이 사람들과 결투 ('+pk.length+'/2)</button></div>';
+  }
+  if(dl&&!dl.done&&dl.stage==='result')return '<div class="note">🤠 <b>결투 진행 중!</b> 실제로 하나빼기를 하세요. 이유정이 결과를 입력해요.</div>';
+  if(used.cassidy)return '<div class="note">🤠 도전장을 냈어요. 수락자를 기다리거나 결과를 기다리는 중이에요.</div>';
+  var cu=canUseNow('cassidy',S.me);
+  return '<div class="card"><b>🤠 황야의 무법자</b><p class="small">자리에서 일어나며 “석양이 진다”를 외치고 도전장을 내세요. 전원에게 알림이 가고, 점수 1점 이상인 사람만 수락할 수 있어요. (수락 대기 60초)</p><div style="margin:6px 0">'+usageStatus(heroOf('cassidy'))+'</div><button class="btn hot block" data-act="cassGo"'+(cu.ok?'':' disabled')+'>🤠 도전장 내기</button></div>';
+}
+
 function usePanel(x){
   var p=S.players[S.uid]||{},uo=S.ui.use,used=(S.pub.used&&S.pub.used.used)||{};
+  if(x.id==='cassidy')return cassidyPanel();
   if(x.id==='kiriko')return '<div class="note">🍃 <b>키리코의 부적은 자동으로 발동해요.</b> 볼링 후 1회, 오버워치 후 1회 — 이유정을 뺀 하위권 4명 중 무작위 2명에게 +1점씩, 진행 보너스는 +1점(1회)·+2점(2회)이에요. 누르실 건 없어요!</div>';
   if(x.id==='widowmaker')return '<div class="note">🎯 <b>저격 타임에 팝업이 열려요.</b> 이유정이 [봉투 개봉 · 저격 타임]을 누르면 봉투가 열리고, 이 폰에 1분짜리 저격 팝업이 떠요. 승리팀에서 최고 득점자(5점)일 것 같은 사람 1명을 고르세요. (라운드당 1회, 총 4회)<br><span class="small">내가 최고 득점자인 라운드에는 저격 대신 척만 하면 돼요.</span></div>';
   if(x.id==='sombra')return sombraPanel(x);
@@ -2173,7 +2200,16 @@ function usePanel(x){
         '<p class="small">① 나와 <b>팀을 바꿀 사람</b>을 <b>상대 팀</b>에서 고르세요 (우리 팀 사람은 고를 수 없어요)</p>'+chipsSel(ot.m,'ui.use.target',uo.target,S.me);
     }
   }
-  if(id==='moira'||id==='cassidy')h+='<p class="small">'+(id==='moira'?'① 점수를 빼앗을 사람':id==='cassidy'?'① 결투를 신청할 사람':'① 팀을 바꿀 사람')+'</p>'+chipsSel(PLAYERS,'ui.use.target',uo.target,S.me);
+  if(id==='moira'){
+    var mt=(uo.targets||[]);
+    return h+'<p class="small">🧪 나보다 <b>점수가 높다고 생각하는 사람 3명</b>을 고르세요 (나는 제외). 제출한 순간의 점수로 판정해서, 나보다 높으면 흡수(그 사람 -1점, 나 +1점), 같거나 낮으면 실패예요.</p><p class="small mut">점수가 낮을수록 빼앗을 사람이 많아요. 모이라는 뒤처졌을 때 가장 강해집니다.</p><div class="chips">'+PLAYERS.filter(function(n){return n!==S.me;}).map(function(n){return '<button class="chip'+(mt.indexOf(n)>=0?' on':'')+'" data-act="tgToggle" data-v="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div><p class="small">선택 '+mt.length+'/3</p><button class="btn hot block" style="margin-top:10px" data-act="moiraGo"'+(mt.length===3&&cu.ok?'':' disabled')+'>🧪 생체 흡수</button></div>';
+  }
+  if(id==='cassidy')h+='<p class="small">① 결투를 신청할 사람</p>'+chipsSel(PLAYERS,'ui.use.target',uo.target,S.me);
+  if(id==='lucio'){
+    var lost=lucioLost(S.me),lk=uo.lkey&&lost.indexOf(uo.lkey)>=0?uo.lkey:lost[0];
+    if(!lost.length)return h+'<p class="small">🎧 경기에 져서 분위기가 처진다면 우리 팀의 분위기를 전환해주세요! 한 번도 안 졌다면 루시우 덕에 분위기가 고조돼요 (최종 정산 +1점).</p><p class="warn small">🎧 아직 진 경기가 없어요. 지면 분위기를 전환해주세요!</p></div>';
+    return h+'<p class="small">🎧 소극적으로 하면 팀 전원 <b>+1점</b>, 춤이나 노래로 적극적으로 하면 팀 전원 <b>+2점</b>이에요 (성공하면 루시우 +1점 추가).</p><p class="small">① 분위기를 전환할 경기</p><div class="chips">'+lost.map(function(k){return '<button class="chip'+(k===lk?' on':'')+'" data-act="lucioGame" data-v="'+k+'">'+esc(GAME[k])+'</button>';}).join('')+'</div><div class="row" style="margin-top:10px"><button class="btn hot" data-act="lucioGo" data-v="active"'+(cu.ok?'':' disabled')+'>🕺 춤이나 노래로 적극적으로 (+2)</button><button class="btn ghost" data-act="lucioGo" data-v="passive"'+(cu.ok?'':' disabled')+'>🙂 소극적으로 (+1)</button></div></div>';
+  }
   if(id==='tracer')return h+'<p class="small">시간을 되돌려 <b>방금 일어난 일 1건</b>을 선택해서 되돌려요.<br>⚠️ <b>바로 직전에 일어난 되돌릴 수 있는 일 1건</b>만, 그것도 <b>나와 관련된 일</b>만 가능해요: 팀·점수 봉투·방출 추첨, 캐서디 가위바위보, 시그마·메르시 추첨, 모이라 점수 빼앗기, 럭키 찬스. (<b>시메트라 팀 교환은 못 되돌려요</b>, 경기 결과가 이미 나온 팀 추첨도 안 돼요)</p><button class="btn hot block" data-act="tracerOpen">⏪ 시간 되돌리기 (재추첨 선택)</button></div>';
   if(id==='reinhardt'){
     var rt=reinTargets(S.me),ub=(used.reinhardt||{}).bonus;
@@ -2430,9 +2466,9 @@ function viewAward(){
   return h;
 }
 function settleTool(hid,num){
-  var holder=holderOf(hid),x=heroOf(hid),st=settledOf(hid),n=hid==='reinhardt'?reinUses():hid==='sombra'?(((A().state.sombra||{}).exposed)?1:0):(isUsed('tracer')?1:0);
+  var holder=holderOf(hid),x=heroOf(hid),st=settledOf(hid),n=hid==='lucio'?((!isUsed('lucio')&&holderOf('lucio')&&lucioNoLoss(holderOf('lucio')))?0:1):hid==='reinhardt'?reinUses():hid==='sombra'?(((A().state.sombra||{}).exposed)?1:0):(isUsed('tracer')?1:0);
   var title=num+' '+x.em+' '+x.hero+' 정산 '+(st?'<span class="tag good">완료</span>':'');
-  var desc=hid==='sombra'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+(n===0?'<b>끝까지 들키지 않았어요 (은닉 보너스 +1점 지급 대상)</b>':'정체가 들통났어요 (보너스 없음)')):'보유자: '+(holder?esc(holder):'미추첨')+' · 지금까지 사용 '+n+'회 → '+(n===0?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'사용했어요 (보너스 없음)');
+  var desc=hid==='lucio'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+((!isUsed('lucio')&&holder&&lucioNoLoss(holder))?'<b>한 번도 안 졌어요 (+1점 지급 대상)</b>':'졌거나 이미 사용했어요 (보너스 없음)')):hid==='sombra'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+(n===0?'<b>끝까지 들키지 않았어요 (은닉 보너스 +1점 지급 대상)</b>':'정체가 들통났어요 (보너스 없음)')):'보유자: '+(holder?esc(holder):'미추첨')+' · 지금까지 사용 '+n+'회 → '+(n===0?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'사용했어요 (보너스 없음)');
   var btn=st?'<div class="small">'+(st.unused?'✅ +'+st.pts+'점 지급 완료':'ℹ️ 사용했어서 보너스 없음 · 정산 완료')+'</div><button class="btn ghost block" style="margin-top:6px" data-act="unsettleHero" data-v="'+hid+'">↩ 정산 취소</button>':
     '<button class="btn block" data-act="settleHero" data-v="'+hid+'"'+(holder?'':' disabled')+'>'+x.hero+' 정산 (한 번도 안 썼으면 +1점)</button>';
   return tool(title,desc,btn);
@@ -2444,6 +2480,7 @@ function awardAdmin(){
   h+=settleTool('reinhardt','①');
   h+=settleTool('tracer','②');
   h+=settleTool('sombra','②-2');
+  h+=settleTool('lucio','②-3');
   h+=tool('③ 🪞 에코 강제 발동 '+(isUsed('echo')?'<span class="tag good">완료</span>':''),'가장 마지막에 사용해요. 점수를 보지 않고 고른 대상과 전체 점수를 교환해요.','<button class="btn block" data-act="pwOpen" data-v="echo"'+(holderOf('echo')&&(!isUsed('echo')||A().state.echo)?'':' disabled')+'>에코 실행</button>');
   h+=tool('④ 📣 점수 공개 '+(fin&&fin.published?'<span class="tag good">공개 중</span>':''),'누르면 모든 참가자 폰의 “시상식” 화면에 전체 점수 내역과 순위가 나타나요.'+(ok?'':'<br><span class="warn">⚠️ 먼저 라인하르트·트레이서 정산과 에코 실행을 끝내 주세요.</span>'),
     '<button class="btn hot block" data-act="publish"'+(ok?'':' disabled')+'>'+(fin&&fin.published?'최신 점수로 다시 공개':'점수 공개하기')+'</button>'+(fin&&fin.published?'<button class="btn ghost block" style="margin-top:8px" data-act="unpublish">공개 취소 (다시 숨기기)</button>':''));
@@ -2592,6 +2629,11 @@ function renderPop(){
           '<div class="rankmsg r'+(rk>=3?4:rk)+'">'+esc(RMSG[rk>=3?4:rk])+'</div>'+
           '<p class="small mut" style="margin:8px 0 0">나의 점심 미니게임 획득 점수</p><div class="bigtxt '+(me.total>0?'plus':'')+'">'+fmt(me.total)+'점</div>';
       }
+      break;}
+    case 'duelcall':{
+      big=true;
+      var dh=p.holder,dans=P.ans,dtot=(S.myscore&&S.myscore.total)||0;
+      inner='<div class="svote"><b style="font-size:22px">🤠 캐서디['+esc(dh)+']가 나타났다!</b><p>내 1점을 걸고 결투해서 두 배를 따세요.</p>'+(S.me===dh?'<p class="mut">당신이 도전장을 냈어요. 수락자를 기다리는 중…</p>':dans==='accept'?'<p class="win">결투 신청! 캐서디의 선택을 기다리는 중 🤠</p>':dans==='flee'?'<p>마음의 평화를 얻으리</p>':'<div class="row" style="justify-content:center"><button class="btn hot" data-act="duelAnswer" data-v="accept"'+(dtot<1?' disabled':'')+'>수락 · 1점 걸기</button><button class="btn ghost" data-act="duelAnswer" data-v="flee">도주</button></div>'+(dtot<1?'<p class="warn small">점수가 부족해요</p>':'<p class="small mut">60초 안에 고르지 않으면 도주로 처리돼요</p>'))+'</div>';
       break;}
     case 'sombravote':{
       big=true;noFoot=false;
@@ -3278,6 +3320,7 @@ function bowlResult(key,gi,via){
   addEvt(GAME[key]+' 기본 점수','bowl',items,{id:'base:'+key});
   var R=clone(S.pub.results)||{};R[key]={win:win,team:gi};S.pub.results=R;saveResults();
   var pool={};addPools(pool,win,assign,BOWL_WIN,'win');addPools(pool,lose,assign,BOWL_LOSE,'lose');
+  symmetraBonus(key,gi);
   if(key==='bowl2')kirikoFire(1);
   var wn=t.groups[gi].n;
   winThenPriv(wn,win,GAME[key],function(){
@@ -3289,7 +3332,7 @@ function bowlCancel(key){
   S.autoRes=null;S.finalTok=null;S.winTok=null;{var st1=A().state;delete st1.pendingOpen;saveState();if(openTimer){clearTimeout(openTimer);openTimer=null;}}
   var BS=clone(S.pub.bscores)||{};delete BS[key];S.pub.bscores=BS;saveBScores();
   var R=clone(S.pub.results)||{};delete R[key];S.pub.results=R;saveResults();
-  delEvt('base:'+key,false,'결과 취소');
+  delEvt('base:'+key,false,'결과 취소');if(L().evts.some(function(e){return e.id==='symwin:'+key;}))delEvt('symwin:'+key,false,'결과 취소');
   setLast(key==='bowl2'?'scout:bowl2':'team:bowl1');
   sysChat('↩ '+GAME[key]+' 결과가 취소됐어요. 승리/패배를 다시 선택합니다.');
   toast('결과를 취소했어요');
@@ -3484,6 +3527,7 @@ function owResult(key,gi,via){
   });
   var R=clone(S.pub.results)||{};R[key]={win:win,team:gi,pred:predNames};S.pub.results=R;saveResults();
   var pool={};addPools(pool,win,assign,OW_WIN,'win');addPools(pool,lose,assign,OW_LOSE,'lose');
+  symmetraBonus(key,gi);
   if(key==='ow2')kirikoFire(2);
   winThenPriv(t.groups[gi].n,win,GAME[key],function(){
     announce('private','✉️ '+GAME[key]+' 점수 봉투'+(via?' (다시 뽑기)':''),{assign:assign,bonus:bonus,pool:pool,unit:'점',fmt:'plain',label:'기본 점수',via:via||'',winName:t.groups[gi].n,loseName:t.groups[1-gi].n,predWinners:predNames,predView:predView},'');
@@ -3983,12 +4027,14 @@ function runUse(uid,p,u){
     if(!hero||hero!==u.hero)res=fail('내 초능력이 아니에요');
     else if(hero==='echo')res=fail('에코는 관리자가 진행해요');
     else if(hero==='sombra')res=sombraRequest(p.name,o);
+    else if(hero==='lucio'){var cl=canUseNow('lucio',p.name);res=cl.ok?lucioRun(p.name,o):fail(cl.why);}
+    else if(hero==='moira'){var cm=canUseNow('moira',p.name);res=cm.ok?moiraRun(p.name,o):fail(cm.why);}
     else if(hero==='widowmaker'||hero==='kiriko')res=fail('이 초능력은 팝업/자동으로 진행돼요');
     else if(hero!=='reinhardt'&&isUsed(hero))res=fail('이미 사용한 초능력이에요');
     else{
       var cu=canUseNow(hero,p.name);
       if(!cu.ok)res=fail(cu.why);
-      else if(hero==='cassidy')res=duelStart(p.name,o.target);
+      else if(hero==='cassidy')res=cassidyCall(p.name);
       else res=execPower(hero,o);
     }
   }catch(e){console.error(e);res=fail('처리 중 오류가 났어요: '+(e&&e.message||e));}
@@ -4001,6 +4047,8 @@ function processUses(){
   if(!S.db||!a.content||!a.loaded.main||!a.state)return;
   Object.keys(S.players).forEach(function(uid){
     var p=S.players[uid];
+    if(p&&p.da){var dk=uid+':d:'+p.da.ts;if(!S.handledUse[dk]){S.handledUse[dk]=true;var da=p.da;S.db.doc('players/'+uid).update({da:null}).catch(function(){});duelOnAnswer(uid,p,da);}}
+    if(p&&p.dp){var pk2=uid+':p:'+p.dp.ts;if(!S.handledUse[pk2]){S.handledUse[pk2]=true;var dp=p.dp;S.db.doc('players/'+uid).update({dp:null}).catch(function(){});duelPick(dp.id,dp.picks);}}
     if(p&&p.snipeReq){
       var sk=uid+':s:'+p.snipeReq.ts;
       if(!S.handledUse[sk]){S.handledUse[sk]=true;var sr=p.snipeReq;S.db.doc('players/'+uid).update({snipeReq:null}).catch(function(){});widowResolve(sr.id,sr.pick||null,sr.why||'');}
@@ -4019,6 +4067,161 @@ function processUses(){
 
 /* =============== 관리자: 샘플 데이터 (테스트용) =============== */
 /* v26 신규 영웅 로직 */
+/* ===================== v27: 캐서디 (도전장 → 수락 → 상대 지목 → 하나빼기) ===================== */
+function cassidyCall(name){
+  var st=A().state;
+  if(st.duel2)return fail('이미 도전장을 냈어요');
+  var id=uuid();
+  st.duel2={id:id,holder:name,ts:Date.now(),stage:'accept',acc:{},resp:{},picks:[],res:{}};saveState();
+  markUsed('cassidy',name,['결투 도전장 — 수락자를 기다리는 중'],[name]);
+  announce('duelcall','🤠 캐서디가 나타났다!',{id:id,holder:name,sec:60},'🤠 캐서디['+name+']가 나타났다! 내 1점을 걸고 결투해서 두 배를 따세요. (수락 · 도주 — 60초)');
+  setTimeout(function(){duelClose(id);},60000);
+  return {ok:true};
+}
+function duelOnAnswer(uid,p,da){
+  var d=A().state.duel2;if(!d||d.id!==da.id||d.stage!=='accept'||p.name===d.holder||d.resp[p.name])return;
+  d.resp[p.name]=da.ts;
+  if(da.v==='accept'&&((calc()[p.name]||{}).total||0)>=1)d.acc[p.name]=da.ts;     // 점수가 1점 이상인 사람만 수락할 수 있어요
+  saveState();
+  if(Object.keys(d.resp).length>=PLAYERS.length-1)duelClose(d.id);
+}
+function duelClose(id){
+  var d=A().state.duel2;if(!d||d.id!==id||d.stage!=='accept')return;
+  var names=Object.keys(d.acc).sort(function(a,b){return d.acc[a]-d.acc[b];}),h=d.holder;
+  if(!names.length){
+    addEvt('캐서디 마을 평정','power',[{name:h,d:1,note:'캐서디 — 아무도 수락하지 않아 마을 평정 +1'}],{id:'pw:cassidy'});
+    sysChat('🤠 캐서디['+h+']가 무서워서 아무도 도전하지 않았다. 마을을 평정하였습니다! (+1점)');
+    delete A().state.duel2;saveState();render(true);return;
+  }
+  d.cands=names;
+  if(names.length===1){d.picks=names.slice();duelStartMatch();return;}
+  d.stage='pick';saveState();
+  dealPatch(h,{duel:{id:d.id,stage:'pick',cands:names}});
+  dealNote(h,'🤠 수락자가 있어요! 상대를 최대 2명 골라주세요. (60초 안에 고르지 않으면 먼저 수락한 2명이 지목돼요)');
+  setTimeout(function(){duelPick(id,null);},60000);
+  render(true);
+}
+function duelPick(id,picks){
+  var d=A().state.duel2;if(!d||d.id!==id||d.stage!=='pick')return;
+  picks=(picks||[]).filter(function(n,i,a){return d.cands.indexOf(n)>=0&&a.indexOf(n)===i;}).slice(0,2);
+  if(!picks.length)picks=d.cands.slice(0,2);
+  d.picks=picks;duelStartMatch();
+}
+function duelStartMatch(){
+  var d=A().state.duel2,h=d.holder;d.stage='result';d.res={};saveState();
+  d.cands.forEach(function(n){if(d.picks.indexOf(n)<0)dealNote(n,'애송이, 넌 내 상대가 못 돼. 1점을 돌려주었다.');});
+  d.picks.forEach(function(n){dealNote(n,'🎯 캐서디['+h+']와 하나빼기를 해주세요.');});
+  if(d.picks.length===2)sysChat('🤠 캐서디['+h+']가 '+d.picks[0]+'와 '+d.picks[1]+'와 결투를 진행한다.');
+  else sysChat('🤠 캐서디['+h+']와 '+d.picks[0]+'이 외나무다리에서 만났다.');
+  dealPatch(h,{duel:{id:d.id,stage:'result',picks:d.picks}});
+  render(true);
+}
+function duelResult(n,cassWins){
+  var d=A().state.duel2;if(!d||d.stage!=='result'||d.picks.indexOf(n)<0)return;
+  d.res[n]=!!cassWins;saveState();
+  if(d.picks.every(function(x){return d.res[x]!==undefined;}))duelSettle();else render(true);
+}
+function duelSettle(){
+  var d=A().state.duel2,h=d.holder,P2=d.picks,items=[],wins=P2.filter(function(n){return d.res[n];}).length;
+  function win(n){return d.res[n];}
+  if(P2.length===1){
+    var n1=P2[0];
+    if(win(n1)){items.push({name:h,d:2,note:'캐서디 결투 승리'});items.push({name:n1,d:floorLoss(n1,-1),note:'캐서디와의 결투에서 패배'});sysChat('🤠 캐서디['+h+']는 숙명의 적을 처치했다 +2점');}
+    else{items.push({name:n1,d:1,note:'캐서디를 쓰러뜨리고 두 배를 땄다'});sysChat('😲 '+n1+'가 캐서디['+h+']를 쓰러뜨리고 두 배를 땄다.');}
+  }else{
+    P2.forEach(function(n){
+      if(win(n))items.push({name:n,d:floorLoss(n,-1),note:'캐서디와의 결투에서 패배'});
+      else{items.push({name:n,d:1,note:'캐서디를 쓰러뜨리고 두 배를 땄다'});sysChat('😲 '+n+'가 캐서디['+h+']를 쓰러뜨리고 두 배를 땄다.');}
+    });
+    if(wins===2){items.push({name:h,d:3,note:'캐서디 결투 2연승'});sysChat('🤠 '+P2[0]+', '+P2[1]+' 쓰러졌다. 캐서디['+h+']가 브랜딩팀을 평정했다. +3점');}
+    else if(wins===1){items.push({name:h,d:2,note:'캐서디 결투 1승'});var lost=P2.filter(win)[0];sysChat('💥 '+lost+' 쓰러졌다. 한 판은 가져갔다. 캐서디['+h+'] +2점');}
+    else sysChat('🤠 캐서디['+h+']는 옆동네로 도망갔다');
+  }
+  if(items.length)addEvt('캐서디 결투','power',items,{id:'pw:cassidy'});
+  var U=clone(S.pub.used);
+  if(U.used&&U.used.cassidy){U.used.cassidy.res=P2.map(function(n){return h+' vs '+n+' → '+(win(n)?h+' 승':n+' 승');});U.used.cassidy.aff=[h].concat(P2);S.pub.used=U;saveUsed();}
+  dealPatch(h,{duel:{id:d.id,done:true}});
+  delete A().state.duel2;saveState();render(true);
+}
+
+/* ===================== v27: 루시우 (진 경기 뒤에만) ===================== */
+function lucioLost(who){
+  var R=S.pub.results||{};
+  return GAMES.filter(function(k){return R[k]&&R[k].team!=null&&teamOf(k,who)>=0&&teamOf(k,who)!==R[k].team;});
+}
+function lucioNoLoss(who){
+  var R=S.pub.results||{};
+  return GAMES.every(function(k){return R[k]&&R[k].team!=null&&teamOf(k,who)>=0&&teamOf(k,who)===R[k].team;});
+}
+function lucioRun(name,o){
+  var key=o.key,mode=o.mode;
+  if(lucioLost(name).indexOf(key)<0)return fail('진 경기에서만 분위기를 전환할 수 있어요');
+  if(mode!=='passive'&&mode!=='active')return fail('방식을 선택하세요');
+  var t=team(key),ti=teamOf(key,name),g=t.groups[ti],ln=GAME[key];
+  if(mode==='passive'){
+    addEvt('루시우 분위기 전환 (소극적)','power',g.m.map(function(n){return {name:n,d:1,note:'루시우 분위기 전환(소극적) +1'};}),{id:'pw:lucio'});
+    markUsed('lucio',name,[ln+' · '+g.n+' 전원 +1점 (소극적)'],g.m.slice());
+    sysChat('🎧 루시우['+name+']가 조용히 비트를 깔았다. '+g.n+' 전원 +1점');
+    g.m.forEach(function(n){dealNote(n,'🎧 루시우 덕분에 1점을 얻었다.');});
+  }else{
+    var st=A().state;st.lucioPending={key:key,team:g.n,members:g.m.slice(),ts:Date.now(),by:name,id:uuid()};saveState();
+    markUsed('lucio',name,[ln+' · '+g.n+' 분위기 전환 (적극적) — 이유정 판정 대기 중'],g.m.slice());
+    sysChat('🎧 루시우['+name+']가 무대를 준비중이다 '+g.n+', 주목해주세요.');
+    var pid=st.lucioPending.id;setTimeout(function(){lucioJudge(true,pid);},60000);    // 60초 안에 판정이 없으면 [성공]
+  }
+  render(true);return {ok:true};
+}
+function lucioJudge(yes,pid){
+  var st=A().state,lp=st.lucioPending;if(!lp||(pid&&lp.id!==pid))return;
+  var d=yes?2:1,items=lp.members.map(function(n){return {name:n,d:d,note:'루시우 분위기 전환(적극적 '+(yes?'성공':'실패')+') +'+d};});
+  if(yes)items.push({name:lp.by,d:1,note:'루시우 적극적 성공 추가 보너스'});
+  addEvt('루시우 분위기 전환 (적극적)','power',items,{id:'pw:lucio'});
+  var U=clone(S.pub.used);if(U.used&&U.used.lucio){U.used.lucio.res=[GAME[lp.key]+' · '+lp.team+' 전원 +'+d+'점 (적극적 '+(yes?'성공':'실패')+(yes?' · 루시우 +1':'')+')'];S.pub.used=U;saveUsed();}
+  delete st.lucioPending;saveState();
+  if(yes)sysChat('🎧 무대 성공적! 루시우['+lp.by+']가 '+lp.team+' 전원을 일으켜 세웠다. 전원 +2점, 루시우 추가 보너스 +1점');
+  else sysChat('🎧 루시우['+lp.by+']의 비트가 조금 모자랐다. '+lp.team+' 전원 +1점');
+  lp.members.forEach(function(n){dealNote(n,'🎧 루시우 덕분에 '+d+'점을 얻었다.');});
+  render(true);
+}
+
+/* ===================== v27: 모이라 · 시메트라 보너스 ===================== */
+function moiraRun(name,o){
+  var tg=(o.targets||[]).filter(function(n,i,a){return a.indexOf(n)===i&&n!==name&&PLAYERS.indexOf(n)>=0;});
+  if(tg.length!==3)return fail('나를 뺀 3명을 중복 없이 골라야 해요');
+  var T=calc(),me=(T[name]||{}).total||0,ok=[],no=[];
+  tg.forEach(function(n){(((T[n]||{}).total||0)>me?ok:no).push(n);});      // 제출한 순간의 점수로 판정 (동점은 실패)
+  var items=[];
+  if(ok.length){
+    items.push({name:name,d:ok.length,note:'모이라 생체 흡수 (+'+ok.length+')'});
+    ok.forEach(function(n){items.push({name:n,d:floorLoss(n,-1),note:'모이라에게 점수를 빼앗김'});});
+  }
+  addEvt('모이라 생체 흡수','power',items,{id:'pw:moira'});
+  markUsed('moira',name,[ok.length?'성공 '+ok.length+'명: '+ok.join(', ')+' (각 -1점 / 모이라 +'+ok.length+'점)':'대상을 찾지 못했어요'],[name].concat(ok));
+  var Uu=clone(S.pub.used);
+  if(Uu.used&&Uu.used.moira){Uu.used.moira.info={target:ok[0]||'',targets:ok};S.pub.used=Uu;saveUsed();}
+  setLast('pw:moira','모이라 ('+name+')',[name].concat(ok));
+  if(ok.length)sysChat('🧪 모이라['+name+']가 '+ok.join(', ')+'의 점수를 1점씩 흡수했다. +'+ok.length+'점');
+  else sysChat('🧪 모이라['+name+']가 생체 흡수 대상을 찾는 것을 실패했다.');
+  ok.forEach(function(n){dealNote(n,'🧪 모이라보다 점수가 높아 1점을 빼앗겼다.');});
+  dealNote(name,tg.map(function(n){return ok.indexOf(n)>=0?n+'의 점수를 흡수했다. +1점':n+'은 나보다 점수가 높지 않았다.';}).join(' · '));
+  var rh=holderOf('reinhardt');
+  if(rh&&ok.indexOf(rh)>=0)dealPatch(rh,{rein:{hero:'moira',ts:(((S.pub.used||{}).used||{}).moira||{}).ts,delta:-1}});     // 라인하르트에게만 가는 비공개 힌트
+  render(true);
+  return {ok:true};
+}
+function symmetraBonus(key,gi){
+  var id='symwin:'+key;
+  if(L().evts.some(function(e){return e.id===id;}))delEvt(id,true,'다시 계산');
+  var ls=A().state.lastSym,holder=holderOf('symmetra'),u=((S.pub.used&&S.pub.used.used)||{}).symmetra;
+  if(!holder||!ls||ls.key!==key||!u||u.voided)return;
+  var t=team(key);if(!t)return;
+  var ti=-1;t.groups.forEach(function(g,i){if(g.m.indexOf(holder)>=0)ti=i;});
+  if(ti!==gi)return;                                                   // 바꾼 뒤의 팀이 이겼을 때만
+  addEvt('시메트라 순간이동기 승리 보너스','power',[{name:holder,d:3,note:'시메트라 순간이동기 승리 보너스(+3)'}],{id:id});
+  sysChat('🌀 시메트라['+holder+']의 순간이동기가 승리를 불러왔다. +3점');
+  dealNote(holder,'🌀 순간이동기 대성공! 바꾼 팀이 이겨서 보너스 +3점!');
+}
+
 /* ===================== 솜브라 · 위도우메이커 · 키리코 ===================== */
 function floorLoss(name,d){          // 점수는 0점 아래로 내려가지 않아요
   if(d>=0)return d;
@@ -4170,9 +4373,10 @@ function settleHero(h){
   var st=A().state;st.settled=st.settled||{};
   if(st.settled[h])return toast('이미 정산했어요');
   var P=(A().content||{}).params||{},x=heroOf(h);
-  var unused=h==='tracer'?!isUsed('tracer'):h==='sombra'?!((A().state.sombra||{}).exposed):reinUses()===0;
-  var pts=h==='tracer'?(P.tracer!=null?P.tracer:1):h==='sombra'?(P.sombraHideBonus!=null?P.sombraHideBonus:1):(P.reinhardt!=null?P.reinhardt:1);
+  var unused=h==='tracer'?!isUsed('tracer'):h==='sombra'?!((A().state.sombra||{}).exposed):h==='lucio'?(!isUsed('lucio')&&lucioNoLoss(holder)):reinUses()===0;
+  var pts=h==='tracer'?(P.tracer!=null?P.tracer:1):h==='sombra'?(P.sombraHideBonus!=null?P.sombraHideBonus:1):h==='lucio'?1:(P.reinhardt!=null?P.reinhardt:1);
   if(unused)addEvt(x.hero+(h==='sombra'?' — 끝까지 들키지 않은 은닉 보너스':' — 끝까지 사용하지 않아 보너스'),'power',[{name:holder,d:pts,note:x.hero+(h==='sombra'?' 끝까지 들키지 않은 은닉 보너스':' 끝까지 사용하지 않은 보너스')}],{id:'bonus:'+h});
+  if(unused&&h==='lucio')sysChat('🎧 루시우['+holder+']가 있어서 팀 분위기가 고조되었다. +1점');
   if(unused&&h==='sombra')dealNote(holder,'💜 끝까지 들키지 않았다. 은닉 보너스 +'+pts+'점');
   st.settled[h]={unused:unused,pts:unused?pts:0,ts:Date.now()};saveState();
   toast(unused?'✅ '+x.hero+'('+holder+') 한 번도 안 써서 +'+pts+'점 지급':'ℹ️ '+x.hero+'('+holder+')는 사용했어서 보너스 없음 · 정산 완료');
@@ -4360,6 +4564,19 @@ async function handle(act,v,t){
       break;
     case 'replay':if(S.pub.live)showPop(S.pub.live);return;
     case 'openEnv':openEnvelopes(false);return;
+    case 'cassGo':ask('🤠 도전장을 낼까요? 전원에게 알림이 가고, 한 번 내면 취소할 수 없어요.',function(){sendUse('cassidy',{});});return;
+    case 'duelAnswer':{var pdu=S.pop&&S.pop.ev&&S.pop.ev.payload;if(!pdu||!S.uid)return;S.pop.ans=v;S.db.doc('players/'+S.uid).update({da:{id:pdu.id,v:v,ts:Date.now()}}).catch(function(){});renderPop();return;}
+    case 'duelPickT':{var uc=S.ui.use=S.ui.use||{},pl2=(uc.picks||[]).slice(),jx=pl2.indexOf(v);if(jx>=0)pl2.splice(jx,1);else if(pl2.length<2)pl2.push(v);uc.picks=pl2;break;}
+    case 'duelPickGo':{var dd=S.deal&&S.deal.duel,pk3=(S.ui.use||{}).picks||[];if(!dd||!pk3.length||!S.uid)return;S.db.doc('players/'+S.uid).update({dp:{id:dd.id,picks:pk3,ts:Date.now()}}).catch(function(){});S.ui.use.picks=[];toast('🎯 지목했어요');return;}
+    case 'duelCloseNow':{var d1=A().state.duel2;if(S.admin&&d1)duelClose(d1.id);return;}
+    case 'duelAutoPick':{var d2=A().state.duel2;if(S.admin&&d2)duelPick(d2.id,null);return;}
+    case 'duelRes':{if(!S.admin)return;var sp=String(v).split(':');duelResult(sp[0],sp[1]==='1');return;}
+    case 'lucioGame':S.ui.use=S.ui.use||{};S.ui.use.lkey=v;break;
+    case 'lucioGo':{var ul=S.ui.use||{},lk=ul.lkey||lucioLost(S.me)[0];if(!lk)return toast('진 경기가 없어요');var md=v;ask('🎧 '+GAME[lk]+'에서 진 팀의 분위기를 '+(md==='active'?'춤이나 노래로 적극적으로 (+2, 성공 시 루시우 +1 추가)':'소극적으로 (+1)')+' 전환할까요?\n모두에게 공개되고, 한 번 쓰면 취소할 수 없어요.',function(){sendUse('lucio',{key:lk,mode:md});});return;}
+    case 'lucioYes':if(S.admin)lucioJudge(true);return;
+    case 'lucioNo':if(S.admin)lucioJudge(false);return;
+    case 'tgToggle':{var uu=S.ui.use=S.ui.use||{},ls2=(uu.targets||[]).slice(),ix=ls2.indexOf(v);if(ix>=0)ls2.splice(ix,1);else if(ls2.length<3)ls2.push(v);uu.targets=ls2;break;}
+    case 'moiraGo':{var um=S.ui.use||{};if((um.targets||[]).length!==3)return toast('3명을 골라 주세요');ask('🧪 '+um.targets.join(', ')+' 님의 점수를 흡수할까요?\n제출하면 취소할 수 없고, 제출한 순간의 점수로 판정해요.',function(){sendUse('moira',{targets:um.targets.slice()});});return;}
     case 'hackGo':{var uh=S.ui.use||{};if(!uh.target||!uh.guess)return toast('해킹할 사람과 영웅을 모두 고르세요');ask('💜 '+uh.target+' 님을 '+heroOf(uh.guess).hero+'로 추리해 해킹할까요?\n성공·실패 모두 해킹 횟수가 1회 소모돼요.',function(){sendUse('sombra',{target:uh.target,guess:uh.guess});});return;}
     case 'hackYes':if(S.admin)hackJudge(true);return;
     case 'hackNo':if(S.admin)hackJudge(false);return;
