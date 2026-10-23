@@ -1496,10 +1496,10 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v31';
+var BUILD_ID='v32';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:90000;
-var DETAIL_PUBLIC=['sombra','widowmaker','kiriko'];                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
+var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
 function heroIcon(id,cls){return (typeof ICON_IMG!=='undefined'&&ICON_IMG[id])?'<img class="picon '+(cls||'')+'" src="'+ICON_IMG[id]+'" alt="">':'';}
 function detailPublic(id){return DETAIL_PUBLIC.indexOf(id)>=0;}
 function josaEulReul(w){var c=String(w||'').charCodeAt(String(w||'').length-1)-0xAC00;return (c>=0&&c%28>0)?'을':'를';}
