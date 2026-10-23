@@ -1195,12 +1195,13 @@ function subDeal(){
   S.dealSubFor=S.me;
   S.dealUnsub=S.db.doc('deal/'+S.me).onSnapshot(function(s){S.dealRaw=s.exists?clone(s.data()):null;syncDeal(true);render();},subErr);
 }
+function requestWake(){try{if(S.admin&&navigator.wakeLock&&navigator.wakeLock.request){navigator.wakeLock.request('screen').then(function(l){S.wake=l;l.addEventListener('release',function(){S.wake=null;});}).catch(function(){});}}catch(e){}}
 function playersChanged(){
   var mine=S.players[S.uid];S.me=mine?mine.name:null;
   subDeal();
   syncDeal(true);
   var isA=(S.me===HOST);
-  if(isA&&!S.admin){S.admin=true;A().retry=0;adminSubs();}
+  if(isA&&!S.admin){S.admin=true;A().retry=0;adminSubs();requestWake();}
   if(!isA&&S.admin){S.admin=false;adminOff();if(S.view==='score')S.view='home';}
   render();adminTick();
 }
@@ -1496,7 +1497,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v32';
+var BUILD_ID='v33';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:90000;
 var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -1649,7 +1650,7 @@ function closePop(){
 }
 
 /* =============== 초능력 카드 자동 지급 (관리자 화면) =============== */
-function adminTick(){if(S.admin&&!S.resetting){reconcileDeals();processUses();schedSync();}}
+function adminTick(){if(S.admin&&!S.resetting){reconcileDeals();processUses();rearmAll();schedSync();}}
 /* 서버를 건드리기 전에, 지금 정말 처리할 일이 있는지 이 화면의 기억만으로 먼저 확인해요 */
 function uidOfName(n){return Object.keys(S.players).filter(function(u){return S.players[u]&&S.players[u].name===n;})[0];}
 function needsReconcile(){
@@ -2557,7 +2558,7 @@ function awardAdmin(){
   h+=settleTool('tracer','②');
   h+=settleTool('sombra','②-2');
   h+=settleTool('lucio','②-3');
-  h+=tool('③ 🪞 에코 강제 발동 '+(isUsed('echo')?'<span class="tag good">완료</span>':''),'가장 마지막에 사용해요. 점수를 보지 않고 고른 대상과 전체 점수를 교환해요.','<button class="btn block" data-act="echoLast"'+(holderOf('echo')&&!(A().state.echo2||{}).done?'':' disabled')+'>🪞 마지막 호명 시작</button>');
+  h+=tool('③ 🪞 에코 강제 발동 '+(isUsed('echo')?'<span class="tag good">완료</span>':''),'가장 마지막에 시작해요. 시작하면 <b>초능력 사용이 자동으로 마감</b>되고, 대기 중인 항목은 기본값으로 처리돼요. 복제가 발동했다면 에코 폰에 “최종 1등 지목”이, 아니면 “마지막 기회”가 떠요.','<button class="btn block" data-act="echoLast"'+(holderOf('echo')&&!(A().state.echo2||{}).done?'':' disabled')+'>🪞 마지막 호명 시작</button>');
   h+=tool('④ 📣 점수 공개 '+(fin&&fin.published?'<span class="tag good">공개 중</span>':''),'누르면 모든 참가자 폰의 “시상식” 화면에 전체 점수 내역과 순위가 나타나요.'+(ok?'':'<br><span class="warn">⚠️ 먼저 라인하르트·트레이서 정산과 에코 실행을 끝내 주세요.</span>'),
     '<button class="btn hot block" data-act="publish"'+(ok?'':' disabled')+'>'+(fin&&fin.published?'최신 점수로 다시 공개':'점수 공개하기')+'</button>'+(fin&&fin.published?'<button class="btn ghost block" style="margin-top:8px" data-act="unpublish">공개 취소 (다시 숨기기)</button>':''));
   h+='<div class="card"><b>순위 미리보기</b><table class="tbl" style="margin-top:6px"><tr><th>순위</th><th>이름 / 영웅</th><th>메인</th><th>합계</th></tr>'+R.map(function(r){var hx=as[r.name]?heroOf(as[r.name]):null;return '<tr><td>'+r.rank+(r.tie?'*':'')+'</td><td>'+esc(r.name)+(hx?' / '+esc(hx.hero):'')+'</td><td>'+r.main+'</td><td class="pt">'+r.total+'</td></tr>';}).join('')+'</table><p class="small mut">* 동점 — 메인 점수도 같으면 가위바위보로 정해요.</p></div>';
@@ -2589,6 +2590,9 @@ function giftAdmin(){
   return '<div class="card tool"><h3>🎁 선물 목록 (최대 10개)</h3><p class="mut small">점수를 공개하면 시상식 화면 맨 아래에 공개돼요. <b>전체 초기화를 해도 유지</b>되고 언제든 수정할 수 있어요.</p>'+PLAYERS.map(function(_,i){var v=(S.ui.gifts&&S.ui.gifts[i]!=null)?S.ui.gifts[i]:(cur[i]||'');return '<div class="row" style="margin-top:6px"><b style="width:34px">'+(i+1)+'</b><input class="in" style="flex:1;width:auto" data-bind="ui.gifts.'+i+'" value="'+esc(v)+'" placeholder="선물 이름"></div>';}).join('')+'<button class="btn block" style="margin-top:8px" data-act="saveGifts">선물 목록 저장</button></div>';
 }
 
+function adminKeepNote(){
+  return '<div class="card"><b>📱 이 화면이 진행 서버예요</b><p class="small mut">참가자들의 요청(카드 뽑기는 제외)은 이 화면이 켜져 있을 때 처리돼요. 자동으로 <b>화면 꺼짐 방지</b>를 켰어요'+(S.wake?' ✅':' (이 브라우저에서는 지원되지 않을 수 있어요 — 폰 설정에서 화면 자동 꺼짐을 “안 함”으로 해 주세요)')+'. 화면이 꺼졌다 다시 켜지면 밀린 요청과 시간이 지난 대기 항목을 자동으로 처리해요.</p></div>';
+}
 function deputyBlock(){
   if(S.me!=='최우재'||S.admin)return '';
   var p=S.players[S.uid]||{},dd=p.dqDone;
@@ -2611,7 +2615,7 @@ function deputyBlock(){
 }
 function viewScore(){
   var T=calc(),R=rank(T),f=S.ui.focus;
-  var h='<h2 class="h2" style="margin-top:6px">🧮 실시간 점수</h2><p class="mut small">점수는 각 메뉴(점심·볼링·오버워치·초능력·시상식)에서 입력하면 여기에 바로 반영돼요.</p>'+deputyLogCard()+giftAdmin();
+  var h='<h2 class="h2" style="margin-top:6px">🧮 실시간 점수</h2><p class="mut small">점수는 각 메뉴(점심·볼링·오버워치·초능력·시상식)에서 입력하면 여기에 바로 반영돼요.</p>'+adminKeepNote()+deputyLogCard()+giftAdmin();
   h+='<div class="card flat scroll"><table class="tbl"><tr><th>#</th><th>이름</th><th>점심</th><th>볼링</th><th>오버워치</th><th>초능력</th><th>기타</th><th>합계</th></tr>'+
    R.map(function(r){var hr=heroByName(r.name);return '<tr class="'+(f===r.name?'foc':'')+'" data-act="sel" data-k="ui.focus" data-v="'+esc(r.name)+'"><td>'+r.rank+(r.tie?'*':'')+'</td><td>'+(hr?hr.em+' ':'')+esc(r.name)+'</td><td>'+r.cats.lunch+'</td><td>'+r.cats.bowl+'</td><td>'+r.cats.ow+'</td><td>'+r.cats.power+'</td><td>'+r.cats.other+'</td><td class="pt">'+r.total+'</td></tr>';}).join('')+
    '</table><p class="small mut" style="padding:6px 8px">* 동점 (메인 점수도 같으면 가위바위보) · 이름을 누르면 그 사람 기록만 봐요</p></div>';
@@ -4175,6 +4179,29 @@ function processUses(){
 
 /* =============== 관리자: 샘플 데이터 (테스트용) =============== */
 /* v26 신규 영웅 로직 */
+function closePowers(){
+  var pf=clone(S.pub.flags)||{};if(pf.powerClosed)return;
+  pf.powerClosed=true;S.pub.flags=pf;saveFlags();
+  announce('announce','⏰ 초능력 사용 마감!',{emoji:'⏰',lines:['초능력 사용이 마감됐어요!','에코의 마지막 호명이 시작돼요','아직 안 쓴 초능력은 더 이상 쓸 수 없어요']},'⏰ 초능력 사용이 마감됐어요!!!! 에코의 마지막 호명이 시작돼요');
+}
+/* 관리자 화면이 꺼졌다 켜지거나 새로고침돼도, 시간이 지난 대기 항목은 바로(또는 남은 시간 뒤에) 처리해요 */
+function rearmAll(){
+  var s=A().state;if(!s||!S.admin)return;
+  S.rearm=S.rearm||{};
+  function at(key,ts,ms,fn){if(S.rearm[key])return;S.rearm[key]=1;setTimeout(fn,Math.max(0,(ts||0)+ms-Date.now()));}
+  if(s.svote)at('sv'+s.svote.vid,s.svote.ts,60000,function(){var q=A().state.svote;if(q)sombraVoteClose(q.vid);});
+  var d=s.duel2;
+  if(d&&d.stage==='accept')at('da'+d.id,d.ts,60000,function(){duelClose(d.id);});
+  if(d&&d.stage==='pick')at('dp'+d.id,d.pts||d.ts,60000,function(){duelPick(d.id,null);});
+  if(s.lucioPending)at('lu'+s.lucioPending.id,s.lucioPending.ts,60000,function(){lucioJudge(true,s.lucioPending&&s.lucioPending.id);});
+  if(s.rein&&s.rein.pend)at('rp'+s.rein.pend.id,s.rein.pend.ts,60000,function(){reinAnswer(s.rein.pend&&s.rein.pend.id,'pass');});
+  if(s.tr&&s.tr.pend)at('tp'+s.tr.pend.id,s.tr.pend.ts,60000,function(){trAnswer(s.tr.pend&&s.tr.pend.id,'skip');});
+  if(s.widow&&s.widow.cur)at('wd'+s.widow.cur.id,s.widow.cur.ts,60000,function(){widowResolve(s.widow.cur&&s.widow.cur.id,null,'timeout');});
+  var e=s.echo2&&s.echo2.pop;
+  if(e&&e.kind==='last')at('el'+e.id,e.ts,60000,function(){echoLastTimeout(e.id);});
+  if(e&&e.kind==='final')at('ef'+e.id,e.ts,60000,function(){echoFinalResolve(null,e.id);});
+  if(s.pendingOpen)at('po'+s.pendingOpen.ts,s.pendingOpen.ts,OPEN_AUTO_MS,function(){openEnvelopes(true);});
+}
 /* ===================== v29: 대리 관리자 · 강제 진행 · 정정 ===================== */
 function deputyInput(uid,q){
   var key=q.key;if(['bowl1','bowl2'].indexOf(key)<0)return;
@@ -4278,7 +4305,7 @@ function reinGuard(att){
   var r=reinSt();
   if(r.sworn&&att.target===r.sworn&&!r.swornUsed){reinDo(att,'sworn');return 'blocked';}
   if(att.target===h&&!r.selfUsed&&!r.pend){
-    var id=uuid();r.pend={id:id,att:att};saveState();
+    var id=uuid();r.pend={id:id,att:att,ts:Date.now()};saveState();
     dealPatch(h,{rein2:{id:id,label:att.label,until:Date.now()+60000}});
     setTimeout(function(){reinAnswer(id,'pass');},60000);
     return 'pending';
@@ -4345,7 +4372,7 @@ function trOffer(att){
   var t=holderOf('tracer');if(!t||att.target!==t)return;
   var s=trSt();if(s.uses>=2)return;
   var id=uuid(),lab={moira:'모이라의 생체 흡수',widow:'위도우메이커의 저격',cass:'캐서디와의 결투 패배'}[att.type];
-  s.pend={id:id,att:att,lab:lab};saveState();                                        // 새 일이 생기면 앞의 선택은 확정돼요
+  s.pend={id:id,att:att,lab:lab,ts:Date.now()};saveState();                                        // 새 일이 생기면 앞의 선택은 확정돼요
   dealPatch(t,{trpop:{id:id,label:lab,left:2-s.uses,until:Date.now()+60000}});
   setTimeout(function(){trAnswer(id,'skip');},60000);
 }
@@ -4419,17 +4446,18 @@ function echoFinalResolve(pick,id){
 function echoLastCall(){
   var h=holderOf('echo');if(!h)return toast('에코 보유자가 없어요');
   var e=echoSt();if(e.done)return toast('이미 마지막 호명을 진행했어요');
+  closePowers();                             // 에코 호명을 시작하면 초능력 사용이 자동으로 마감돼요
   forceProgress(true);                       // 마지막 호명 전에 미해결 이벤트는 기본값으로 처리
   e.done=true;saveState();
   var id=uuid();
   if(e.active){
     sysChat('복제 준비 완료! 🪞 에코['+h+']가 최종 1등을 추리한다.');
-    e.pop={id:id,kind:'final'};saveState();
+    e.pop={id:id,kind:'final',ts:Date.now()};saveState();
     dealPatch(h,{ep:{id:id,round:4,kind:'final',exclude:''}});
     setTimeout(function(){echoFinalResolve(null,id);},60000);      // 60초 안에 안 고르면 틀림 처리 (+1점)
   }else{
     sysChat('에코['+h+']가 두 번의 기회를 실패하여 복제 기능을 잃었습니다. 마지막 포인트 획득 기회. 현재 3위 안에 있는 사람을 지목해주세요.');
-    e.pop={id:id,kind:'last'};saveState();
+    e.pop={id:id,kind:'last',ts:Date.now()};saveState();
     dealPatch(h,{ep:{id:id,round:3,kind:'last',exclude:''}});
     setTimeout(function(){echoLastTimeout(id);},60000);
   }
@@ -4469,7 +4497,7 @@ function duelClose(id){
   }
   d.cands=names;
   if(names.length===1){d.picks=names.slice();duelStartMatch();return;}
-  d.stage='pick';saveState();
+  d.stage='pick';d.pts=Date.now();saveState();
   dealPatch(h,{duel:{id:d.id,stage:'pick',cands:names}});
   dealNote(h,'🤠 수락자가 있어요! 상대를 최대 2명 골라주세요. (60초 안에 고르지 않으면 먼저 수락한 2명이 지목돼요)');
   setTimeout(function(){duelPick(id,null);},60000);
@@ -4885,6 +4913,7 @@ document.addEventListener('compositionend',function(){S.composing=false;if(S.pen
 document.addEventListener('visibilitychange',function(){
   if(document.hidden){S.hiddenAt=Date.now();return;}
   // 오래(90초 이상) 꺼져 있다가 돌아왔을 때만 실시간 연결을 새로 만들어요 (잦은 재연결 = 읽기 낭비)
+  if(S.admin){requestWake();setTimeout(adminTick,600);}       // 화면이 다시 켜지면 밀린 요청과 시간이 지난 대기 항목을 바로 처리해요
   if(S.admin&&S.db&&S.hiddenAt&&Date.now()-S.hiddenAt>90000){adminOff();adminSubs();}
 });
 document.addEventListener('keydown',function(e){
