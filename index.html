@@ -1183,7 +1183,7 @@ function expBanner(){
   if(!S.expNotice||!S.expNotice.length)return '';
   return '<div class="loginbar" style="border-color:var(--bad);flex-direction:column;align-items:stretch"><div>'+S.expNotice.map(function(t){return '<div style="font-weight:700">'+esc(t)+'</div>';}).join('')+'<div class="small mut">이제 이 초능력은 쓸 수 없어요 😢</div></div><button class="btn ghost" style="margin-top:8px" data-act="expOk">확인</button></div>';
 }
-function revealed(){var p=S.players[S.uid];return S.me===HOST||!!(p&&p.drawReq)||!!(S.deal&&S.deal.drawnAt);}
+function revealed(){var p=S.players[S.uid];return S.me===HOST||!!(p&&p.drawReq)||!!(S.deal&&S.deal.drawnAt)||localDrawn();}
 function maybeDealPop(){
   var p=S.players[S.uid];
   if(S.me===HOST||!S.deal||!p||!p.drawReq||Date.now()-p.drawReq>15000||S.dealPopFor===S.deal.ts)return;
@@ -1212,7 +1212,8 @@ function playersChanged(){
   render();adminTick();
 }
 function syncDeal(announce){
-  S.deal=(S.dealRaw&&S.dealRaw.name===S.me)?S.dealRaw:null;     // 다른 사람 이름의 카드는 내 카드로 보여주지 않아요
+  var rawD=(S.dealRaw&&S.dealRaw.name===S.me)?S.dealRaw:null,plD=(S.dealPlain&&S.dealPlain.name===S.me)?S.dealPlain:null;
+  S.deal=(rawD||plD)?Object.assign({},rawD||{},plD||{}):null;     // 다른 사람 이름의 카드는 내 카드로 보여주지 않아요
   if(!S.deal){S.availPrev={};S.chancePrev={};}
   if(announce)maybeDealPop();
 }
@@ -1503,7 +1504,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v34';
+var BUILD_ID='v35';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:0;        // 0 = 시간 제한 없음 (관리자가 준비되면 직접 눌러요)
 var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -1620,7 +1621,7 @@ function renderPP(){
 }
 setInterval(function(){try{renderPP();}catch(e){}},1000);
 function renderMissed(){
-  renderOpenFab();
+  tryDealbook();renderOpenFab();
   var el=$('#missed');if(!el)return;
   var m=computeMissed();
   if(!m.length){el.innerHTML='';S.missedOpen=false;return;}
@@ -1656,8 +1657,48 @@ function closePop(){
 }
 
 /* =============== 초능력 카드 자동 지급 (관리자 화면) =============== */
-function adminTick(){if(S.admin&&!S.resetting){reconcileDeals();processUses();rearmAll();schedSync();}}
+function adminTick(){if(S.admin&&!S.resetting){reconcileDeals();publishDealbook();processUses();rearmAll();schedSync();}}
 /* 서버를 건드리기 전에, 지금 정말 처리할 일이 있는지 이 화면의 기억만으로 먼저 확인해요 */
+function hex2b(h){var a=new Uint8Array(h.length/2);for(var i=0;i<a.length;i++)a[i]=parseInt(h.substr(i*2,2),16);return a;}
+function b2b64(b){var s='',u=new Uint8Array(b);for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return btoa(s);}
+function b642b(s){var t=atob(s),a=new Uint8Array(t.length);for(var i=0;i<t.length;i++)a[i]=t.charCodeAt(i);return a;}
+async function dealKey(dk){return crypto.subtle.importKey('raw',hex2b(dk),'AES-GCM',false,['encrypt','decrypt']);}
+async function encDeal(dk,obj){var iv=crypto.getRandomValues(new Uint8Array(12)),k=await dealKey(dk),ct=await crypto.subtle.encrypt({name:'AES-GCM',iv:iv},k,new TextEncoder().encode(JSON.stringify(obj)));return {iv:b2b64(iv),ct:b2b64(ct)};}
+async function decDeal(dk,it){var k=await dealKey(dk),pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b642b(it.iv)},k,b642b(it.ct));return JSON.parse(new TextDecoder().decode(pt));}
+/* 관리자: 뽑기를 열어 10명에게 카드가 배정되면, 각자의 PIN으로만 풀리는 암호화된 카드 목록을 공개 문서에 올려요 (관리자 화면이 꺼져도, 다른 때 로그인해도 각자 카드를 열 수 있어요) */
+async function publishDealbook(){
+  var a=A();if(!S.admin||!S.db||!a.state||!a.content)return;
+  var as=a.state.assign||{};if(!Object.keys(as).length)return;
+  var sig=JSON.stringify(as)+'|'+JSON.stringify(a.content.powers||{}).length+'|'+JSON.stringify(a.content.guides||{}).length;
+  if(S.dbookSig===sig||S.dbookBusy)return;
+  S.dbookBusy=true;
+  try{
+    var snap=await S.db.doc('pins/all').get(),pm=(snap.data&&snap.data()&&snap.data().map)||{};
+    var items={},ts=Date.now();
+    for(var i=0;i<PLAYERS.length;i++){
+      var n=PLAYERS[i],hero=as[n],hh=pm[n];if(!hero||!hh)continue;
+      var dk=await sha(hh+':dealbook');
+      items[n]=await encDeal(dk,{name:n,hero:hero,detail:(a.content.powers[hero]&&a.content.powers[hero].detail)||[],guide:(a.content.guides&&a.content.guides[hero])||'',ts:ts});
+    }
+    await S.db.doc('public/dealbook').set({items:items,ts:ts});
+    S.dbookSig=sig;
+  }catch(e){console.error(e);}
+  S.dbookBusy=false;
+}
+/* 참가자: 내 PIN에서 만든 열쇠로 내 카드를 열어요 (로그인할 때 열쇠를 이 폰에 저장해 둬서, 다시 켜도 그대로예요) */
+async function tryDealbook(){
+  try{
+    if(!S.me)return;
+    if(!S.pub||!S.pub.dealbook||!S.pub.dealbook.items||!S.pub.dealbook.items[S.me]){if(S.dealPlain){S.dealPlain=null;S.dbookDone=null;syncDeal(false);render();}return;}   // 전체 초기화로 카드 목록이 사라지면 옛 카드도 지워요
+    var it=S.pub.dealbook.items[S.me];
+    var sig=S.me+'|'+it.iv;if(S.dbookDone===sig)return;
+    var dk=null;try{dk=localStorage.getItem('tf_dk_'+S.me);}catch(e){}
+    if(!dk)return;
+    var pl=await decDeal(dk,it);S.dbookDone=sig;
+    if(pl&&pl.name===S.me){S.dealPlain=pl;syncDeal(true);render();}
+  }catch(e){}
+}
+function localDrawn(){try{var v=S.me&&localStorage.getItem('tf_drawn_'+S.me);return !!(v&&S.pub&&S.pub.dealbook&&String(S.pub.dealbook.ts)===v);}catch(e){return false;}}   // 같은 라운드에서만 "이미 뽑았음"으로 쳐요 (전체 초기화 후엔 다시 뽑아요)
 function uidOfName(n){return Object.keys(S.players).filter(function(u){return S.players[u]&&S.players[u].name===n;})[0];}
 function needsReconcile(){
   var a=A();
@@ -1903,6 +1944,7 @@ async function doLogin(){
     var h=await sha(name+':'+pin),ref=S.db.doc('players/'+S.uid);
     if(S.players[S.uid])await ref.delete();
     await ref.set({name:name,h:h,ts:Date.now()});
+     try{localStorage.setItem('tf_dk_'+name,await sha(h+':dealbook'));}catch(e){}   // 내 카드를 여는 열쇠 (이 폰에만 저장)
     try{await ref.update({h:firebase.firestore.FieldValue.delete()});}catch(e){}
     S.guest=false;
   }catch(e){
@@ -1914,7 +1956,7 @@ async function doLogout(){
   S.menu=false;
   try{await S.db.doc('players/'+S.uid).delete();}catch(e){}
   closePop();S.modal=null;
-  if(S.dealUnsub){try{S.dealUnsub();}catch(e){}S.dealUnsub=null;}S.dealSubFor=null;S.me=null;S.deal=null;S.dealRaw=null;S.dealPopFor=null;S.admin=false;adminOff();S.ui.loginName=null;S.view='home';render(true);
+  if(S.dealUnsub){try{S.dealUnsub();}catch(e){}S.dealUnsub=null;}S.dealSubFor=null;S.dealPlain=null;S.dbookDone=null;S.dealRawN=null;S.dealRawU=null;S.me=null;S.deal=null;S.dealRaw=null;S.dealPopFor=null;S.admin=false;adminOff();S.ui.loginName=null;S.view='home';render(true);
 }
 function viewSetup(){
   return '<div class="card tool"><h3>🛠 초기 설정 (한 번만)</h3><p class="small mut">행사 준비 때 딱 한 번만 하는 화면이에요. 참가자 PIN이 들어있는 seed.json 파일을 선택하면 PIN이 암호화되어 서버에 등록돼요. 이미 등록돼 있으면 실패해요.</p><input type="file" id="pinfile" accept=".json,application/json">'+(S.ui.setupMsg?'<p class="'+(S.ui.setupOk?'win':'err')+'" style="margin-top:10px">'+esc(S.ui.setupMsg)+'</p>':'')+'<button class="btn ghost block" style="margin-top:14px" data-act="setupDone">처음 화면으로</button></div>';
@@ -4856,7 +4898,7 @@ async function resetAll(){
       set('adminonly/ledger',{gen:gen,evts:[],entries:[],del:{},hist:[]}),set('adminonly/state',{stage:{}}),set('adminonly/assign',{map:{}}),
       set('public/teams',{sets:{},current:null}),set('public/used',{used:{}}),
       set('public/bets',{}),set('public/results',{}),set('public/bscores',{}),set('public/final',{published:false,rows:[]}),
-      del('public/live'),del('public/vote'),del('public/last'),del('public/feed'),del('public/reveal')
+      del('public/live'),del('public/vote'),del('public/last'),del('public/feed'),del('public/reveal'),del('public/dealbook')
     ]);
     var colls=['deal','chat','myscore'];
     for(var pass=0;pass<2;pass++){
@@ -4985,7 +5027,7 @@ async function handle(act,v,t){
     case 'login':return doLogin();
     case 'logout':return doLogout();
     case 'draw':
-      try{await S.db.doc('players/'+S.uid).update({drawReq:Date.now()});if(S.me&&S.deal)S.db.doc('deal/'+S.me).update({drawnAt:Date.now()}).catch(function(){});setTimeout(maybeDealPop,80);}
+      try{try{localStorage.setItem('tf_drawn_'+S.me,String((S.pub.dealbook&&S.pub.dealbook.ts)||'x'));}catch(e){}await S.db.doc('players/'+S.uid).update({drawReq:Date.now()});if(S.me&&S.deal)S.db.doc('deal/'+S.me).update({drawnAt:Date.now()}).catch(function(){});setTimeout(maybeDealPop,80);}
       catch(er){toast('요청 실패: '+(er.message||er.code));}
       break;
     case 'replay':if(S.pub.live)showPop(S.pub.live);return;
