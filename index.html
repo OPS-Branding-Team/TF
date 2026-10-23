@@ -707,6 +707,31 @@ details.pl .bd{padding:0 12px 12px}
 .starbox .stp{font-family:var(--f-d);font-size:48px;color:#2fd3a3;text-shadow:0 0 16px rgba(47,211,163,.8),0 4px 0 rgba(0,0,0,.4)}
 .starbox.me{border-color:#2fd3a3;box-shadow:0 0 28px rgba(47,211,163,.55)}.starbox.me .stn{color:var(--gold)}
 
+/* v36: 해킹 결과 · 검거 도장 · 럭키 카드 */
+.hres{text-align:center}.hres .stg{opacity:0;animation:stgin .6s ease forwards}
+.hres .s1{font-family:var(--f-d);font-size:24px;color:#d9b3ff;animation-delay:.1s}
+.hres .s2{margin:10px 0;font-size:16px;color:var(--mut);animation-delay:1.8s}
+.hres .s3{animation-delay:3.4s}
+@keyframes stgin{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+.hbig{font-family:var(--f-d);font-size:30px;line-height:1.25;margin:8px 0}.hbig.okc{color:#2fd3a3}.hbig.failc{color:#ff5a7a;text-shadow:0 0 18px rgba(255,90,122,.6),0 4px 0 rgba(0,0,0,.4)}
+.hbig.shake{animation:shk .45s infinite alternate}
+.hsub{font-size:17px;line-height:1.5}
+.arrest{display:block;margin:10px auto 2px;max-width:260px;border:3px solid #ff3b3b;border-radius:10px;background:rgba(40,0,0,.55);overflow:hidden;transform:rotate(-3deg);animation:slam .7s cubic-bezier(.2,2,.4,1) both;text-align:center}
+.arrest .tape{height:12px;background:repeating-linear-gradient(45deg,#ffd23f 0 12px,#111 12px 24px)}
+.arrest .atx{font-family:var(--f-d);font-size:20px;color:#ff5a5a;padding:6px 6px 0;letter-spacing:1px;text-shadow:0 2px 0 rgba(0,0,0,.5)}
+.arrest .asub{font-size:12px;color:#ffd0d0;padding:2px 8px 7px}
+.pgrid .arrest{max-width:100%;margin:6px 0 2px}
+@keyframes slam{0%{transform:scale(2.6) rotate(-14deg);opacity:0}60%{transform:scale(.92) rotate(-3deg);opacity:1}100%{transform:scale(1) rotate(-3deg);opacity:1}}
+.keyrules .slogan,.slogan{font-family:var(--f-d);font-size:20px;line-height:1.35;color:var(--gold);margin-bottom:8px}
+.luckycards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.luckycards>div{text-align:center;padding:12px 4px;border-radius:14px;background:var(--panel2);border:2px solid var(--gold)}
+.luckycards>div .big{font-size:30px;display:block}.luckycards>div b{display:block;font-family:var(--f-d);font-size:21px;line-height:1.2;margin-top:2px}.luckycards>div small{display:block;font-size:12px;margin-top:3px;color:var(--mut)}
+
+/* v36: 럭키 카드 — 짧은 이름을 크게 */
+.cards3 .cf.front .em{font-size:36px!important;line-height:1.1}
+.cards3 .cf.front b{font-size:18px!important;line-height:1.2;display:block;margin-top:2px}
+.cards3 .cf.front small{font-size:12px!important;line-height:1.25}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
@@ -1504,7 +1529,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v35';
+var BUILD_ID='v36';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:0;        // 0 = 시간 제한 없음 (관리자가 준비되면 직접 눌러요)
 var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -1566,7 +1591,7 @@ function todoItems(){
   if(po){it.push({k:'open',t:'🏆 승리팀이 정해졌어요 — 준비되면 눌러요 (시간 제한 없어요)',b:[{l:'🎯 봉투 개봉 · 저격 타임',a:'openEnv',hot:1}],s:'누르면 전원에게 "표정 관리" 안내 + 3초 카운트다운 뒤 모두의 봉투가 동시에 열려요'});}
   var sb=s.sombra;
   if(sb&&sb.pending){var pd=sb.pending;it.push({k:'hack',t:'💜 솜브라 해킹 판정 — 솜브라['+esc(holderOf('sombra')||'?')+'] → 대상 <b>'+esc(pd.target)+'</b>, 추리: <b>'+esc(heroOf(pd.guess).hero)+'</b>',s:'솜브라에게 조용히 “'+esc(pd.target)+'의 초능력이 뭐야?”라고 묻고, 대답이 맞는지 눌러요',b:[{l:'✅ 맞았다',a:'hackYes',hot:1},{l:'❌ 틀렸다',a:'hackNo'}]});}
-  if(s.svote)it.push({k:'svote',t:'💜 솜브라 투표 진행 중 (60초)',s:'모두가 투표하면 마감해요',b:[{l:'지금 마감',a:'svClose'}]});
+  if(s.svote)it.push({k:'svote',t:'💜 솜브라 투표 진행 중 (시간 제한 없음)',s:'모두가 투표를 마치면 눌러서 결과를 확인하고 넘어가요',b:[{l:'✅ 투표 마감하고 결과 확인',a:'svClose',hot:1}]});
   var d=s.duel2;
   if(d){
     if(d.stage==='accept')it.push({k:'duel',t:'🤠 캐서디 도전장 — 수락 대기 중 ('+Object.keys(d.resp||{}).length+'/'+(PLAYERS.length-1)+'명 응답)',s:'60초 뒤 자동 마감돼요',b:[{l:'지금 마감',a:'duelCloseNow'}]});
@@ -1642,6 +1667,7 @@ function showLive(ev){
 }
 /* 내가 초능력을 사용했는데 팝업이 안 떴다면(네트워크 지연 등) 내 화면에도 사용 완료 팝업을 직접 띄워요 */
 function ownUseFallback(ud){
+  if(ud.hero==='sombra'){toast('💜 해킹 신호를 보냈어요 — 이유정이 확인해요');return;}   // 솜브라는 결과가 정해진 뒤에야 모두에게 "사용했다"가 나와요
   toast('✅ 초능력 사용 완료!');
   setTimeout(function(){
     if(S.lastUsePop&&S.lastUsePop.hero===ud.hero&&Date.now()-S.lastUsePop.at<9000)return;
@@ -2060,23 +2086,21 @@ function hostScore(){
 }
 function viewLunch(){
   var h='<h2 class="h2" style="margin-top:6px">🍽️ 우리 팀 이렇게 잘 맞아!</h2>'+banner()+
-   '<div class="card"><div class="kv"><b>인원</b><span>9명 · 3팀 (팀당 3명)</span><b>진행</b><span>'+HOST+'</span><b>최대</b><span>점심 4점 (예시 제외)</span></div></div>'+
+   '<div class="card keyrules"><div class="slogan">마음이 통하면 팀원 전원 점수!</div><ul class="dots"><li>팀은 <b>랜덤 뽑기</b> (3명씩 3팀)</li><li>게임 2개 · 성공할 때마다 팀원 전원 +1점 (최대 4점)</li></ul></div>'+
    teamCard('lunch','내 점심 팀')+
-   '<h3 class="h3">① 이구동성 게임</h3><div class="card"><ul class="dots"><li>팀원 3명이 상의 없이 동시에 답변해요.</li><li>전원 동일한 답변이면 팀원 전원 +1점!</li></ul>'+
-   '<div class="note"><b>예시</b> 지금 갈 수 있다면? <b>바다 vs 산</b> <span class="legend"><span class="bub ok">🟢 성공</span><span class="bub no">🔴 실패</span></span></div>'+
-   '<div class="demo"><span class="bub ok">🌊 바다</span><span class="bub ok">🌊 바다</span><span class="bub ok">🌊 바다</span><span class="verdict win">✅ 전원 일치 → 성공! 팀원 전원 +1점</span></div>'+
-   '<div class="demo fail"><span class="bub no">🌊 바다</span><span class="bub no">🌊 바다</span><span class="bub no">⛰️ 산</span><span class="verdict lose">❌ 한 명이라도 다르면 실패 · 0점</span></div>'+
-   '<p class="small mut">총 2문제 · 문제는 현장에서 공개돼요.</p>'+(S.admin?lunchQ('unison'):'')+'</div>'+
-   '<h3 class="h3">② 3초 릴레이</h3><div class="card"><ul class="dots"><li>팀원 3명이 순서대로 각자 3초 안에 답변해요.</li><li>중복 없이 3개 정답을 말하면 팀원 전원 +1점!</li></ul>'+
-   '<div class="note"><b>예시</b> 주제: <b>과일 이름</b></div>'+
-   '<div class="demo"><span class="bub ok">1번 사과</span><span class="bub ok">2번 바나나</span><span class="bub ok">3번 포도</span><span class="verdict win">✅ 3개 성공 → 팀원 전원 +1점</span></div>'+
-   '<div class="demo fail"><span class="bub no">1번 사과</span><span class="bub no">2번 사과</span><span class="verdict lose">❌ 중복 → 실패 · 0점</span></div>'+
-   '<p class="small mut">총 2주제 · 주제는 현장에서 공개돼요.</p>'+(S.admin?lunchQ('relay'):'')+'</div>'+
-   '<h3 class="h3">점수 정보</h3><div class="card"><table class="tbl"><tr><th>게임</th><th>횟수</th><th>성공 시</th></tr><tr><td>이구동성</td><td>2문제</td><td>팀원 전원 +1</td></tr><tr><td>3초 릴레이</td><td>2주제</td><td>팀원 전원 +1</td></tr><tr><td><b>최대</b></td><td colspan="2"><b>4점</b> (예시 제외)</td></tr></table>'+
-   '<div class="note">'+HOST+' 님은 나머지 9명의 평균 점수를 받아요.</div></div>';
+   '<h3 class="h3">① 이구동성</h3><div class="card"><div class="slogan">상의 없이 동시에! 전원 같은 답이면 +1점</div>'+
+   '<div class="demo"><span class="bub ok">🌊 바다</span><span class="bub ok">🌊 바다</span><span class="bub ok">🌊 바다</span><span class="verdict win">✅ 성공 +1</span></div>'+
+   '<div class="demo fail"><span class="bub no">🌊 바다</span><span class="bub no">🌊 바다</span><span class="bub no">⛰️ 산</span><span class="verdict lose">❌ 한 명이라도 다르면 실패</span></div>'+
+   (S.admin?lunchQ('unison'):'')+'</div>'+
+   '<h3 class="h3">② 3초 릴레이</h3><div class="card"><div class="slogan">3초 안에, 겹치지 않게 3개! 성공하면 +1점</div>'+
+   '<div class="demo"><span class="bub ok">🍎 사과</span><span class="bub ok">🍌 바나나</span><span class="bub ok">🍇 포도</span><span class="verdict win">✅ 성공 +1</span></div>'+
+   '<div class="demo fail"><span class="bub no">🍎 사과</span><span class="bub no">🍎 사과</span><span class="verdict lose">❌ 겹치면 실패</span></div>'+
+   (S.admin?lunchQ('relay'):'')+'</div>'+
+   '<div class="note">'+HOST+' 님은 나머지 9명의 평균 점수를 받아요.</div>';
   if(S.admin)h+=lunchAdmin();
   return h;
 }
+
 function lunchState(r,gi){
   var id='lunch:'+r+':t:'+gi;
   if(!hasEvt(id))return null;
@@ -2211,7 +2235,7 @@ function viewPower(){
   var h='<h2 class="h2" style="margin-top:6px">🔮 '+(S.me&&S.deal&&revealed()?'나의 초능력':'초능력 뽑기')+'</h2>'+banner()+mine;
   if(S.admin)h+=powerAdminTop();
   /* 2) 전체 카드 10종 */
-  h+='<h2 class="h2">전체 초능력 카드</h2><p class="mut">오버워치 영웅 10종 · 전원 1장씩 랜덤 배정 · 처음부터 공개되는 건 <b>영웅 이름 · 초능력 이름 · 사용 횟수</b>뿐이에요. <b>상세 내용은 사용(공개)되기 전까지 비밀</b>이라 🔒로 보이고, 공개되면 🔓로 바뀌어요.</p>'+publicNotice()+''+
+  h+='<h2 class="h2">전체 초능력 카드</h2>'+''+
    '<div class="funbox"><b>🎲 오늘의 초능력 놀이</b><ul><li>🤫 내 초능력은 <b>절대 다른 사람에게 공개하지 마세요!</b> 쓰는 순간까지 비밀이에요.</li><li>⏰ <b>오늘이 가기 전에</b> 꼭 사용하세요. 안 쓰고 퇴근하면 너무 아깝잖아요!</li><li>🕵️ 다른 사람은 어떤 초능력일까? 표정·눈치·점수 변화로 <b>마음껏 추측</b>해 보세요.</li><li>🎭 능청스러운 연기도 실력이에요. 일부러 속여도 좋아요 😏</li><li>👀 점수가 이상하게 흔들리면… 누군가의 초능력일지도 몰라요!</li></ul></div>'+
    '<div class="pgrid" style="margin-top:12px">'+HEROES.map(function(x){
       var u=used[x.id],adm=S.admin&&c&&c.powers&&c.powers[x.id],open=!!u||!!adm||!!(S.pub.reveal||{})[x.id]||detailPublic(x.id);
@@ -2228,7 +2252,7 @@ function viewPower(){
       }else if(u){
         s+='<div class="holder big">'+heroImg(x.id,'hs')+'<small>공개!</small><b>'+esc(x.hero)+'는 '+esc(u.by)+' 님이었습니다!!</b></div>'+resBox(u)+'<ul class="dt">'+(u.detail||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>';
       }else if(rvl){
-        s+=(rvl.hacked?'<div class="hstamp">💜 솜브라 해킹 성공</div>':'')+'<div class="holder big">'+heroImg(x.id,'hs')+'<small>공개!</small><b>'+esc(x.hero)+'는 '+esc(rvl.by)+' 님이었습니다!!</b></div><ul class="dt">'+((rvl.detail||PUB_DETAIL[x.id]||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join(''))+'</ul>';
+        s+=(rvl.hacked?arrestHtml('솜브라에게 검거됨 · 정체가 들통났어요'):'')+'<div class="holder big">'+heroImg(x.id,'hs')+'<small>공개!</small><b>'+esc(x.hero)+'는 '+esc(rvl.by)+' 님이었습니다!!</b></div><ul class="dt">'+((rvl.detail||PUB_DETAIL[x.id]||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join(''))+'</ul>';
       }else if(pubD){
         s+='<ul class="dt">'+(PUB_DETAIL[x.id]||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+(x.id==='kiriko'?'<div class="holder big"><small>보유자 (고정)</small><b>'+esc(HOST)+'</b></div>':'<div class="holder none"><small>보유자</small><b>비밀 🤫</b></div>');
       }else s+='<div class="ghost"><i></i><i></i><i></i></div><div class="lock">🔒 효과는 사용 전까지 비밀</div>';
@@ -2239,6 +2263,9 @@ function viewPower(){
 }
 
 
+function arrestHtml(sub){
+  return '<div class="arrest hstamp"><div class="tape"></div><div class="atx">🚨 검거 완료 🚨</div><div class="asub">'+esc(sub||'')+'</div><div class="tape"></div></div>';
+}
 function sombraPanel(x){
   var d=(S.deal&&S.deal.sombra)||{n:0,succ:0},uo=S.ui.use||{},left=2-(d.n||0);
   var h='<div class="card"><b>💜 해킹</b><p class="small mut">초반에 빨리 추리하세요! 능력이 공개된 사람이 늘수록 솜브라인 것을 들키기 쉬워요. 끝까지 들키지 않으면 보너스 +1점을 받아요.</p>';
@@ -2381,20 +2408,11 @@ function viewBowl0(){
   ['bowl1','bowl2'].forEach(function(k){if(res[k]&&res[k].win)h+='<div class="card"><b>🏆 '+GAME[k]+' 승리팀</b><div class="chips" style="margin-top:6px">'+res[k].win.map(function(n){return '<span class="chip'+(n===S.me?' me':'')+'">'+esc(n)+'</span>';}).join('')+'</div></div>';});
   h+='<div class="bigcall">사실상 뉴비 대전…<br>실력이 부족할수록 점수를 곱해요!!!</div>';
   h+=bowlMatchCard()+bowlScoreTable();
-  h+='<h3 class="h3">🧮 팀 점수 계산 방식</h3><div class="formula">팀 점수 = (1조 레인 점수 × 2) + (2조 레인 점수 × 1.5) + (3조 레인 점수 × 1)</div>'+
-    '<p class="small mut" style="margin:6px 2px 0">같은 조 선수들은 <b>레인 하나를 함께</b> 쓰고, 그 레인의 점수를 기록해요. (처음엔 1조 ×3, 2조 ×2였지만 점수 차이가 너무 커서 ×2 / ×1.5로 조정했어요.) <b>팀 점수가 높은 팀이 승리</b>합니다.</p>'+
-    '<h3 class="h3">① 조 편성 · 레인 배치</h3><div class="card"><p class="small" style="margin:0 0 8px">팀 상의로 각 팀 5명을 <b>뉴비 2명 · 미들 2명 · 고수 1명</b>으로 나눠요. 같은 조 선수들은 <b>레인 하나를 함께</b> 쓰고(고수는 혼자), 그 레인에서 <b>1게임(10프레임)</b>을 쳐요. 팀마다 레인 3개, 두 팀 합쳐 <b>레인 6개</b>예요. 같은 조끼리 상대 팀과 점수로 맞붙어요.</p>'+
-    '<div class="zones">'+
-      zoneCard('1조 뉴비','×2','팀당 1레인 · 뉴비 2명이 함께',[['한 레인','A 뉴비 2명','B 뉴비 2명']])+
-      zoneCard('2조 미들','×1.5','팀당 1레인 · 미들 2명이 함께',[['한 레인','A 미들 2명','B 미들 2명']])+
-      zoneCard('3조 고수','×1','팀당 1레인 · 고수 1명',[['한 레인','A 고수','B 고수']])+
-    '</div><p class="small mut" style="margin:8px 0 0">조별 경기가 끝날 때마다 그 조의 점수가 공개되고, 6개가 모두 공개되면 최종 점수 계산이 시작돼요!</p></div>'+
-    '<h3 class="h3">② 기본 점수</h3>'+baseTable('1 / 2 / 2 / 3 / 3')+
-    '<h3 class="h3">③ 🍀 럭키 찬스</h3><div class="card"><p style="margin:0 0 8px">스트라이크 또는 스페어를 성공하면 <b>1회 추첨</b>!</p>'+
-    '<div class="luckycards"><div><b>팀 보너스</b><small>팀원 전원 +1점</small></div><div><b>개인 보너스</b><small>본인 +1점</small></div><div><b>행운 나눔</b><small>우리 팀 한 명을 지목해 +1점</small></div></div>'+
-    '<ul class="dots" style="margin-top:10px"><li>성공한 투구자가 직접 추첨해요.</li><li><b>조별 진영당 라운드 최대 1회</b>까지 인정해요. 팀당 라운드 최대 3회(1조·2조·3조 각 1회)예요.</li><li>1조·2조처럼 레인 2개를 쓰는 조는 두 레인을 합쳐 진영당 1회예요. 먼저 성공한 사람이 가져가요.</li><li>추첨한 카드는 다시 넣어요.</li></ul>'+
-    '<div class="note" style="margin-top:8px"><b>예시 · 2조</b> 미송·유정 vs 우재·온 → 미송·유정 진영 1회, 우재·온 진영 1회까지 가능</div></div>'+
-   '<h3 class="h3">🔁 팀 변경 · 스카우트 &amp; 방출</h3><div class="card"><p><b>1세트(첫 번째 경기):</b> 무작위 추첨으로 5:5 팀 구성.</p><p style="margin-top:6px"><b>2세트(두 번째 경기):</b></p><ol style="margin:4px 0 0;padding-left:20px"><li>패배팀이 승리팀에서 원하는 팀원 1명 스카우트.</li><li>패배팀에서 무작위로 1명 방출.</li><li>두 사람의 팀을 교환해 2세트 진행.</li></ol></div>';
+  h+='<h3 class="h3">🎳 이것만 알면 돼요</h3><div class="card keyrules"><div class="slogan">패배 팀이어도 승리 팀 하위 점수까지는 얻을 수 있어요!</div>'+
+    '<ul class="dots"><li>팀은 <b>랜덤 뽑기</b>로 5:5!</li><li>팀마다 <b>뉴비 · 미들 · 고수</b> 라인으로 나눠 붙어요</li><li>점수 배율 <b>뉴비 ×2 · 미들 ×1.5 · 고수 ×1</b> — 합계가 높은 팀이 승리!</li></ul></div>'+
+    '<h3 class="h3">💰 점수 봉투</h3>'+baseTable('1 / 2 / 2 / 3 / 3')+
+    '<h3 class="h3">🍀 럭키 찬스</h3><div class="card"><div class="slogan">스트라이크 · 스페어를 치면 카드 한 장 뽑기!</div><div class="luckycards"><div><span class="big">👥</span><b>팀 전부!</b><small>우리 팀 전원 +1</small></div><div><span class="big">🙋</span><b>나 혼자</b><small>그 라인 선수만 +1</small></div><div><span class="big">🎲</span><b>랜덤 한 명</b><small>우리 팀 중 한 명 +1</small></div></div><p class="small mut" style="margin-top:8px">라인마다 스트라이크 1번 · 스페어 1번까지 인정돼요</p></div>'+
+    '<h3 class="h3">🔁 2세트는?</h3><div class="card"><ul class="dots"><li>패배 팀이 승리 팀에서 <b>1명 영입</b>!</li><li>대신 패배 팀에서 <b>랜덤 1명 방출</b> — 나만 아니면 돼~ 🙏</li></ul></div>';
   return h;
 }
 function bowlAdmin(){
@@ -2516,14 +2534,13 @@ function owBoard(){
 }
 function viewOw(){
   var h='<h2 class="h2" style="margin-top:6px">🎮 오버워치 · 5:5 팀전</h2>'+banner()+owBoard()+voteCard()+
-   '<div class="card"><div class="kv"><b>인원</b><span>10명</span><b>라운드</b><span>총 2경기 · 경기마다 팀 변경</span><b>팀 구성</b><span><b>심승선 · 최우재</b>가 팀장! 두 팀장이 이끄는 5:5로 나머지 8명을 <b>랜덤</b> 배정해요.</span></div></div>'+
+   '<div class="card"><div class="kv"><b>인원</b><span>10명</span><b>라운드</b><span>총 2경기 · 경기마다 팀 변경</span><b>팀 구성</b><span><b>랜덤 뽑기</b> (팀장 심승선 · 최우재)</span></div></div>'+
    teamCard('ow1','1경기 팀')+teamCard('ow2','2경기 팀');
   if(S.admin)h+=owAdmin('ow1')+owAdmin('ow2');
   var rs=S.pub.results||{};
   if(S.me&&(rs.ow1||rs.ow2))h+='<div class="card"><b>🧾 내 점수는 여기서 확인해요</b><p class="small mut">팝업을 놓쳤어도 받은 점수가 모두 기록돼 있어요.</p><button class="btn ghost" data-act="go" data-v="mine">내 점수 보기</button></div>';
-  h+='<h3 class="h3">경기 구성</h3><div class="card"><table class="tbl"><tr><th>경기</th><th>진행</th><th>추가 보상</th></tr><tr><td>1경기</td><td>랜덤 5:5 대결</td><td>승부 예측 성공 +1</td></tr><tr><td>2경기</td><td>팀 변경 후 5:5 대결</td><td>승부 예측 성공 +1</td></tr></table></div>'+
-   '<h3 class="h3">기본 점수</h3>'+baseTable('1 / 2 / 2 / 3 / 3')+
-   '<h3 class="h3">🔮 승부 예측</h3><div class="card"><ul class="dots"><li>팀이 정해진 뒤 관리자가 투표를 시작하면 각자 폰에 <b>“우리 팀이 이길 것 같나요, 질 것 같나요?”</b> 투표가 떠요.</li><li>예측이 맞으면 +1점 / 틀리면 0점.</li><li>투표는 선택 사항이며 경기마다 1회 가능해요.</li><li>투표가 마감되면 모두의 예측이 공개돼요.</li></ul></div>';
+  h+='<h3 class="h3">🎮 이것만 알면 돼요</h3><div class="card keyrules"><div class="slogan">이기면 높은 봉투, 져도 봉투 점수는 받아요!</div><ul class="dots"><li>팀은 <b>랜덤 뽑기</b>! 팀장 <b>심승선 · 최우재</b>가 5:5를 이끌어요</li><li>2경기는 팀이 바뀌어요</li><li>🔮 <b>승부 예측</b>: 우리 팀 승패를 맞히면 +1점</li></ul></div>'+
+   '<h3 class="h3">💰 점수 봉투</h3>'+baseTable('1 / 2 / 2 / 3 / 3');
   return h;
 }
 function owAdmin(key){
@@ -2785,10 +2802,13 @@ function renderPop(){
       var dh=p.holder,dans=P.ans,dtot=(S.myscore&&S.myscore.total)||0;
       inner='<div class="svote"><b style="font-size:22px">🤠 캐서디['+esc(dh)+']가 나타났다!</b><p>내 1점을 걸고 결투해서 두 배를 따세요.</p>'+(S.me===dh?'<p class="mut">당신이 도전장을 냈어요. 수락자를 기다리는 중…</p>':dans==='accept'?'<p class="win">결투 신청! 캐서디의 선택을 기다리는 중 🤠</p>':dans==='flee'?'<p>마음의 평화를 얻으리</p>':'<div class="row" style="justify-content:center"><button class="btn hot" data-act="duelAnswer" data-v="accept"'+(dtot<1?' disabled':'')+'>수락 · 1점 걸기</button><button class="btn ghost" data-act="duelAnswer" data-v="flee">도주</button></div>'+(dtot<1?'<p class="warn small">점수가 부족해요</p>':'<p class="small mut">60초 안에 고르지 않으면 도주로 처리돼요</p>'))+'</div>';
       break;}
-    case 'sombravote':{
-      big=true;noFoot=false;
-      var vo=P.voted;
-      inner='<div class="svote"><b style="font-size:20px">💜 솜브라가 누구일까요?</b><p class="small">해킹이 실패했어요! 솜브라일 것 같은 사람을 한 명 고르세요.<br>이미 정체가 공개된 사람은 후보에서 빠져 있어요. (투표 인원수는 공개되지 않아요)</p><div class="chips">'+(p.cands||[]).map(function(n){return '<button class="chip'+(vo===n?' on':'')+'" data-act="svPick" data-v="'+esc(n)+'"'+(n===S.me?' disabled':'')+'>'+esc(n)+'</button>';}).join('')+'</div>'+(vo?'<p class="win">✅ '+esc(vo)+' 님에게 투표했어요 (마감 전엔 바꿀 수 있어요)</p>':'<p class="mut small">60초 안에 골라주세요</p>')+'</div>';
+    case 'hackres':{
+      big=true;
+      var own=!!(S.deal&&S.deal.hero==='sombra'),vo=P.voted;
+      inner='<div class="hres"><div class="stg s1">💜 솜브라가 초능력을 사용했다!</div><div class="stg s2">🔎 '+esc(p.target)+' 님을 해킹하는 중…</div>';
+      if(p.ok)inner+='<div class="stg s3"><div class="hbig okc">✅ 해킹 성공!</div><div class="hsub">'+esc(p.target)+' 님은 <b>'+esc(p.hero)+'</b> 였어요!</div>'+arrestHtml('해킹으로 정체가 들통났어요')+'</div>';
+      else inner+='<div class="stg s3"><div class="hbig failc shake">❌ 솜브라가 해킹을 실패했습니다!</div><div class="hsub">🔍 솜브라를 추리할 수 있어요 — 누구일까요?</div>'+(own?'<p class="mut" style="margin-top:10px">당신은 투표하지 않아요 😏 표정 관리!</p>':'<div class="chips" style="justify-content:center;margin-top:10px">'+(p.cands||[]).map(function(n){return '<button class="chip'+(vo===n?' on':'')+'" data-act="svPick" data-v="'+esc(n)+'"'+(n===S.me?' disabled':'')+'>'+esc(n)+'</button>';}).join('')+'</div>'+(vo?'<p class="win" style="margin-top:8px">✅ '+esc(vo)+' 님에게 투표했어요 (마감 전엔 바꿀 수 있어요)</p>':'<p class="small mut" style="margin-top:8px">이유정이 마감할 때까지 고를 수 있어요</p>'))+'</div>';
+      inner+='</div>';
       break;}
     case 'swapteams':{
       big=true;
@@ -3525,7 +3545,7 @@ function bowl2Reset(){
   L().evts.filter(function(e){return e.id==='base:bowl2'||(e.lk&&e.lk.indexOf('bowl2:')===0);}).forEach(function(e){delEvt(e.id,true);});
   saveLedger();S.ui.scout=null;toast('2세트 팀을 초기화했어요');
 }
-var LK={team:{t:'팀 보너스',d:'우리 팀 전원',e:'👥',f:'다 같이 받으면 싸움이 없죠~ 🎉'},self:{t:'개인 보너스',d:'그 라인 선수 본인',e:'🙋',f:'개인 보너스라니… 라인 선수만 웃겠네요 😏'},share:{t:'행운 나눔',d:'우리 팀 랜덤 1명',e:'🤝',f:'누구에게 영광이 갈까? 랜덤 추첨! 👀'}};
+var LK={team:{t:'팀 전부!',d:'우리 팀 전원 +1',e:'👥',f:'다 같이 받으면 싸움이 없죠~ 🎉'},self:{t:'나 혼자',d:'그 라인 선수만 +1',e:'🙋',f:'개인 보너스라니… 라인 선수만 웃겠네요 😏'},share:{t:'랜덤 한 명',d:'우리 팀 중 한 명 +1',e:'🎲',f:'누구에게 영광이 갈까? 랜덤 추첨! 👀'}};
 function lkPts(hit){return 1;}                       // 스트라이크 +2점 / 스페어 +1점 (모든 카드 동일)
 function lkHitName(hit){return hit==='/'?'스페어':'스트라이크';}
 function lineNames(key,ti,g){
@@ -4244,7 +4264,6 @@ function rearmAll(){
   var s=A().state;if(!s||!S.admin)return;
   S.rearm=S.rearm||{};
   function at(key,ts,ms,fn){if(S.rearm[key])return;S.rearm[key]=1;setTimeout(fn,Math.max(0,(ts||0)+ms-Date.now()));}
-  if(s.svote)at('sv'+s.svote.vid,s.svote.ts,60000,function(){var q=A().state.svote;if(q)sombraVoteClose(q.vid);});
   var d=s.duel2;
   if(d&&d.stage==='accept')at('da'+d.id,d.ts,60000,function(){duelClose(d.id);});
   if(d&&d.stage==='pick')at('dp'+d.id,d.pts||d.ts,60000,function(){duelPick(d.id,null);});
@@ -4707,7 +4726,7 @@ function hackSuccess(pd,th,holder){
   rv[th]={by:pd.target,hacked:true,detail:(((A().content||{}).powers||{})[th]||{}).detail||[]};
   S.pub.reveal=rv;put('public/reveal',rv);                                  // 대상의 초능력이 모두에게 공개돼요 (능력은 그대로 쓸 수 있어요)
   sysChat('💜 솜브라가 '+pd.target+'의 정체를 해킹했다. '+heroOf(th).hero+' '+pd.target+'의 초능력이 공개되었다.');
-  announce('announce','💜 해킹 성공!',{emoji:'💜',lines:['💜 솜브라가 '+pd.target+'의 정체를 해킹했다!','🔓 '+heroOf(th).hero+' '+pd.target+'의 초능력이 공개되었어요'],star:{name:pd.target,pts:null,label:'🔓 초능력이 공개됐어요'}},'');
+  announce('hackres','💜 솜브라 해킹 결과',{ok:true,target:pd.target,hero:heroOf(th).hero,noTitle:true},'');
   dealNote(holder,'💜 해킹 성공. +'+pts+'점');
   saveState();sombraSync();render(true);
 }
@@ -4722,16 +4741,15 @@ function hackJudge(yes){
     }else hackSuccess(pd,th,holder);
   }else{
     sysChat('💜 솜브라가 '+pd.target+'의 해킹을 실패했다. 솜브라가 누구일지 투표해주세요.');
-    sombraVoteStart();
+    sombraVoteStart(pd.target);
   }
   saveState();sombraSync();render(true);
 }
-function sombraVoteStart(){
+function sombraVoteStart(target){
   var vid=uuid(),ex=revealedNames();
   var cands=PLAYERS.filter(function(n){return ex.indexOf(n)<0;});
   A().state.svote={vid:vid,ts:Date.now()};saveState();
-  announce('sombravote','💜 솜브라가 누구일까요?',{vid:vid,cands:cands,sec:60},'');
-  setTimeout(function(){sombraVoteClose(vid);},60000);
+  announce('hackres','💜 솜브라 해킹 결과',{ok:false,target:target||'',vid:vid,cands:cands,noTitle:true},'');   // 시간 제한 없이, 관리자가 [투표 마감]을 눌러야 진행돼요
 }
 function sombraVoteClose(vid){
   var sv=A().state.svote;if(!sv||sv.vid!==vid)return;
