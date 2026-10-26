@@ -1529,7 +1529,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v36';
+var BUILD_ID='v39';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:0;        // 0 = 시간 제한 없음 (관리자가 준비되면 직접 눌러요)
 var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -1599,7 +1599,7 @@ function todoItems(){
     else it.push({k:'duel',t:'🤠 결투 결과 입력 — 실제 하나빼기를 한 뒤 눌러요',s:'',b:d.picks.map(function(n){var r=d.res[n];return r===undefined?[{l:esc(d.holder)+' 승 vs '+esc(n),a:'duelRes',v:n+':1',hot:1},{l:esc(n)+' 승',a:'duelRes',v:n+':0'}]:[{l:'✔ '+esc(n)+' 입력됨',a:'',dis:1}];}).reduce(function(x,y){return x.concat(y);},[])});
   }
   if(s.lucioPending){var lp=s.lucioPending;it.push({k:'lucio',t:'🎧 루시우['+esc(lp.by)+'] 적극적 무대 — '+esc(GM(lp.key))+' '+esc(lp.team),s:'춤·노래가 끝나면 판정해요 (60초 안에 안 누르면 성공)',b:[{l:'✅ 성공',a:'lucioYes',hot:1},{l:'❌ 실패',a:'lucioNo'}]});}
-  [['rein',s.rein&&s.rein.pend,'🛡️ 라인하르트가 방벽을 쓸지 고르는 중'],['tr',s.tr&&s.tr.pend,'⏪ 트레이서가 되돌릴지 고르는 중'],['widow',s.widow&&s.widow.cur,'🎯 위도우메이커 저격 대기 중'],['echo',s.echo2&&s.echo2.pop,'🪞 에코 지목 대기 중']].forEach(function(x){
+  [['rein',s.rein&&s.rein.pend,'🛡️ 라인하르트가 방벽을 쓸지 고르는 중'],['widow',s.widow&&s.widow.cur,'🎯 위도우메이커 저격 대기 중'],['echo',s.echo2&&s.echo2.pop,'🪞 에코 지목 대기 중']].forEach(function(x){
     if(x[1])it.push({k:x[0],t:x[2],s:'60초 안에 응답이 없으면 기본값으로 처리돼요',b:[{l:'기다리지 않고 기본값 처리',a:'forceGo'}]});
   });
   return it;
@@ -1632,8 +1632,12 @@ function renderPP(){
   var el=$('#pp');if(!el)return;var d=S.deal||{},now=Date.now(),h='';
   var r=d.rein2;
   if(S.me&&r&&!r.done&&r.until>now&&S.ppSent!==r.id)h+='<div class="snipebox"><b>🛡️ '+esc(r.label)+josaPick(r.label,'이','가')+' 당신을 노립니다.</b><p>어떻게 하시겠습니까?</p><div class="row" style="justify-content:center"><button class="btn hot" data-act="ppRein" data-v="block">🛡️ 방벽 펼치기</button><button class="btn ghost" data-act="ppRein" data-v="pass">패스</button></div><div class="small mut">60초 안에 고르지 않으면 패스돼요</div></div>';
-  var t=d.trpop;
-  if(S.me&&t&&!t.done&&t.until>now&&S.ppSent!==t.id)h+='<div class="snipebox"><b>⏪ 방금 일어난 일을 되돌리시겠습니까?</b><p>('+esc(t.label)+') (남은 '+t.left+'회)</p><div class="row" style="justify-content:center"><button class="btn hot" data-act="ppTr" data-v="undo">되돌리기</button><button class="btn ghost" data-act="ppTr" data-v="skip">넘기기</button></div></div>';
+  var tq=d.trq;
+  if(S.me&&tq&&tq.items&&tq.items.length){
+    if(S.trSeenV!==tq.v){S.trSeenV=tq.v;S.trHide=false;}
+    if(S.trHide)h+='<button class="chip" style="pointer-events:auto;align-self:center" data-act="trShow">⏪ 되돌릴 일 '+tq.items.length+'건 (눌러서 열기)</button>';
+    else h+='<div class="snipebox"><b>⏪ 방금 일어난 일을 되돌리시겠습니까?</b><div class="small mut">남은 '+tq.left+'회 · 다음 경기가 시작되기 전까지 자유롭게 고를 수 있어요</div>'+tq.items.map(function(it){return '<div class="todo" style="text-align:left"><b>'+esc(it.label)+'</b><div class="row" style="margin-top:6px"><button class="btn hot" data-act="ppTr" data-v="'+it.id+':undo">되돌리기</button><button class="btn ghost" data-act="ppTr" data-v="'+it.id+':skip">넘기기</button></div></div>';}).join('')+'<button class="btn ghost" style="margin-top:6px" data-act="trHide">나중에 정할게요 (접기)</button></div>';
+  }
   var e=d.ep;
   if(S.me&&e&&!e.done){
     if(S.ppSent===e.id)h+='<div class="snipebox"><p>🪞 예측 접수. 결과를 확인하는 중…</p></div>';
@@ -2166,23 +2170,11 @@ function dealIssues(){
   return iss;
 }
 function powerAdminTop(){
-  var f=S.pub.flags||{},as=A().state.assign;
-  var undrawn=PLAYERS.filter(function(n){return !as[n];});
+  var f=S.pub.flags||{};
   return '<div class="card"><label class="tgl" data-act="drawOpen"><span class="sw'+(f.drawOpen?' on':'')+'"></span>초능력 뽑기 '+(f.drawOpen?'열림':'닫힘')+'</label>'+
-    '<p class="small mut" style="margin-top:6px">열면 참가자 폰의 “카드 뽑기” 버튼이 켜지고, 요청이 오면 이 화면이 자동으로 카드를 나눠줘요. '+HOST+'에게는 <b>키리코가 고정</b>이고, 나머지 9명은 완전 랜덤이에요.</p>'+hackPanel()+
+    '<p class="small mut" style="margin-top:6px">열면 10명에게 카드가 <b>바로 랜덤 배정</b>돼요 ('+HOST+'는 키리코 고정). 이 화면이 꺼져 있어도 참가자들이 각자 뽑을 수 있어요.</p>'+hackPanel()+
     '<div style="margin-top:8px"><button class="btn ghost" data-act="sampleAssign">🧪 샘플: 초능력 10종 랜덤 배정</button></div>'+
-    (function(){
-      var as=A().state.assign||{},wait=[];
-      Object.keys(S.players).forEach(function(uid){var p=S.players[uid];if(p&&p.drawReq&&!as[p.name]&&wait.indexOf(p.name)<0)wait.push(p.name);});
-      return (wait.length||S.dealErr)?'<div class="note" style="margin-top:8px;border-color:var(--hot)"><b>⏳ 카드를 기다리는 사람 '+wait.length+'명</b>'+(wait.length?' · '+wait.map(esc).join(', '):'')+
-        (S.dealErr?'<div class="warn small" style="margin-top:4px">⚠️ 마지막 오류: '+esc(S.dealErr)+' (5초마다 자동으로 다시 시도해요)</div>':'<div class="small mut">곧 자동으로 배정돼요. 오래 걸리면 아래 버튼을 눌러 보세요.</div>')+
-        '<button class="btn hot" style="margin-top:6px" data-act="dealFix">🔧 지금 배정하기</button></div>':'';
-    })()+
-    (function(){var iss=dealIssues();return '<div class="note" style="margin-top:8px"><b>🔍 배정·카드 점검</b> '+(iss.length?'<span class="tag hot">불일치 '+iss.length+'건</span><ul class="dots small">'+iss.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><button class="btn hot" data-act="dealFix">🔧 카드 다시 맞추기</button>':'<span class="tag good">✅ 모두 일치</span> <span class="small mut">저장된 배정 = 각자 폰의 카드</span>')+'</div>';})()+
-    '<label class="tgl" data-act="powerClose" style="margin-top:10px"><span class="sw'+(f.powerClosed?' on':'')+'"></span>⏰ 초능력 사용 마감 '+(f.powerClosed?'ON (사용 불가)':'OFF')+'</label><p class="small mut">최종 정산이 시작되면 켜세요. 켜면 모두에게 알림이 가고, 에코를 제외한 초능력은 더 쓸 수 없어요.</p>'+
-    '<p class="small" style="margin-top:6px">🎴 배정 완료 '+(PLAYERS.length-undrawn.length)+'/'+PLAYERS.length+(undrawn.length?' · 미배정: '+undrawn.map(esc).join(', '):'')+'</p>'+
-    (function(){var seen=[];Object.keys(S.players).forEach(function(uid){var p=S.players[uid];if(p&&p.drawReq&&seen.indexOf(p.name)<0)seen.push(p.name);});return '<p class="small">👀 카드를 확인한 사람 '+seen.length+'명'+(seen.length?' · '+seen.map(esc).join(', '):'')+'</p>';})()+
-    '<div class="chips" style="margin-top:8px">'+PLAYERS.map(function(n){var hh=heroByName(n);return '<span class="chip'+(hh?'':' dim')+'">'+(hh?hh.em+' ':'')+esc(n)+(hh?' · '+hh.hero:'')+'</span>';}).join('')+'</div></div>';
+    '<p class="small mut" style="margin-top:10px">🛠 눌러서 보유자 <b>대신 사용</b>할 수 있어요</p><div class="chips">'+PLAYERS.map(function(n){var hh=heroByName(n);return hh?'<button class="chip" data-act="proxyOpen" data-v="'+hh.id+'">'+hh.em+' '+esc(n)+' · '+hh.hero+'</button>':'<span class="chip dim">'+esc(n)+'</span>';}).join('')+'</div></div>';
 }
 function waitTimer(){
   if(S.waitT)return '';
@@ -2319,9 +2311,40 @@ function reinPanel(x){
   return h+'<p class="small">① 지킬 사람을 서약하세요 (나 제외)</p>'+chipsSel(PLAYERS,'ui.use.target',uo.target,S.me)+'<button class="btn hot block" style="margin-top:10px" data-act="reinSwearGo">🛡️ 서약</button><p class="small mut">서약 없이도 나를 노린 공격에는 팝업이 떠요.</p></div>';
 }
 function adminCardBtns(x,hd){
-  if(x.id==='echo')return '<button class="cb" data-act="echoLast"'+((hd&&!(A().state.echo2||{}).done)?'':' disabled')+'>🪞 마지막 호명 시작</button>';
-  if(['symmetra'].indexOf(x.id)<0)return '<span class="small mut">자동 진행 (팝업/요청)</span><button class="cb" data-act="revealUse" data-v="'+x.id+'"'+(hd?'':' disabled')+'>공개만 (점수 없이)</button>';
-  return '<button class="cb" data-act="pwOpen" data-v="'+x.id+'"'+(hd?'':' disabled')+'>🛠 대신 공개 (관리자)</button><button class="cb" data-act="revealUse" data-v="'+x.id+'"'+(hd?'':' disabled')+'>공개만 (점수 없이)</button>';
+  var d=hd?'':' disabled';
+  var h='<button class="cb" data-act="proxyOpen" data-v="'+x.id+'"'+d+'>🛠 대신 사용</button>';
+  if(x.id==='echo')h+='<button class="cb" data-act="echoLast"'+((hd&&!(A().state.echo2||{}).done)?'':' disabled')+'>🪞 마지막 호명 시작</button>';
+  return h+'<button class="cb" data-act="revealUse" data-v="'+x.id+'"'+d+'>공개만 (점수 없이)</button>';
+}
+/* 관리자: 어떤 초능력이든 보유자 대신 사용할 수 있어요 */
+function pxModal(){
+  var m=S.modal,hid=m.hero,x=heroOf(hid),holder=holderOf(hid),b='',run=true;
+  function sel1(list,key){return '<div class="chips">'+list.map(function(n){var id=n.id||n,lb=n.t||n;return '<button class="chip'+(m[key]===id?' on':'')+'" data-act="sel" data-k="modal.'+key+'" data-v="'+esc(id)+'">'+esc(lb)+'</button>';}).join('')+'</div>';}
+  var others=PLAYERS.filter(function(n){return n!==holder;});
+  if(!holder)return '<div class="ov"><div class="box big" data-stop="1"><p>이 영웅의 보유자가 아직 없어요.</p><button class="btn ghost block" data-act="modalClose">닫기</button></div></div>';
+  switch(hid){
+    case 'sombra':{var ex=revealedNames(),rh=revealedHeroes();
+      b='<p class="small">① 해킹할 사람</p>'+sel1(others.filter(function(n){return ex.indexOf(n)<0;}),'target')+'<p class="small" style="margin-top:8px">② 추리한 영웅</p>'+sel1(HEROES.filter(function(y){return y.id!=='sombra'&&rh.indexOf(y.id)<0;}).map(function(y){return {id:y.id,t:y.hero};}),'guess')+'<p class="small mut">실행하면 판정 대기 상태가 돼요 (지금 할 일에서 맞았다/틀렸다)</p>';break;}
+    case 'moira':b='<p class="small">흡수할 사람 3명 (선택 '+((m.targets||[]).length)+'/3)</p><div class="chips">'+others.map(function(n){return '<button class="chip'+((m.targets||[]).indexOf(n)>=0?' on':'')+'" data-act="pxTg" data-v="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div>';break;
+    case 'symmetra':{var cur=(S.pub.teams||{}).current,t=cur&&team(cur),ti=t?teamOf(cur,holder):-1;
+      b=t&&ti>=0?'<p class="small">'+esc(GAME[cur]||cur)+' · 바꿀 상대 팀 사람</p>'+sel1(t.groups[1-ti].m,'target'):'<p class="warn small">지금 팀이 정해진 경기가 없어요.</p>';if(!(t&&ti>=0))run=false;break;}
+    case 'lucio':{var lost=lucioLost(holder);
+      b=lost.length?'<p class="small">① 분위기를 전환할 경기</p>'+sel1(lost.map(function(k){return {id:k,t:GAME[k]};}),'key')+'<p class="small" style="margin-top:8px">② 방식</p>'+sel1([{id:'passive',t:'🙂 소극적 (+1)'},{id:'active',t:'🕺 적극적 (+2)'}],'mode'):'<p class="warn small">아직 진 경기가 없어요.</p>';if(!lost.length)run=false;break;}
+    case 'reinhardt':{var r=reinSt();
+      b=r.sworn?'<p class="small">이미 서약했어요: <b>'+esc(r.sworn)+'</b> (바꿀 수 없어요)</p>':'<p class="small">서약할 사람</p>'+sel1(others,'target');if(r.sworn)run=false;break;}
+    case 'cassidy':b='<p class="small">'+esc(holder)+' 님 대신 전원에게 도전장을 내요. (수락 대기 후 지목과 결과 입력은 “지금 할 일”에 떠요)</p>';break;
+    case 'tracer':{var q=trQ().q;
+      b=q.length?'<p class="small">되돌릴 수 있는 일 (남은 '+(2-trQ().uses)+'회)</p>'+q.map(function(it){return '<div class="todo" style="text-align:left"><b>'+esc(it.lab)+'</b><div class="row" style="margin-top:6px"><button class="btn hot" data-act="pxTr" data-v="'+it.id+':undo">되돌리기</button><button class="btn ghost" data-act="pxTr" data-v="'+it.id+':skip">넘기기</button></div></div>';}).join(''):'<p class="mut small">지금 되돌릴 일이 없어요. (일이 생기면 여기에 쌓여요)</p>';run=false;break;}
+    case 'widowmaker':{var w=widowSt(),cur2=w.cur;
+      if(!cur2){b='<p class="mut small">지금 열린 저격이 없어요. (봉투 개봉 뒤에 열려요)</p>';run=false;break;}
+      var R=(S.pub.results||{})[cur2.key],win=(R&&R.win)||[];
+      b='<p class="small">'+esc(GAME[cur2.key]||'')+' 저격 — 최고 득점자일 것 같은 사람</p>'+(cur2.self?'<p class="warn small">이번 라운드는 위도우메이커가 최고 득점자예요 (척만 하기)</p>':sel1(win.filter(function(n){return n!==holder;}),'pick'))+'<p class="small mut">고르지 않고 실행하면 “건너뛰기”로 처리돼요</p>';break;}
+    case 'echo':{var e=echoSt();
+      if(e.pop){b='<p class="small">'+({predict:'3위 안에 있을 사람 예측',last:'마지막 기회 — 3위 안에 있는 사람',final:'최종 1등 지목'}[e.pop.kind]||'지목')+'</p>'+sel1(others,'pick');}
+      else{b='<p class="mut small">지금 열린 에코 창이 없어요. 마지막 호명은 “🪞 마지막 호명 시작” 버튼을 쓰세요.</p>';run=false;}break;}
+    case 'kiriko':b='<p class="small">부적을 지금 바로 발동해요 (이미 발동했다면 다시 추첨돼요)</p>'+sel1([{id:'1',t:'1회 (볼링 후)'},{id:'2',t:'2회 (오버워치 후)'}],'n');break;
+  }
+  return '<div class="ov"><div class="box big" data-stop="1"><h3>🛠 '+x.em+' '+esc(x.hero)+' 대신 사용</h3><p class="small mut">보유자: <b>'+esc(holder)+'</b> — 이 사람 대신 관리자가 실행해요</p>'+b+(run?'<button class="btn hot block" style="margin-top:12px" data-act="proxyRun">▶ 실행</button>':'')+'<button class="btn ghost block" style="margin-top:8px" data-act="modalClose">닫기</button></div></div>';
 }
 
 function usePanel(x){
@@ -3510,6 +3533,7 @@ function bowlCancel(key){
   toast('결과를 취소했어요');
 }
 function scoutStart(){
+  trFlush();
   var t=team('bowl1'),r1=S.pub.results&&S.pub.results.bowl1;
   if(!t||!r1||r1.team==null)return toast('1세트 승리팀을 먼저 선택하세요');
   var ln=t.groups[1-r1.team].n,wn=t.groups[r1.team].n;
@@ -3642,6 +3666,7 @@ function clearVote(key){
   if(S.pub.vote&&S.pub.vote.key===key){S.pub.vote=null;enqueue(function(){return S.db.doc('public/vote').delete();});}
 }
 function owDraw(key,via){
+  trFlush();
   setLast('team:'+key);
   /* 이전 결과/예측/투표를 정리하고 새 팀을 즉시 전체 공개해요. 승부 예측 투표는 관리자가 "투표 시작"을 눌러야 시작돼요 */
   var R=clone(S.pub.results)||{};if(R[key]){delete R[key];S.pub.results=R;saveResults();}
@@ -4215,6 +4240,7 @@ function runUse(uid,p,u){
   var done={ts:u.ts,ok:!!res.ok,msg:res.msg||'',hero:u.hero};
   S.db.doc('players/'+uid).update({useDone:done}).catch(function(e){console.error(e);});
   render();
+  return res;
 }
 function processUses(){
   var a=A();
@@ -4255,6 +4281,7 @@ function openPrompt(){
   showPrompt({id:'open'+po.ts,ts:po.ts,kind:'prompt',title:'🏆 승리팀이 정해졌어요',payload:{emoji:'🎯',lines:['🏆 승리팀을 주목시키고','준비가 되면 [봉투 개봉 · 저격 타임]을 눌러요','시간 제한은 없어요 — 누르면 전원에게 "표정 관리" 안내와 3초 카운트다운 뒤 봉투가 한꺼번에 열려요'],actions:[{label:'🎯 봉투 개봉 · 저격 타임',act:'openEnv',hot:true},{label:'조금 있다가 누를게요',act:'popClose'}]}});
 }
 function closePowers(){
+  trFlush();
   var pf=clone(S.pub.flags)||{};if(pf.powerClosed)return;
   pf.powerClosed=true;S.pub.flags=pf;saveFlags();
   announce('announce','⏰ 초능력 사용 마감!',{emoji:'⏰',lines:['초능력 사용이 마감됐어요!','에코의 마지막 호명이 시작돼요','아직 안 쓴 초능력은 더 이상 쓸 수 없어요']},'⏰ 초능력 사용이 마감됐어요!!!! 에코의 마지막 호명이 시작돼요');
@@ -4269,7 +4296,6 @@ function rearmAll(){
   if(d&&d.stage==='pick')at('dp'+d.id,d.pts||d.ts,60000,function(){duelPick(d.id,null);});
   if(s.lucioPending)at('lu'+s.lucioPending.id,s.lucioPending.ts,60000,function(){lucioJudge(true,s.lucioPending&&s.lucioPending.id);});
   if(s.rein&&s.rein.pend)at('rp'+s.rein.pend.id,s.rein.pend.ts,60000,function(){reinAnswer(s.rein.pend&&s.rein.pend.id,'pass');});
-  if(s.tr&&s.tr.pend)at('tp'+s.tr.pend.id,s.tr.pend.ts,60000,function(){trAnswer(s.tr.pend&&s.tr.pend.id,'skip');});
   if(s.widow&&s.widow.cur)at('wd'+s.widow.cur.id,s.widow.cur.ts,60000,function(){widowResolve(s.widow.cur&&s.widow.cur.id,null,'timeout');});
   var e=s.echo2&&s.echo2.pop;
   if(e&&e.kind==='last')at('el'+e.id,e.ts,60000,function(){echoLastTimeout(e.id);});
@@ -4299,7 +4325,7 @@ function deputyLogCard(){
 function pendingCount(){
   var s=A().state||{},n=0;
   if(s.svote)n++;if(s.sombra&&s.sombra.pending)n++;if(s.duel2)n++;
-  if(s.rein&&s.rein.pend)n++;if(s.tr&&s.tr.pend)n++;if(s.widow&&s.widow.cur)n++;if(s.lucioPending)n++;if(s.echo2&&s.echo2.pop)n++;
+  if(s.rein&&s.rein.pend)n++;if(s.widow&&s.widow.cur)n++;if(s.lucioPending)n++;if(s.echo2&&s.echo2.pop)n++;
   return n;
 }
 function forceProgress(quiet){
@@ -4313,7 +4339,6 @@ function forceProgress(quiet){
     else{dealPatch(d.holder,{duel:{id:d.id,done:true}});delete s.duel2;saveState();done.push('캐서디 결투 무효(건 점수는 그대로)');}
   }
   if(s.rein&&s.rein.pend){reinAnswer(s.rein.pend.id,'pass');done.push('라인하르트 패스');}
-  if(s.tr&&s.tr.pend){trAnswer(s.tr.pend.id,'skip');done.push('트레이서 넘기기');}
   if(s.widow&&s.widow.cur){widowResolve(s.widow.cur.id,null,'timeout');done.push('위도우메이커 저격 실패');}
   if(s.lucioPending){lucioJudge(true);done.push('루시우 적극적 → 성공');}
   var e=s.echo2;
@@ -4364,7 +4389,7 @@ function correctResult(key){
 
 /* ===================== v28: 라인하르트 · 트레이서 · 에코 ===================== */
 function reinSt(){var s=A().state;s.rein=s.rein||{sworn:'',swornUsed:false,selfUsed:false,blocks:0,pend:null};return s.rein;}
-function trSt(){var s=A().state;s.tr=s.tr||{uses:0,pend:null};return s.tr;}
+function trSt(){var s=A().state;s.tr=s.tr||{uses:0,pend:null,q:[]};if(!s.tr.q)s.tr.q=[];return s.tr;}
 function echoSt(){var s=A().state;s.echo2=s.echo2||{cand:'',fails:0,pop:null,done:false,last:''};return s.echo2;}
 function reinSync(){var h=holderOf('reinhardt'),r=reinSt();if(h)dealPatch(h,{rein3:{sworn:r.sworn||'',swornUsed:!!r.swornUsed,selfUsed:!!r.selfUsed,blocks:r.blocks||0}});}
 function eulReul(w){return w+josaPick(w,'을','를');}
@@ -4441,24 +4466,32 @@ function reinSwear(name,o){
   return {ok:true};
 }
 /* ---- 트레이서: 나와 관련된 일 3종을 되돌려요 ---- */
+function trQ(){var s=trSt();if(!s.q)s.q=[];return s;}
+function trSync(){
+  var t=holderOf('tracer');if(!t)return;var s=trQ();
+  dealPatch(t,{trq:{items:s.q.map(function(x){return {id:x.id,label:x.lab};}),left:2-s.uses,v:Date.now()}});
+}
+/* 되돌릴 일이 생기면 트레이서 폰에 목록으로 쌓여요. 시간 제한 없이, 다음 경기가 시작되기 전까지 자유롭게 고를 수 있어요 */
 function trOffer(att){
   if(['moira','widow','cass'].indexOf(att.type)<0)return;
   var t=holderOf('tracer');if(!t||att.target!==t)return;
-  var s=trSt();if(s.uses>=2)return;
-  var id=uuid(),lab={moira:'모이라의 생체 흡수',widow:'위도우메이커의 저격',cass:'캐서디와의 결투 패배'}[att.type];
-  s.pend={id:id,att:att,lab:lab,ts:Date.now()};saveState();                                        // 새 일이 생기면 앞의 선택은 확정돼요
-  dealPatch(t,{trpop:{id:id,label:lab,left:2-s.uses,until:Date.now()+60000}});
-  setTimeout(function(){trAnswer(id,'skip');},60000);
+  var s=trQ();if(s.uses>=2)return;
+  var lab={moira:'모이라의 생체 흡수',widow:'위도우메이커의 저격',cass:'캐서디와의 결투 패배'}[att.type];
+  s.q.push({id:uuid(),att:att,lab:lab,ts:Date.now()});saveState();trSync();
 }
+function trFlush(){var s=trQ();if(s.q.length){s.q=[];saveState();trSync();}}
 function trAnswer(id,v){
-  var s=trSt(),pd=s.pend;if(!pd||pd.id!==id)return;
-  s.pend=null;var t=holderOf('tracer');
-  dealPatch(t,{trpop:{id:id,done:true}});
-  if(v!=='undo'){saveState();return;}
-  undoAttack(pd.att);s.uses++;saveState();
+  var s=trQ(),ix=-1;s.q.forEach(function(x,i){if(x.id===id)ix=i;});if(ix<0)return;
+  var pd=s.q.splice(ix,1)[0],t=holderOf('tracer');
+  if(v!=='undo'||s.uses>=2){saveState();trSync();return;}
+  undoAttack(pd.att);s.uses++;saveState();trSync();
   sysChat('⏪ 누군가가 시간을 되감았다. '+pd.lab+'이 없던 일이 되었다.');
-  if(pd.att.attacker)dealNote(pd.att.attacker,'⏪ 시간이 되감겨 '+pd.lab.replace(/^(\S+)의 /,'')+'이 없던 일이 되었다.');
-  dealNote(t,'⏪ 시간을 되감았다. '+pd.lab+'이 없던 일이 되었다. (남은 '+(2-s.uses)+'회)');
+  var at=pd.att,gain=at.type==='widow'?(at.pts||1):1,L;
+  if(at.type==='widow')L=['⏪ 시간이 되감겼다!','위도우메이커가 트레이서를 저격해서 +'+gain+'점을 얻었는데','트레이서가 그 일을 없던 일로 되돌렸다','(저격으로 얻은 점수는 취소됐어요)'];
+  else if(at.type==='moira')L=['⏪ 시간이 되감겼다!','모이라가 트레이서의 점수를 흡수해 +1점을 얻었는데','트레이서가 그 일을 없던 일로 되돌렸다','(흡수한 점수는 취소됐어요)'];
+  else L=['⏪ 시간이 되감겼다!','트레이서가 캐서디와의 결투에서 져서 1점을 잃었는데','시간을 되돌려 그 일을 없던 일로 만들었다','(걸었던 점수가 돌아왔어요)'];
+  if(at.attacker)dealNote(at.attacker,'⏪ 시간이 되감겨 '+pd.lab+'이 없던 일이 되었다.',L);
+  dealNote(t,'⏪ 시간을 되감았다. (남은 '+(2-s.uses)+'회)',L.concat(['(남은 '+(2-s.uses)+'회)']));
   render(true);
 }
 /* ---- 에코: 볼링 후 · 오버워치 후 예측(2번) → 성공하면 +2점과 복제 발동 → 최종 1등 지목 ---- */
@@ -4539,7 +4572,7 @@ function echoLastCall(){
 }
 function widowAnnounce(att){
   sysChat('🎯 위도우메이커가 '+GAME[att.key]+' 최고 득점자를 저격했다.');
-  dealNote(att.attacker,(att.first?'🎯 저격 첫 성공! ':'🎯 저격 성공. ')+att.target+' -1점, 나 +'+att.pts+'점');
+  dealNote(att.attacker,'🎯 저격 성공!',['🎯 저격 결과','✅ 명중!',att.target+' 님을 저격했다','나 +'+att.pts+'점 · '+att.target+' -1점'+(att.first?' (첫 성공 보너스)':'')]);
   dealNote(att.target,'🎯 위도우메이커에게 저격당했다. -1점');
 }
 
@@ -4760,7 +4793,11 @@ function sombraVoteClose(vid){
     st.exposed=true;
     var rv=clone(S.pub.reveal)||{};rv.sombra={by:holder,detail:PUB_DETAIL.sombra};S.pub.reveal=rv;put('public/reveal',rv);
     sysChat('💜 정체가 들통났다. 솜브라는 '+holder+'였다. 초능력을 잃었다.');
-  }else sysChat('💜 솜브라는 아직 숨어 있다. 정체를 숨겨라.');
+    announce('announce','💜 투표 결과',{alert:'🚨 솜브라의 정체가 밝혀졌다!',emoji:'💜',lines:['솜브라는 이 사람이었어요!'],star:{name:holder,pts:null,label:'🕵️ 솜브라는…'},bubble:null,quote:'정체가 들통났다… 초능력을 잃었다'},'');
+  }else{
+    sysChat('💜 솜브라는 아직 숨어 있다. 정체를 숨겨라.');
+    announce('announce','💜 투표 결과',{alert:'😏 솜브라는 아직 숨어 있다!',emoji:'💜',lines:['솜브라의 정체는 밝혀지지 않았어요','솜브라는 계속 숨어서 해킹을 이어갈 수 있어요']},'');
+  }
   saveState();sombraSync();render(true);
 }
 /* 위도우메이커: 봉투가 열릴 때 본인 폰에 1분짜리 저격 팝업 */
@@ -4792,7 +4829,7 @@ function widowResolve(id,pick,why){
   }else msg='🎯 빗나갔다.';
   saveState();
   dealPatch(holder,{snipe:{id:id,done:true}});
-  if(msg)dealNote(holder,msg);
+  if(msg)dealNote(holder,msg,['🎯 저격 결과',msg]);
   if(w.n>=4&&!(S.pub.reveal||{}).widowmaker){          // 4번의 기회를 모두 쓴 순간(네 번째 사용) 정체가 공개돼요
     var rv4=clone(S.pub.reveal)||{};rv4.widowmaker={by:holder,detail:PUB_DETAIL.widowmaker};S.pub.reveal=rv4;put('public/reveal',rv4);
     sysChat('🎯 위도우메이커['+holder+']가 마지막 저격 기회를 사용했다. 정체가 공개되었다.');
@@ -4945,7 +4982,8 @@ function renderModal(){
   var el=$('#modal');if(!el)return;
   var m=S.modal;
   if(!m){el.innerHTML='';return;}
-  if(m.type==='pw')el.innerHTML=pwModal();
+  if(m.type==='px')el.innerHTML=pxModal();
+  else if(m.type==='pw')el.innerHTML=pwModal();
   else if(m.type==='lucky')el.innerHTML=luckyModal();
   else if(m.type==='rein')el.innerHTML=reinModal();
   else if(m.type==='tracer')el.innerHTML=tracerModal();
@@ -5050,11 +5088,31 @@ async function handle(act,v,t){
       break;
     case 'replay':if(S.pub.live)showPop(S.pub.live);return;
     case 'openEnv':closePop();openEnvelopes(false);return;
+    case 'proxyOpen':if(S.admin){S.modal={type:'px',hero:v};renderModal();}return;
+    case 'pxTg':{var mm=S.modal;if(!mm||mm.type!=='px')return;var tg=(mm.targets||[]).slice(),ix=tg.indexOf(v);if(ix>=0)tg.splice(ix,1);else if(tg.length<3)tg.push(v);mm.targets=tg;renderModal();return;}
+    case 'pxTr':{if(!S.admin)return;var pq=String(v).split(':');trAnswer(pq[0],pq[1]);renderModal();return;}
+    case 'proxyRun':{
+      var px=S.modal;if(!S.admin||!px||px.type!=='px')return;
+      var hid=px.hero,holder=holderOf(hid),opts={};if(!holder)return toast('보유자가 없어요');
+      var done=function(r){toast(r&&r.ok?'✅ '+heroOf(hid).hero+' 대신 사용했어요':'⚠️ '+((r&&r.msg)||'실행하지 못했어요'));S.modal=null;render(true);};
+      if(hid==='widowmaker'){var w0=widowSt();if(!w0.cur)return toast('열린 저격이 없어요');widowResolve(w0.cur.id,px.pick||null,px.pick?'':'skip');return done({ok:true});}
+      if(hid==='echo'){var e0=echoSt();if(!e0.pop)return toast('열린 에코 창이 없어요');if(!px.pick)return toast('사람을 골라 주세요');echoAnswer(e0.pop.id,px.pick);return done({ok:true});}
+      if(hid==='kiriko'){var kn=+px.n||0;if(!kn)return toast('몇 회인지 골라 주세요');return ask('🍃 키리코 부적 '+kn+'회를 지금 발동할까요?',function(){kirikoFire(kn);done({ok:true});});}
+      if(hid==='sombra')opts={target:px.target,guess:px.guess};
+      else if(hid==='moira')opts={targets:px.targets||[]};
+      else if(hid==='symmetra')opts={target:px.target};
+      else if(hid==='lucio')opts={key:px.key,mode:px.mode};
+      else if(hid==='reinhardt')opts={target:px.target};
+      var uid0=uidOfName(holder)||S.uid;
+      return done(runUse(uid0,{name:holder},{ts:Date.now(),hero:hid,opts:opts}));
+    }
     case 'forceGo':if(S.admin)ask('⏭ 대기 중인 모든 항목을 기본값으로 처리할까요? (라인하르트 패스 · 트레이서 넘기기 · 위도우메이커 실패 · 캐서디 도주 · 루시우 성공 · 솜브라 해킹 취소 등)',function(){forceProgress(false);});return;
     case 'corr':if(S.admin){var ck=v;ask('🔁 '+GAME[ck]+' 승패를 반대로 정정할까요? 그 라운드 점수가 다시 계산돼요 (같은 순위의 반대 풀 값으로 바뀌고, 재추첨은 하지 않아요).',function(){correctResult(ck);});}return;
     case 'deputyGo':{var dk=v,dq=(S.ui.dq||{})[dk]||{},arr=function(x){var o=[];for(var q=0;q<3;q++)o.push(x&&x[q]!=null&&x[q]!==''?Number(x[q]):NaN);return o;},sa=arr(dq.sA),sb=arr(dq.sB);if(sa.concat(sb).some(function(x){return isNaN(x)||x<0||x>300;}))return toast('0~300점 숫자 6개를 모두 입력하세요');ask('🎳 '+GAME[dk]+' 점수를 제출할까요?\nA팀 '+sa.join('/')+' · B팀 '+sb.join('/')+'\n제출하면 바로 반영돼요.',function(){S.db.doc('players/'+S.uid).update({dq:{key:dk,sA:sa,sB:sb,ts:Date.now()}}).catch(function(){});toast('📤 제출했어요');});return;}
     case 'ppRein':{var q1=S.deal&&S.deal.rein2;if(!q1||!S.uid)return;S.ppSent=q1.id;S.db.doc('players/'+S.uid).update({rr:{id:q1.id,v:v,ts:Date.now()}}).catch(function(){});renderPP();return;}
-    case 'ppTr':{var q2=S.deal&&S.deal.trpop;if(!q2||!S.uid)return;S.ppSent=q2.id;S.db.doc('players/'+S.uid).update({tp:{id:q2.id,v:v,ts:Date.now()}}).catch(function(){});renderPP();return;}
+    case 'ppTr':{var pv=String(v).split(':');if(!S.uid||pv.length<2)return;S.db.doc('players/'+S.uid).update({tp:{id:pv[0],v:pv[1],ts:Date.now()}}).catch(function(){});toast(pv[1]==='undo'?'⏪ 되돌리기를 제출했어요':'넘기기를 제출했어요');return;}
+    case 'trHide':S.trHide=true;renderPP();return;
+    case 'trShow':S.trHide=false;renderPP();return;
     case 'ppEchoPick':S.epPick=v;renderPP();return;
     case 'ppEchoGo':{var q3=S.deal&&S.deal.ep;if(!q3||!S.epPick||!S.uid)return;S.ppSent=q3.id;S.db.doc('players/'+S.uid).update({ea:{id:q3.id,pick:S.epPick,ts:Date.now()}}).catch(function(){});S.epPick=null;renderPP();return;}
     case 'echoLast':if(S.admin)ask('🪞 마지막 호명을 시작할까요? 열려 있는 예측 창은 닫히고 되돌릴 수 없어요.',function(){echoLastCall();});return;
@@ -5110,7 +5168,7 @@ async function handle(act,v,t){
       u.manual.note='';toast('반영했어요');break;
     case 'delEvt':{var id=v;ask('이 점수 기록을 삭제할까요?',function(){delEvt(id);if(id.indexOf('pw:')===0){var hid=id.slice(3),U=clone(S.pub.used)||{};if(U.used&&U.used[hid]){delete U.used[hid];S.pub.used=U;saveUsed();}}render(true);});return;}
     case 'ltSave':ltSave();break;
-    case 'tBowl1':{
+    case 'tBowl1':{trFlush();
       var hasB=!!team('bowl1')||L().evts.some(function(e){return e.cat==='bowl';});
       if(hasB){ask('이미 1세트 팀을 뽑았어요! 정말 다시 뽑을까요? (지금까지의 볼링 팀·결과·점수가 모두 지워져요)',function(){toast('다시 뽑는 중… 서버에 저장하느라 몇 초 걸릴 수 있어요');clearBowl();tBowl1();render(true);});return;}
       tBowl1();break;}
