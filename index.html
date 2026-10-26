@@ -744,6 +744,11 @@ details.pl .bd{padding:0 12px 12px}
 @keyframes fxring{0%{transform:scale(.4);opacity:.95}100%{transform:scale(4.2);opacity:0}}
 @keyframes fxline{0%,100%{opacity:0;transform:scaleY(.2)}40%{opacity:.9;transform:scaleY(1)}}
 
+/* v43 */
+.hbigpic{width:150px;height:150px;border-radius:50%;object-fit:cover;border:4px solid #c9a0ff;box-shadow:0 0 26px rgba(201,160,255,.75);margin:6px auto;display:block}
+.fx-rewind i{border:3px solid #6ecbff;box-shadow:0 0 12px #6ecbff;animation:fxin 1.6s ease-in infinite}.fx-rewind i:nth-child(2){animation-delay:.5s}.fx-rewind i:nth-child(3){animation-delay:1s}
+@keyframes fxin{0%{transform:scale(4.2);opacity:0}100%{transform:scale(.3);opacity:.95}}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
@@ -1542,7 +1547,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v42';
+var BUILD_ID='v43';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:0;        // 0 = 시간 제한 없음 (관리자가 준비되면 직접 눌러요)
 var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -1608,7 +1613,7 @@ function todoItems(){
     else{var t1=team('bowl1'),wm=t1?t1.groups[R1.team].m:[];it.push({k:'scout2',t:'🔥 영입할 선수를 골라 주세요 (패배팀이 데려올 승리팀 선수)',s:'',b:wm.map(function(n){return {l:n,a:'scoutPick',v:n};})});}
   }
   var sb=s.sombra;
-  if(sb&&sb.pending){var pd=sb.pending;it.push({k:'hack',t:'💜 솜브라 해킹 판정 — 솜브라['+esc(holderOf('sombra')||'?')+'] → 대상 <b>'+esc(pd.target)+'</b>, 추리: <b>'+esc(heroOf(pd.guess).hero)+'</b>',s:'솜브라에게 조용히 “'+esc(pd.target)+'의 초능력이 뭐야?”라고 묻고, 대답이 맞는지 눌러요',b:[{l:'✅ 맞았다',a:'hackYes',hot:1},{l:'❌ 틀렸다',a:'hackNo'}]});}
+  if(sb&&sb.pending){var pd=sb.pending,thx=(s.assign||{})[pd.target],hxx=thx&&heroOf(thx);it.push({k:'hack',t:'💜 솜브라 해킹 판정 — 솜브라['+esc(holderOf('sombra')||'?')+'] → 대상 <b>'+esc(pd.target)+'</b>',s:'실제: <b>'+(hxx?esc(hxx.hero+' — '+hxx.power):'?')+'</b> · 솜브라의 추리: <b>'+esc(heroOf(pd.guess).hero)+'</b><br>솜브라가 적은 정답: <b>“'+esc(pd.ans||'(없음)')+'”</b> — 맞는지 눌러요',b:[{l:'✅ 맞았다',a:'hackYes',hot:1},{l:'❌ 틀렸다',a:'hackNo'}]});}
   if(s.svote)it.push({k:'svote',t:'💜 솜브라 투표 진행 중 (시간 제한 없음)',s:'모두가 투표를 마치면 눌러서 결과를 확인하고 넘어가요',b:[{l:'✅ 투표 마감하고 결과 확인',a:'svClose',hot:1}]});
   var d=s.duel2;
   if(d){
@@ -1647,6 +1652,21 @@ function renderSnipe(){
 }
 setInterval(function(){try{renderSnipe();}catch(e){}},1000);
 function josaPick(w,a,b){var c=String(w||'').charCodeAt(String(w||'').length-1)-0xAC00;return (c>=0&&c%28>0)?a:b;}
+/* 끝날 때까지 모두가 해야 하는 투표 (승부 예측 · 솜브라 추리): 안 한 사람에게는 접속을 끊었다 다시 들어와도 아래에 계속 떠요 */
+function pendingPanels(){
+  if(!S.me)return '';
+  var items=[],f=S.pub.flags||{},p=S.players[S.uid]||{};
+  var av=activeVote();
+  if(av&&!myVote(av))items.push({id:'v'+av.id,h:'<b>🔮 승부 예측 투표 중!</b>'+voteButtons(av)});
+  var sv=f.svote;
+  if(sv&&!(S.deal&&S.deal.hero==='sombra')&&!(p.sv&&p.sv.id===sv.vid))
+    items.push({id:'s'+sv.vid,h:'<b>💜 솜브라를 추리해 주세요</b><p class="small mut">솜브라가 해킹을 실패했어요 — 누구일 것 같나요?</p><div class="chips">'+(sv.cands||[]).map(function(n){return '<button class="chip" data-act="svPick2" data-v="'+esc(n)+'"'+(n===S.me?' disabled':'')+'>'+esc(n)+'</button>';}).join('')+'</div>'});
+  if(!items.length)return '';
+  var key=items.map(function(x){return x.id;}).join('|');
+  if(S.pendKey!==key){S.pendKey=key;S.pendHide=false;}
+  if(S.pendHide)return '<button class="chip" style="pointer-events:auto;align-self:flex-end" data-act="pendShow">🗳 해야 할 투표 '+items.length+'건 (눌러서 열기)</button>';
+  return '<div class="snipebox"><button class="btn ghost" style="float:right;padding:4px 10px" data-act="pendHide">접기 ▾</button>'+items.map(function(x){return '<div style="margin-bottom:10px">'+x.h+'</div>';}).join('')+'</div>';
+}
 function renderPP(){
   var el=$('#pp');if(!el)return;var d=S.deal||{},now=Date.now(),h='',tq=d.trq;
   var r=d.rein2;
@@ -1666,8 +1686,7 @@ function renderPP(){
     }
   }
   if(h&&S.ppHide)h='<button class="chip" style="pointer-events:auto;align-self:flex-end" data-act="ppShow">📋 열린 창 보기</button>';
-  else if(h&&!tq)h=h;
-  el.innerHTML=h;
+  el.innerHTML=pendingPanels()+h;
 }
 setInterval(function(){try{renderPP();}catch(e){}},1000);
 function renderMissed(){
@@ -1702,7 +1721,9 @@ function ownUseFallback(ud){
   },2500);
 }
 function showPop(ev){if(S.pop&&S.pop.ev&&ev&&S.pop.ev.id!==ev.id&&/^(note|open|scout|own)/.test(String(S.pop.ev.id)))(S.promptQs=S.promptQs||[]).unshift(S.pop.ev);   // 내 알림 팝업이 다른 팝업에 덮여도 사라지지 않고 다시 떠요
-  if(ev&&ev.payload&&ev.payload.useHero)S.lastUsePop={hero:ev.payload.useHero,at:Date.now()};S.pop={ev:ev,open:false,t0:Date.now()};if(ev&&ev.id&&ev.kind!=='prompt')markSeen(ev.id);renderPop();renderMissed();}
+  if(ev&&ev.payload&&ev.payload.useHero)S.lastUsePop={hero:ev.payload.useHero,at:Date.now()};S.pop={ev:ev,open:false,t0:Date.now()};
+  if(ev&&ev.kind==='private'&&ev.payload&&ev.payload.countdown){S.pop.hold=true;var hid0=ev.id;setTimeout(function(){if(S.pop&&S.pop.ev&&S.pop.ev.id===hid0){S.pop.hold=false;S.pop.locked=false;renderPop();}},ev.payload.countdown*1000+7600);}   /* 카운트다운과 봉투 뽑기가 끝나기 전에는 닫을 수 없어요 */
+if(ev&&ev.id&&ev.kind!=='prompt')markSeen(ev.id);renderPop();renderMissed();}
 function closePop(){
   S.pop=null;renderPop();
   if(S.promptQs&&S.promptQs.length){var q=S.promptQs.shift();setTimeout(function(){if(!S.pop)showPop(q);},500);}
@@ -2299,11 +2320,12 @@ function sombraPanel(x){
   var tg=PLAYERS.filter(function(n){return n!==S.me&&ex.indexOf(n)<0;}),hx=HEROES.filter(function(y){return y.id!=='sombra'&&rh.indexOf(y.id)<0;});
   return h+'<p class="small">① 해킹할 사람 (남은 '+left+'회)</p>'+chipsSel(tg,'ui.use.target',uo.target,S.me)+
     '<p class="small" style="margin-top:8px">② 그 사람의 영웅은?</p><div class="chips">'+hx.map(function(y){return '<button class="chip'+(uo.guess===y.id?' on':'')+'" data-act="sel" data-k="ui.use.guess" data-v="'+y.id+'">'+esc(y.hero)+'</button>';}).join('')+'</div>'+
+    '<p class="small" style="margin-top:8px">③ 그 사람의 초능력 정답을 직접 적어요</p><input class="in" maxlength="120" placeholder="예: 점수를 빼앗는 능력" data-bind="ui.use.ans" value="'+esc(uo.ans||'')+'">'+
     '<button class="btn hot block" style="margin-top:12px" data-act="hackGo">💜 해킹</button></div>';
 }
 function hackPanel(){
   var st=A().state.sombra,pd=st&&st.pending,sv=A().state.svote,h='';
-  if(pd)h+='<div class="note"><b>💜 솜브라 해킹 판정</b><br>솜브라['+esc(holderOf('sombra')||'?')+'] → 대상 <b>'+esc(pd.target)+'</b>, 추리: <b>'+esc(heroOf(pd.guess).hero)+'</b><p class="small">솜브라에게 조용히 “'+esc(pd.target)+'의 초능력이 뭐야?”라고 묻고, 대답을 듣고 판정하세요.</p><div class="row"><button class="btn good" data-act="hackYes">맞았다</button><button class="btn bad" data-act="hackNo">틀렸다</button></div></div>';
+  if(pd)h+='<div class="note"><b>💜 솜브라 해킹 판정</b><br>솜브라['+esc(holderOf('sombra')||'?')+'] → 대상 <b>'+esc(pd.target)+'</b>, 추리: <b>'+esc(heroOf(pd.guess).hero)+'</b><p class="small">솜브라가 적은 정답: <b>“'+esc(pd.ans||'(없음)')+'”</b></p><div class="row"><button class="btn good" data-act="hackYes">맞았다</button><button class="btn bad" data-act="hackNo">틀렸다</button></div></div>';
   h+=duelPanel();
   var lp=A().state.lucioPending;
   if(lp)h+='<div class="note"><b>🎧 루시우 적극적 무대 판정</b><br>루시우['+esc(lp.by)+'] · '+esc(GAME[lp.key])+' '+esc(lp.team)+'<p class="small">춤이나 노래가 끝나면 판정하세요 (60초 안에 안 누르면 [성공]으로 처리돼요)</p><div class="row"><button class="btn good" data-act="lucioYes">성공</button><button class="btn bad" data-act="lucioNo">실패</button></div></div>';
@@ -2839,9 +2861,9 @@ function renderPop(){
       big=true;
       var own=!!(S.deal&&S.deal.hero==='sombra'),vo=P.voted,el0=(Date.now()-(P.t0||Date.now()))/1000;
       var dl=function(x){return ' style="animation-delay:'+(x-el0).toFixed(2)+'s"';};      // 다시 그려도 처음부터 반복되지 않고 이어서 진행돼요
-      inner='<div class="hres"><div class="stg s1"'+dl(0.1)+'>💜 솜브라가 초능력을 사용했다!</div><div class="stg s2"'+dl(1.8)+'>🔎 '+esc(p.target)+' 님을 해킹하는 중…</div>';
-      if(p.ok)inner+='<div class="stg s3"'+dl(3.4)+'><div class="hbig okc">✅ 해킹 성공!</div><div class="hsub">'+esc(p.target)+' 님은 <b>'+esc(p.hero)+'</b> 였어요!</div>'+arrestHtml('해킹으로 정체가 들통났어요',3.6-el0)+'</div>';
-      else inner+='<div class="stg s3"'+dl(3.4)+'><div class="hbig failc shake">❌ 솜브라가 해킹을 실패했습니다!</div><div class="hsub">🔍 솜브라를 추리할 수 있어요 — 누구일까요?</div>'+(own?'<p class="mut" style="margin-top:10px">당신은 투표하지 않아요 😏 표정 관리!</p>':'<div class="chips" style="justify-content:center;margin-top:10px">'+(p.cands||[]).map(function(n){return '<button class="chip'+(vo===n?' on':'')+'" data-act="svPick" data-v="'+esc(n)+'"'+(n===S.me?' disabled':'')+'>'+esc(n)+'</button>';}).join('')+'</div>'+(vo?'<p class="win" style="margin-top:8px">✅ '+esc(vo)+' 님에게 투표했어요 (마감 전엔 바꿀 수 있어요)</p>':'<p class="small mut" style="margin-top:8px">이유정이 마감할 때까지 고를 수 있어요</p>'))+'</div>';
+      inner='<div class="hres"><div class="stg s1"'+dl(1.8)+'>💜 솜브라가 초능력을 사용했다!</div><div class="stg s2"'+dl(3.3)+'>🔎 '+esc(p.target)+' 님을 해킹하는 중…</div>';
+      if(p.ok)inner+='<div class="stg s3"'+dl(4.8)+'><div class="hbig okc">✅ 해킹 성공!</div><div class="starbox"><div class="stl">🔓 정체가 밝혀졌다!</div><div class="stn">'+esc(p.target)+'</div>'+(p.heroId?heroImg(p.heroId,'hbigpic'):'')+'<div class="stn" style="font-size:30px">'+esc(p.hero)+'</div></div>'+arrestHtml('해킹으로 정체가 들통났어요',5.0-el0)+'</div>';
+      else inner+='<div class="stg s3"'+dl(4.8)+'><div class="hbig failc shake">❌ 솜브라가 해킹을 실패했습니다!</div><div class="hsub">🔍 솜브라를 추리할 수 있어요 — 누구일까요?</div>'+(own?'<p class="mut" style="margin-top:10px">당신은 투표하지 않아요 😏 표정 관리!</p>':'<div class="chips" style="justify-content:center;margin-top:10px">'+(p.cands||[]).map(function(n){return '<button class="chip'+(vo===n?' on':'')+'" data-act="svPick" data-v="'+esc(n)+'"'+(n===S.me?' disabled':'')+'>'+esc(n)+'</button>';}).join('')+'</div>'+(vo?'<p class="win" style="margin-top:8px">✅ '+esc(vo)+' 님에게 투표했어요 (마감 전엔 바꿀 수 있어요)</p>':'<p class="small mut" style="margin-top:8px">이유정이 마감할 때까지 고를 수 있어요</p>'))+'</div>';
       inner+='</div>';
       break;}
     case 'swapteams':{
@@ -2929,10 +2951,10 @@ function renderPop(){
         (p.bubble?'<div class="bubble"><b>'+esc(p.bubble.who)+'</b> : “'+esc(p.bubble.text)+'”</div>':'')+
         (p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'')+funnyLucky(ev);
   }
-  el.innerHTML='<div class="ov'+(ev.kind==='mydeal'?' opq':'')+'" data-act="popClose"><div class="box'+(big?' big':'')+'" data-stop="1">'+((p.useBy&&p.useHero)?useHead(p):(p.noTitle?'':'<h3>'+esc(ev.title||'')+'</h3>'))+(p.fx?'<div class="fxwrap fx-'+esc(p.fx)+'"><i></i><i></i><i></i></div>':'')+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+(noFoot?'':(NEXT_ON&&p.needNext)?'<button class="btn block hot" id="nextBtn" data-act="popNext" style="margin-top:14px'+(p.nextHidden?';display:none':'')+'">다음 ▶</button>':(S.admin&&p.adminGo)?'<button class="btn block hot" style="margin-top:14px" data-act="popAdminGo">'+esc(p.adminGo.label||'입력하러 가기')+'</button><button class="btn block ghost" style="margin-top:8px" data-act="popClose">닫기</button>':p.go?'<button class="btn block hot" style="margin-top:14px" data-act="popGo" data-v="'+esc(p.go)+'">'+esc(p.goLabel||'이동')+'</button>':(p.wait?'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 기다려 주세요… 곧 이어서 진행돼요</button>':'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button>'))+'</div></div>';
+  el.innerHTML='<div class="ov'+(ev.kind==='mydeal'?' opq':'')+'" data-act="popClose"><div class="box'+(big?' big':'')+'" data-stop="1">'+((p.useBy&&p.useHero)?useHead(p):(p.noTitle?'':'<h3>'+esc(ev.title||'')+'</h3>'))+(p.fx?'<div class="fxwrap fx-'+esc(p.fx)+'"><i></i><i></i><i></i></div>':'')+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+(noFoot?'':(NEXT_ON&&p.needNext)?'<button class="btn block hot" id="nextBtn" data-act="popNext" style="margin-top:14px'+(p.nextHidden?';display:none':'')+'">다음 ▶</button>':(S.admin&&p.adminGo)?'<button class="btn block hot" style="margin-top:14px" data-act="popAdminGo">'+esc(p.adminGo.label||'입력하러 가기')+'</button><button class="btn block ghost" style="margin-top:8px" data-act="popClose">닫기</button>':p.go?'<button class="btn block hot" style="margin-top:14px" data-act="popGo" data-v="'+esc(p.go)+'">'+esc(p.goLabel||'이동')+'</button>':(p.wait?'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 기다려 주세요… 곧 이어서 진행돼요</button>':(P.hold?'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 봉투를 여는 중…</button>':'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button>')))+'</div></div>';
   var heroId=(!p.noSwoosh)?((p.useBy&&p.useHero)?p.useHero:(p.swooshHero||null)):null;
   var nn=!!(NEXT_ON&&p.needNext);
-  P.locked=!!(p.wait&&!p.go)||nn;
+  P.locked=!!(p.wait&&!p.go)||nn||!!P.hold;
   if(P.locked&&!nn)setTimeout(function(){unlockPop(ev.id);},p.waitMs||15000);
   var startRuns=function(){
     if(ev.kind==='private'&&p.countdown&&!P.open)runCountdown(ev);
@@ -4499,6 +4521,7 @@ function trAnswer(id,v){
   if(v!=='undo'||s.uses>=2){saveState();trSync();return;}
   undoAttack(pd.att);s.uses++;saveState();trSync();
   sysChat('⏪ 누군가가 시간을 되감았다. '+pd.lab+'이 없던 일이 되었다.');
+  announce('announce','⏪ 시간 역행!',{useBy:'?',useAnon:true,useHero:'tracer',fx:'rewind',lines:['⏪ 누군가가 시간을 되감았다!','“'+pd.lab+'”이 없던 일이 되었다']},'');
   var at=pd.att,gain=at.type==='widow'?(at.pts||1):1,L;
   if(at.type==='widow')L=['⏪ 시간이 되감겼다!','위도우메이커가 트레이서를 저격해서 +'+gain+'점을 얻었는데','트레이서가 그 일을 없던 일로 되돌렸다','(저격으로 얻은 점수는 취소됐어요)'];
   else if(at.type==='moira')L=['⏪ 시간이 되감겼다!','모이라가 트레이서의 점수를 흡수해 +1점을 얻었는데','트레이서가 그 일을 없던 일로 되돌렸다','(흡수한 점수는 취소됐어요)'];
@@ -4766,12 +4789,13 @@ function sombraRequest(name,o){
   if(st.n>=2)return fail('해킹을 모두 사용했어요');
   if(st.pending)return fail('이전 해킹의 판정을 기다리는 중이에요');
   if(!o.target||!o.guess)return fail('해킹할 사람과 추리한 영웅을 고르세요');
+  if(!o.ans||String(o.ans).trim().length<2)return fail('초능력 정답을 적어 주세요');
   if(o.target===name)return fail('나는 고를 수 없어요');
   if(revealedNames().indexOf(o.target)>=0)return fail('이미 공개된 사람은 고를 수 없어요');
   if(revealedHeroes().indexOf(o.guess)>=0)return fail('이미 정체가 공개된 영웅은 고를 수 없어요');
-  st.n++;st.pending={target:o.target,guess:o.guess,ts:Date.now()};saveState();
+  st.n++;st.pending={target:o.target,guess:o.guess,ans:String(o.ans).trim().slice(0,120),ts:Date.now()};saveState();
   sombraSync();
-  dealNote(name,'💜 해킹 신호 전송 완료. 이유정이 찾아갈 거예요.');
+  dealNote(name,'💜 해킹 신호 전송 완료. 이유정이 적은 답을 확인해요.');
   render(true);return {ok:true};
 }
 function hackSuccess(pd,th,holder){
@@ -4782,7 +4806,7 @@ function hackSuccess(pd,th,holder){
   rv[th]={by:pd.target,hacked:true,detail:(((A().content||{}).powers||{})[th]||{}).detail||[]};
   S.pub.reveal=rv;put('public/reveal',rv);                                  // 대상의 초능력이 모두에게 공개돼요 (능력은 그대로 쓸 수 있어요)
   sysChat('💜 솜브라가 '+pd.target+'의 정체를 해킹했다. '+heroOf(th).hero+' '+pd.target+'의 초능력이 공개되었다.');
-  announce('hackres','💜 솜브라 해킹 결과',{ok:true,target:pd.target,hero:heroOf(th).hero,noTitle:true},'');
+  announce('hackres','💜 솜브라 해킹 결과',{ok:true,target:pd.target,hero:heroOf(th).hero,heroId:th,swooshHero:'sombra',noTitle:true},'');
   dealNote(holder,'💜 해킹 성공. +'+pts+'점');
   saveState();sombraSync();render(true);
 }
@@ -4805,11 +4829,13 @@ function sombraVoteStart(target){
   var vid=uuid(),ex=revealedNames();
   var cands=PLAYERS.filter(function(n){return ex.indexOf(n)<0;});
   A().state.svote={vid:vid,ts:Date.now()};saveState();
-  announce('hackres','💜 솜브라 해킹 결과',{ok:false,target:target||'',vid:vid,cands:cands,noTitle:true},'');   // 시간 제한 없이, 관리자가 [투표 마감]을 눌러야 진행돼요
+  {var pfs=clone(S.pub.flags)||{};pfs.svote={vid:vid,cands:cands,target:target||''};S.pub.flags=pfs;saveFlags();}      // 모두의 화면 아래에 투표 패널이 끝날 때까지 떠요
+  announce('hackres','💜 솜브라 해킹 결과',{ok:false,target:target||'',vid:vid,cands:cands,swooshHero:'sombra',noTitle:true},'');   // 시간 제한 없이, 관리자가 [투표 마감]을 눌러야 진행돼요
 }
 function sombraVoteClose(vid){
   var sv=A().state.svote;if(!sv||sv.vid!==vid)return;
   delete A().state.svote;
+  {var pfc=clone(S.pub.flags)||{};delete pfc.svote;S.pub.flags=pfc;saveFlags();}
   var holder=holderOf('sombra'),cnt=0,st=sombraSt(),need=((((A().content||{}).params)||{}).sombraExposeVotes)||4;
   Object.keys(S.players).forEach(function(uid){var p=S.players[uid];if(!p||p.name===holder)return;if(p.sv&&p.sv.id===vid&&p.sv.pick===holder)cnt++;});   // 솜브라 본인 표는 더미
   if(cnt>=need){
@@ -4852,7 +4878,7 @@ function widowResolve(id,pick,why){
   }else{
     msg='🎯 승리팀 1등을 저격했으나 빗나갔다.'+(pick?' ('+pick+' 님은 1등이 아니었다)':'');
     sysChat('🎯 위도우메이커가 '+GAME[cur.key]+' 승리팀 1등을 저격했으나 빗나갔다.');
-    announce('announce','🎯 저격 실패',{useBy:'?',useAnon:true,useHero:'widowmaker',fx:'snipe',lines:['🎯 위도우메이커가 '+GAME[cur.key]+' 승리팀 1등을 저격했으나','❌ 빗나갔다…','누구인지는 아직 비밀이에요 🤫']},'');
+    announce('announce','🎯 저격 실패',{useBy:'?',useAnon:true,useHero:'widowmaker',fx:'snipe',lines:['🎯 위도우메이커가 '+GAME[cur.key]+' 승리팀 1등을 저격했으나','❌ 빗나갔다…']},'');
   }
   saveState();
   dealPatch(holder,{snipe:{id:id,done:true}});
@@ -5126,7 +5152,7 @@ async function handle(act,v,t){
       if(hid==='widowmaker'){var w0=widowSt();if(!w0.cur)return toast('열린 저격이 없어요');widowResolve(w0.cur.id,px.pick||null,px.pick?'':'skip');return done({ok:true});}
       if(hid==='echo'){var e0=echoSt();if(!e0.pop)return toast('열린 에코 창이 없어요');if(!px.pick)return toast('사람을 골라 주세요');echoAnswer(e0.pop.id,px.pick);return done({ok:true});}
       if(hid==='kiriko'){var kn=+px.n||0;if(!kn)return toast('몇 회인지 골라 주세요');return ask('🍃 키리코 부적 '+kn+'회를 지금 발동할까요?',function(){kirikoFire(kn);done({ok:true});});}
-      if(hid==='sombra')opts={target:px.target,guess:px.guess};
+      if(hid==='sombra')opts={target:px.target,guess:px.guess,ans:px.ans||'(관리자가 대신 입력)'};
       else if(hid==='moira')opts={targets:px.targets||[]};
       else if(hid==='symmetra')opts={target:px.target};
       else if(hid==='lucio')opts={key:px.key,mode:px.mode};
@@ -5140,6 +5166,9 @@ async function handle(act,v,t){
     case 'ppRein':{var q1=S.deal&&S.deal.rein2;if(!q1||!S.uid)return;S.ppSent=q1.id;S.db.doc('players/'+S.uid).update({rr:{id:q1.id,v:v,ts:Date.now()}}).catch(function(){});renderPP();return;}
     case 'ppTr':{var pv=String(v).split(':');if(!S.uid||pv.length<2)return;S.db.doc('players/'+S.uid).update({tp:{id:pv[0],v:pv[1],ts:Date.now()}}).catch(function(){});toast(pv[1]==='undo'?'⏪ 되돌리기를 제출했어요':'넘기기를 제출했어요');return;}
     case 'trHide':S.trHide=true;renderPP();return;
+    case 'pendHide':S.pendHide=true;renderPP();return;
+    case 'pendShow':S.pendHide=false;renderPP();return;
+    case 'svPick2':{var sf=(S.pub.flags||{}).svote;if(!sf||!S.uid)return;S.db.doc('players/'+S.uid).update({sv:{id:sf.vid,pick:v,ts:Date.now()}}).catch(function(){});toast('✅ '+v+' 님에게 투표했어요');renderPP();return;}
     case 'snipeHide':{var sn0=S.deal&&S.deal.snipe;S.snipeHide=sn0&&sn0.id;renderSnipe();return;}
     case 'snipeShow':S.snipeHide=null;renderSnipe();return;
     case 'ppHide':S.ppHide=true;renderPP();return;
@@ -5162,7 +5191,7 @@ async function handle(act,v,t){
     case 'lucioNo':if(S.admin)lucioJudge(false);return;
     case 'tgToggle':{var uu=S.ui.use=S.ui.use||{},ls2=(uu.targets||[]).slice(),ix=ls2.indexOf(v);if(ix>=0)ls2.splice(ix,1);else if(ls2.length<3)ls2.push(v);uu.targets=ls2;break;}
     case 'moiraGo':{var um=S.ui.use||{};if((um.targets||[]).length!==3)return toast('3명을 골라 주세요');ask('🧪 '+um.targets.join(', ')+' 님의 점수를 흡수할까요?\n제출하면 취소할 수 없고, 제출한 순간의 점수로 판정해요.',function(){sendUse('moira',{targets:um.targets.slice()});});return;}
-    case 'hackGo':{var uh=S.ui.use||{};if(!uh.target||!uh.guess)return toast('해킹할 사람과 영웅을 모두 고르세요');ask('💜 '+uh.target+' 님을 '+heroOf(uh.guess).hero+'로 추리해 해킹할까요?\n성공·실패 모두 해킹 횟수가 1회 소모돼요.',function(){sendUse('sombra',{target:uh.target,guess:uh.guess});});return;}
+    case 'hackGo':{var uh=S.ui.use||{};if(!uh.target||!uh.guess)return toast('해킹할 사람과 영웅을 모두 고르세요');if(!uh.ans||String(uh.ans).trim().length<2)return toast('그 사람의 초능력 정답을 적어 주세요');ask('💜 '+uh.target+' 님을 '+heroOf(uh.guess).hero+'로 추리해 해킹할까요?\n적은 답: “'+String(uh.ans).trim()+'”\n성공·실패 모두 해킹 횟수가 1회 소모돼요.',function(){sendUse('sombra',{target:uh.target,guess:uh.guess,ans:String(uh.ans).trim()});});return;}
     case 'hackYes':if(S.admin)hackJudge(true);return;
     case 'hackNo':if(S.admin)hackJudge(false);return;
     case 'svClose':{var svv=A().state.svote;if(S.admin&&svv)sombraVoteClose(svv.vid);return;}
