@@ -768,6 +768,15 @@ details.pl .bd{padding:0 12px 12px}
 @media (max-height:780px){.fxwrap{height:52px}.usehead .who{font-size:15px}.gains{display:grid;grid-template-columns:1fr 1fr;gap:6px}.gains .gain{padding:6px 8px}.gains .gain .gn{font-size:17px}.gains .gain b{font-size:22px}}
 .box.big{max-height:90vh;overflow-y:auto}
 
+/* v46 */
+.shout2.ok{color:#2fd3a3}.shout2.fail{color:#ff5a5a}.shout2.long{font-size:26px;line-height:1.3}
+.gains.compact{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:6px}
+.gains.compact .gain{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;font-size:15px;margin:0}
+.gains.compact .gain .gn{font-size:15px}.gains.compact .gain b{font-size:17px}
+.predrow{font-size:16px;padding:6px 10px;margin:4px 0;border-radius:10px;background:rgba(255,255,255,.06);line-height:1.5}
+.predrow.up{color:#2fd3a3}.predrow.dn{color:#ff6b6b}.predrow.ok{color:var(--gold)}
+.predrow b{font-size:17px}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
@@ -1521,7 +1530,7 @@ function rank(T){
   var arr=Object.keys(T).map(function(k){return T[k];}).sort(function(a,b){return b.total-a.total||b.main-a.main||a.name.localeCompare(b.name,'ko');});
   arr.forEach(function(x,i){
     var p=arr[i-1];
-    if(p&&p.total===x.total&&p.main===x.main){x.rank=p.rank;x.tie=true;p.tie=true;}else x.rank=i+1;
+    if(p&&p.total===x.total){x.rank=p.rank;x.tie=true;p.tie=true;}else x.rank=i+1;
   });
   return arr;
 }
@@ -1566,7 +1575,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v45';
+var BUILD_ID='v46';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:0;        // 0 = 시간 제한 없음 (관리자가 준비되면 직접 눌러요)
 var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -1689,6 +1698,11 @@ function pendingPanels(){
 }
 function renderPP(){
   var el=$('#pp');if(!el)return;var d=S.deal||{},now=Date.now(),h='',tq=(S.deal&&S.deal.hero==='tracer')?(S.trqPlain||d.trq):null;
+  var dpk=(S.deal&&S.deal.hero==='cassidy')?((S.pub.flags||{}).duelPick||null):null;
+  if(S.me&&dpk&&dpk.cands){
+    var pk9=(S.ui.use&&S.ui.use.picks)||[],need9=Math.min(2,dpk.cands.length);
+    h+='<div class="snipebox"><b>🤠 결투 상대를 골라 주세요</b><p class="small mut">수락자가 2명 이상이면 반드시 '+need9+'명을 골라야 해요 (수락한 순서)</p><div class="chips">'+dpk.cands.map(function(n,i){return '<button class="chip'+(pk9.indexOf(n)>=0?' on':'')+'" data-act="duelPickT" data-v="'+esc(n)+'">'+(i+1)+'. '+esc(n)+'</button>';}).join('')+'</div><button class="btn hot block" style="margin-top:8px" data-act="duelPickGo"'+(pk9.length===need9?'':' disabled')+'>🎯 결투! ('+pk9.length+'/'+need9+')</button></div>';
+  }
   var r=d.rein2;
   if(S.me&&r&&!r.done&&r.until>now&&S.ppSent!==r.id)h+='<div class="snipebox"><button class="btn ghost" style="float:right;padding:4px 10px" data-act="ppHide">접기 ▾</button><b>🛡️ '+esc(r.label)+josaPick(r.label,'이','가')+' 당신을 노립니다.</b><p>어떻게 하시겠습니까?</p><div class="row" style="justify-content:center"><button class="btn hot" data-act="ppRein" data-v="block">🛡️ 방벽 펼치기</button><button class="btn ghost" data-act="ppRein" data-v="pass">패스</button></div><div class="small mut">60초 안에 고르지 않으면 패스돼요</div></div>';
   var tq=d.trq;
@@ -1718,16 +1732,17 @@ function drawPrompt(){
 function renderMissed(){
   drawPrompt();tryDealbook();tryTq();renderOpenFab();
   var el=$('#missed');if(!el)return;
-  var m=computeMissed();
+  var m=computeMissed();var bb=$('#bellbdg');if(bb){bb.textContent=m.length>9?'9+':m.length;bb.style.display=m.length?'':'none';}
   if(!m.length){el.innerHTML='';S.missedOpen=false;return;}
-  var bar='<button class="missedbar" data-act="missedList">📬 못 본 알림 <b>'+m.length+'</b>개 · 눌러서 보기</button>';
+  var bar='';
   if(!S.missedOpen){el.innerHTML=bar;return;}
   el.innerHTML=bar+'<div class="ov" data-act="missedClose"><div class="box" data-stop="1"><h3>📬 못 본 알림</h3><div class="row" style="margin-bottom:8px"><button class="btn hot" data-act="missedAll">🧹 모두 지우기</button><button class="btn ghost" data-act="missedClose">닫기</button></div><p class="small mut">폰을 보지 않는 사이에 떴던 팝업이에요. 눌러서 다시 볼 수 있어요.</p>'+
     m.map(function(x){var d=new Date(x.ts);var hh=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);return '<button class="rbtn" data-act="missedPlay" data-v="'+esc(x.id)+'"><span class="em">🔔</span><span><b>'+esc(x.title||'알림')+'</b><br><span class="small mut">'+hh+'</span></span></button>';}).join('')+
     '</div></div>';
 }
 function showLive(ev){
-  if(!S.me&&!S.guest)return;                      // 로그인 전에는 팝업을 띄우지 않아요
+  if(!S.me&&!S.guest)return;
+  if(ev&&ev.payload&&ev.payload.chime&&ev.payload.go==='power'&&(S.admin||S.me===HOST))return;      // 관리자는 "카드 뽑으러 가기" 안내를 받지 않아요                      // 로그인 전에는 팝업을 띄우지 않아요
   var pl0=ev&&ev.payload;
   if(pl0&&pl0.queue&&S.pop){(S.promptQs=S.promptQs||[]).push(ev);return;}      // 앞 팝업이 끝난 뒤 이어서 보여줘요
   if(pl0&&pl0.useAnon&&S.deal&&S.deal.hero===pl0.useHero)return;      // 내 초능력의 익명 공개 팝업은 나에게 안 띄워요 (내 결과 팝업만 떠요)
@@ -1982,7 +1997,7 @@ function layout(){
   var needLogin=S.ready&&S.db&&S.uid&&!S.me&&!S.guest&&!S.setup;
   var un=chatUnread();
   return '<header class="top">'+
-    '<button class="hb" data-act="go" data-v="chat" aria-label="채팅">💬'+(un?'<span class="bdg">'+(un>9?'9+':un)+'</span>':'')+'</button>'+
+    '<button class="hb" data-act="go" data-v="chat" aria-label="채팅">💬'+(un?'<span class="bdg">'+(un>9?'9+':un)+'</span>':'')+'</button>'+(S.me?'<button class="hb" data-act="missedList" aria-label="못 본 알림">🔔<span class="bdg" id="bellbdg" style="display:none"></span></button>':'')+
     '<div class="brand">TF 원데이 워크숍 <small class="verchip">'+BUILD_ID+'</small>'+(S.admin?' <span class="tag hot">관리자</span>':'')+'</div>'+
     '<button class="hb" data-act="menu" aria-label="메뉴">☰</button></header>'+
     (S.menu?drawer():'')+
@@ -2153,7 +2168,7 @@ function teamCard(key,title){
   }).join('');
   if(bets&&bets.map){
     var up=[],dn=[];t.groups.forEach(function(g){g.m.forEach(function(n){var b=bets.map[n];if(b==='win')up.push(n);else if(b==='lose')dn.push(n);});});
-    h+='<div class="predbox"><b>🔮 승부 예측 결과</b><p class="small">⬆ 자기 팀 승리 예측: <b>'+(up.map(esc).join(', ')||'없음')+'</b><br>⬇ 자기 팀 패배 예측: <b>'+(dn.map(esc).join(', ')||'없음')+'</b>'+((res&&res.pred&&res.pred.length)?'<br>🔮 예측 성공: <b>'+res.pred.map(esc).join(', ')+'</b>':(res?'<br>🔮 이번 경기 예측 성공자는 없어요':''))+'</p></div>';
+    h+='<div class="predbox"><b>🔮 승부 예측 결과</b><div class="predrow up">⬆ 자기 팀 승리 예측: <b>'+(up.map(esc).join(', ')||'없음')+'</b></div><div class="predrow dn">⬇ 자기 팀 패배 예측: <b>'+(dn.map(esc).join(', ')||'없음')+'</b></div>'+((res&&res.pred&&res.pred.length)?'<div class="predrow ok">🔮 예측 성공: <b>'+res.pred.map(esc).join(', ')+'</b></div>':(res?'<div class="predrow">🔮 이번 경기 예측 성공자는 없어요</div>':''))+'</div>';
   }
   return h+'</div>';
 }
@@ -2897,7 +2912,7 @@ function renderPop(){
     case 'duelcall':{
       big=true;
       var dh=p.holder,dans=P.ans,dtot=(S.myscore&&S.myscore.total)||0;
-      inner='<div class="svote"><b style="font-size:22px">🤠 캐서디['+esc(dh)+']가 나타났다!</b><p>내 1점을 걸고 결투해서 두 배를 따세요.</p>'+(S.me===dh?'<p class="mut">당신이 도전장을 냈어요. 수락자를 기다리는 중…</p>':dans==='accept'?'<p class="win">결투 신청! 캐서디의 선택을 기다리는 중 🤠</p>':dans==='flee'?'<p>마음의 평화를 얻으리</p>':'<div class="row" style="justify-content:center"><button class="btn hot" data-act="duelAnswer" data-v="accept"'+(dtot<1?' disabled':'')+'>수락 · 1점 걸기</button><button class="btn ghost" data-act="duelAnswer" data-v="flee">도주</button></div>'+(dtot<1?'<p class="warn small">점수가 부족해요</p>':'<p class="small mut">60초 안에 고르지 않으면 도주로 처리돼요</p>'))+'</div>';
+      inner='<div class="svote"><b style="font-size:22px">🤠 캐서디['+esc(dh)+']가 나타났다!</b><p>내 1점을 걸고 결투해서 두 배를 따세요.</p>'+(S.me===dh?'<p class="mut">당신이 도전장을 냈어요. 수락자를 기다리는 중…</p>':dans==='accept'?'<p class="win">결투 신청! 캐서디의 선택을 기다리는 중 🤠</p>':dans==='flee'?'<p>마음의 평화를 얻으리</p>':'<div class="row" style="justify-content:center"><button class="btn '+(P.sel==='accept'?'hot':'ghost')+'" data-act="duelSel" data-v="accept"'+(dtot<1?' disabled':'')+'>수락 · 1점 걸기</button><button class="btn '+(P.sel==='flee'?'hot':'ghost')+'" data-act="duelSel" data-v="flee">도주</button></div><button class="btn hot block" style="margin-top:10px" data-act="duelAnswer" data-v="'+(P.sel||'')+'"'+(P.sel?'':' disabled')+'>✅ 확인 (제출)</button>'+(dtot<1?'<p class="warn small">점수가 부족해요</p>':'<p class="small mut">60초 안에 고르지 않으면 도주로 처리돼요</p>'))+'</div>';
       break;}
     case 'hackres':{
       big=true;
@@ -2992,7 +3007,7 @@ function renderPop(){
       break;}
     default:
       big=true;
-      inner=(p.alert?'<div class="shout2">'+esc(p.alert)+'</div>':'')+(p.face?'<div class="emo">'+heroImg(p.face,'cimg')+'</div>':'')+(p.emoji?'<div class="emo">'+p.emoji+'</div>':'')+'<div class="lines">'+(p.lines||[]).map(function(l){return '<p>'+esc(l)+'</p>';}).join('')+'</div>'+(p.score?'<div class="scorebox '+(String(p.score).charAt(0)==='-'?'neg':'pos')+'">'+esc(p.score)+'</div>':'')+(p.gains&&p.gains.length?(p.gainsTitle?'<p class="small mut" style="margin:8px 0 0">'+esc(p.gainsTitle)+'</p>':'')+'<div class="gains">'+p.gains.map(function(g,i){return '<div class="gain'+(g.name===S.me?' me':'')+'" style="animation-delay:'+(i*0.4+0.2)+'s"><span class="gn">'+esc(g.name)+'</span><b class="'+(g.d>0?'plus':'minus')+'">'+fmt(g.d)+'점</b></div>';}).join('')+'</div>':'')+
+      inner=(p.alert?'<div class="shout2'+(p.alertCls?' '+p.alertCls:'')+(String(p.alert).length>14?' long':'')+'">'+esc(p.alert)+'</div>':'')+(p.face?'<div class="emo">'+heroImg(p.face,'cimg')+'</div>':'')+(p.emoji?'<div class="emo">'+p.emoji+'</div>':'')+'<div class="lines">'+(p.lines||[]).map(function(l){return '<p>'+esc(l)+'</p>';}).join('')+'</div>'+(p.score?'<div class="scorebox '+(String(p.score).charAt(0)==='-'?'neg':'pos')+'">'+esc(p.score)+'</div>':'')+(p.gains&&p.gains.length?(p.gainsTitle?'<p class="small mut" style="margin:8px 0 0">'+esc(p.gainsTitle)+'</p>':'')+'<div class="gains'+(p.compact?' compact':'')+'">'+p.gains.map(function(g,i){return '<div class="gain'+(g.name===S.me?' me':'')+'" style="animation-delay:'+(i*0.4+0.2)+'s"><span class="gn">'+esc(g.name)+'</span><b class="'+(g.d>0?'plus':'minus')+'">'+fmt(g.d)+'점</b></div>';}).join('')+'</div>':'')+
         (p.swap?'<div class="swapbox">'+p.swap.map(function(s){return '<div class="swaprow"><b>'+esc(s.n)+'</b><span>'+s.from+'점 → <b class="to">'+s.to+'점</b></span></div>';}).join('')+'</div>':'')+(p.after?'<p class="afterline">'+esc(p.after)+'</p>':'')+(p.star?'<div class="starbox'+(p.star.name===S.me?' me':'')+'"><div class="stl">'+esc(p.star.label||'')+'</div><div class="stn">'+esc(p.star.name)+(p.star.name===S.me?' (나!)':'')+'</div>'+(p.star.pts!=null?'<div class="stp">+'+p.star.pts+'점</div>':'')+'</div>':'')+
         (p.bubble?'<div class="bubble"><b>'+esc(p.bubble.who)+'</b> : “'+esc(p.bubble.text)+'”</div>':'')+
         (p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'')+funnyLucky(ev);
@@ -3649,7 +3664,7 @@ function scoutDraw(target,via){
     slots:[{label:'영입',name:target,spin:false},{label:'방출',name:out,spin:true}],note:out+' 님 방출! '+target+' ↔ '+out+' 팀 교환',via:via||''},null);
   setTimeout(function(){
     setTeams('bowl2',g,'','🎳 볼링 2세트 팀이 정해졌어요!',via?{via:via}:null);
-    if(!via)trOfferRedraw('release','bowl2');
+    if(!via&&out===holderOf('tracer'))trOfferRedraw('release','bowl2');
     sysChat((via?'⏪ '+via+' ':'')+'🥁 방출 추첨 결과: '+out+' 님 방출!!!! ('+target+' ↔ '+out+' 팀 교환) · 2세트 팀 → '+g.map(function(x){return x.n+' ('+x.m.join(', ')+')';}).join(' / '));
     S.ui.scout={stage:'done'};render(true);
   },4500);
@@ -4342,6 +4357,7 @@ function processUses(){
     var p=S.players[uid];
     if(p&&p.da){var dk=uid+':d:'+p.da.ts;if(!S.handledUse[dk]){S.handledUse[dk]=true;var da=p.da;S.db.doc('players/'+uid).update({da:null}).catch(function(){});duelOnAnswer(uid,p,da);}}
     if(p&&p.dp){var pk2=uid+':p:'+p.dp.ts;if(!S.handledUse[pk2]){S.handledUse[pk2]=true;var dp=p.dp;S.db.doc('players/'+uid).update({dp:null}).catch(function(){});duelPick(dp.id,dp.picks);}}
+    if(p&&p.sv&&a.state.svote&&p.sv.id===a.state.svote.vid){var vt0=a.state.svote.votes=a.state.svote.votes||{};if(vt0[p.name]!==p.sv.pick){vt0[p.name]=p.sv.pick;saveState();}}
     ['rr','tp','ea','dq'].forEach(function(f){
       var q=p&&p[f];if(!q)return;var k=uid+':'+f+':'+q.ts;if(S.handledUse[k])return;S.handledUse[k]=true;
       var upd={};upd[f]=null;S.db.doc('players/'+uid).update(upd).catch(function(){});
@@ -4579,7 +4595,7 @@ async function publishTq(t,pl){      // 트레이서의 PIN으로만 풀리는 �
 function trOfferRedraw(kind,key){
   var t=holderOf('tracer');if(!t)return;
   var s=trQ();if(s.uses>=2)return;
-  var lab={bowlTeams:'볼링 1세트 랜덤 팀 뽑기',owTeams:(GAME[key]||'오버워치')+' 랜덤 팀 뽑기',release:'볼링 2세트 랜덤 방출 추첨'}[kind];
+  var lab={bowlTeams:'볼링 1세트 랜덤 팀 뽑기',owTeams:(GAME[key]||'오버워치')+' 랜덤 팀 뽑기',release:'볼링 2세트 랜덤 방출 추첨 (내가 방출자로 뽑혔어요)'}[kind];
   s.q.push({id:uuid(),att:{type:'redraw',kind:kind,key:key,target:t},lab:lab,ts:Date.now()});saveState();trSync();
 }
 function redrawOk(att){
@@ -4607,9 +4623,14 @@ function trAnswer(id,v){
     sysChat('⏪ 누군가가 시간을 되감았다. '+pd.lab+'을 다시 뽑아요!');
     announce('announce','⏪ 시간 역행!',{useBy:'?',useAnon:true,useHero:'tracer',fx:'rewind',lines:['⏪ 누군가가 시간을 되감았다!','“'+pd.lab+'”을 다시 뽑아요']},'');
     dealNote(t,'⏪ 시간을 되감았다. (남은 '+(2-s.uses)+'회)',['⏪ 시간이 되감겼다!','“'+pd.lab+'”을 다시 뽑아요','(남은 '+(2-s.uses)+'회)']);
-    if(pd.att.kind==='bowlTeams'){clearBowl();tBowl1();}
-    else if(pd.att.kind==='owTeams')owDraw(pd.att.key,'⏪ 시간 역행');
-    else if(pd.att.kind==='release')scoutDraw(A().state.scoutTarget,'⏪ 시간 역행');
+    setTimeout(function(){announce('announce','⏪ 되돌렸다',{queue:true,face:'tracer',alert:'⏪ 시간이 되감겼다!',lines:['“'+pd.lab+'”을 되돌렸다','곧 다시 뽑아요…']},'');},3200);
+    setTimeout(function(){      // 연출과 안내가 끝난 뒤에 팀을 다시 뽑아요
+      if(!redrawOk(pd.att))return;
+      if(pd.att.kind==='bowlTeams'){clearBowl();tBowl1();}
+      else if(pd.att.kind==='owTeams')owDraw(pd.att.key,'⏪ 시간 역행');
+      else if(pd.att.kind==='release')scoutDraw(A().state.scoutTarget,'⏪ 시간 역행');
+      render(true);
+    },8000);
     render(true);return;
   }
   undoAttack(pd.att);s.uses++;saveState();trSync();
@@ -4662,7 +4683,14 @@ function echoAnswer(id,pick){
   }
   saveState();render(true);
 }
-function echoMark(h,res){markUsed('echo',h,res,[h]);}
+function echoMark(h,res){
+  markUsed('echo',h,res,[h]);
+  setTimeout(function(){      // 에코 지목이 끝나면 점수 발표로 자동으로 이어져요 (정산이 끝나 있을 때)
+    if(!S.admin||(S.pub.final&&S.pub.final.published))return;
+    ['reinhardt','tracer','sombra','lucio'].forEach(function(h){if(holderOf(h)&&!settledOf(h))settleHero(h);});      // 남은 정산도 자동으로 끝내요
+    if(settleOk()){publishFinal();toast('🏆 점수를 자동으로 공개했어요');}
+  },9000);
+}
 function echoGain(text){
   var h=holderOf('echo');
   addEvt('에코 복제 (+1)','power',[{name:h,d:1,note:text.replace(/^🪞 /,'')}],{id:'pw:echo:gain'});
@@ -4673,7 +4701,7 @@ function echoApply(att){
   addEvt('에코 복제 — 점수 교환','power',swapItems(h,att.target,T,'에코 복제'),{id:'pw:echo'});
   echoMark(h,[h+' ↔ '+att.target+' 점수 교환']);
   sysChat(att.target+' 님, 점수 맞바꿈 완료! 🪞');
-  setTimeout(function(){announce('announce','🪞 점수 교환!',{useBy:h,useHero:'echo',fx:'echo',queue:true,alert:'🪞 점수가 교환되었다!',lines:['에코['+h+']가 최종 1등 '+att.target+' 님과 점수를 맞바꿨다!'],swap:[{n:h,from:ta,to:tb},{n:att.target,from:tb,to:ta}]},'');},2500);
+  announce('announce','🪞 점수 교환!',{useBy:h,useHero:'echo',fx:'echo',alert:'🪞 점수가 교환되었다!',lines:['에코['+h+']가 최종 1등 '+att.target+' 님과 점수를 맞바꿨다!'],swap:[{n:h,from:ta,to:tb},{n:att.target,from:tb,to:ta}]},'');
   render(true);
 }
 function echoMiss(h){
@@ -4681,14 +4709,13 @@ function echoMiss(h){
   echoMark(h,['🪞 최종 1등을 찾지 못했어요 (+1점)']);
   sysChat('🪞 에코는 1등을 찾지 못했다…');
   dealNote(h,'🪞 1등을 찾지 못했어요. +1점');
-  setTimeout(function(){announce('announce','🪞 에코의 최종 지목',{useBy:'?',useAnon:true,useHero:'echo',fx:'echo',queue:true,lines:['🪞 에코는 1등을 찾지 못했다…','(에코가 누구인지는 계속 비밀이에요)']},'');},2500);
+  announce('announce','🪞 에코의 최종 지목',{useBy:'?',useAnon:true,useHero:'echo',fx:'echo',lines:['🪞 에코는 1등을 찾지 못했다…','(에코가 누구인지는 계속 비밀이에요)']},'');
 }
 function echoFinalResolve(pick,id){
   var e=echoSt(),h=holderOf('echo');
   if(id){if(!e.pop||e.pop.id!==id)return;e.pop=null;epSet(h,{id:id,done:true});}
   var firsts=rank(calc()).filter(function(x){return x.rank===1;}).map(function(x){return x.name;});
   if(firsts.indexOf(h)>=0)return echoGain('🪞 에코['+h+']는 이미 거울 속 1등이었다. +1점');
-  if(pick)announce('announce','🪞 에코의 최종 지목',{useBy:'?',useAnon:true,useHero:'echo',fx:'echo',lines:['🪞 에코가 최종 1등을 지목했다!','결과는…']},'');      // 점수가 공개되기 전에 먼저 발동 연출
   if(pick&&firsts.indexOf(pick)>=0){
     var att={type:'echo',label:'에코의 복제',attacker:h,target:pick};
     if(afterAttack(att)==='none')echoApply(att);
@@ -4718,9 +4745,9 @@ function echoLastCall(){
 }
 function widowAnnounce(att){
   sysChat('🎯 위도우메이커가 '+GAME[att.key]+' 승리팀 1등을 저격해서 성공했다. 점수를 빼앗았다.');
-  announce('announce','🎯 저격 성공!',{useBy:'?',useAnon:true,useHero:'widowmaker',fx:'snipe',lines:['🎯 위도우메이커가 '+GAME[att.key]+' 승리팀 1등을 저격했다!','✅ 성공! 점수를 빼앗았다','누구인지는 아직 비밀이에요 🤫']},'');
+  announce('announce','🎯 저격 성공!',{face:'widowmaker',swooshHero:'widowmaker',useAnon:true,useHero:'widowmaker',fx:'snipe',alert:'🎯 위도우메이커가 적외선 투시를 성공했습니다!',alertCls:'ok',lines:['승리팀 1등을 저격해서 점수를 빼앗았다','누구인지는 아직 비밀이에요 🤫']},'');
   dealNote(att.attacker,'🎯 저격 성공!',['🎯 저격 결과','✅ 명중!','승리팀 1등 '+att.target+' 님을 저격해서 성공, 점수를 빼앗았다','나 +'+att.pts+'점 · '+att.target+' -1점'+(att.first?' (첫 성공 보너스)':'')]);
-  dealNote(att.target,'🎯 위도우메이커에게 저격당했다. -1점',['🎯 위도우메이커에게 저격당했다!','승리팀 1등이 들켰어요 😱'],{alert:'✋ 잠깐!!!',score:'-1점'});
+  dealNote(att.target,'🎯 위도우메이커에게 저격당했다. -1점',['🎯 위도우메이커에게 저격당했다!','당신의 반응으로 최고 점수를 간파당했어요 😱'],{alert:'✋ 잠깐!!!',score:'-1점'});
 }
 
 /* ===================== v27: 캐서디 (도전장 → 수락 → 상대 지목 → 하나빼기) ===================== */
@@ -4752,6 +4779,7 @@ function duelClose(id){
   d.cands=names;
   if(names.length===1){d.picks=names.slice();duelStartMatch();return;}
   d.stage='pick';d.pts=Date.now();saveState();
+  {var pfd=clone(S.pub.flags)||{};pfd.duelPick={id:d.id,cands:names};S.pub.flags=pfd;saveFlags();}
   dealPatch(h,{duel:{id:d.id,stage:'pick',cands:names}});
   dealNote(h,'🤠 수락자가 있어요! 상대를 최대 2명 골라주세요. (60초 안에 고르지 않으면 먼저 수락한 2명이 지목돼요)');
   setTimeout(function(){duelPick(id,null);},60000);
@@ -4759,6 +4787,7 @@ function duelClose(id){
 }
 function duelPick(id,picks){
   var d=A().state.duel2;if(!d||d.id!==id||d.stage!=='pick')return;
+  {var pfe=clone(S.pub.flags)||{};if(pfe.duelPick){delete pfe.duelPick;S.pub.flags=pfe;saveFlags();}}
   picks=(picks||[]).filter(function(n,i,a){return d.cands.indexOf(n)>=0&&a.indexOf(n)===i;}).slice(0,2);
   if(!picks.length){      // 캐서디가 상대를 고르지 않았어요 → 결투 거절, 수락자의 점수는 그대로
     var hh=d.holder;
@@ -4829,7 +4858,7 @@ function lucioRun(name,o){
     addEvt('루시우 분위기 전환 (소극적)','power',g.m.map(function(n){return {name:n,d:1,note:'루시우 분위기 전환(소극적) +1'};}),{id:'pw:lucio'});
     markUsed('lucio',name,[ln+' · '+g.n+' 전원 +1점 (소극적)'],g.m.slice());
     sysChat('🎧 루시우['+name+']가 조용히 비트를 깔았다. '+g.n+' 전원 +1점');
-    announce('announce','🎧 분위기 전환!',{useBy:name,useHero:'lucio',fx:'beat',lines:['🎧 루시우가 '+ln+' 분위기를 전환했다!','조용히 비트를 깔았어요 🙂'],gainsTitle:'🎉 점수를 얻은 사람',gains:g.m.map(function(n){return {name:n,d:1};})},'');
+    announce('announce','🎧 분위기 전환!',{useBy:name,useHero:'lucio',compact:true,lines:['🎧 루시우가 '+ln+' 분위기를 전환했다!','조용히 비트를 깔았어요 🙂'],gainsTitle:'🎉 점수를 얻은 사람',gains:g.m.map(function(n){return {name:n,d:1};})},'');
     g.m.forEach(function(n){dealNote(n,'🎧 루시우 덕분에 1점을 얻었다.');});
   }else{
     var st=A().state;st.lucioPending={key:key,team:g.n,members:g.m.slice(),ts:Date.now(),by:name,id:uuid()};saveState();
@@ -4848,7 +4877,7 @@ function lucioJudge(yes,pid){
   delete st.lucioPending;saveState();
   if(yes)sysChat('🎧 무대 성공적! 루시우['+lp.by+']가 '+lp.team+' 전원을 일으켜 세웠다. 전원 +2점, 루시우 추가 보너스 +1점');
   else sysChat('🎧 루시우['+lp.by+']의 비트가 조금 모자랐다. '+lp.team+' 전원 +1점');
-  announce('announce',yes?'🎧 무대 대성공!':'🎧 분위기 전환!',{useBy:lp.by,useHero:'lucio',fx:'beat',lines:[yes?'🎧 루시우의 무대가 대성공!':'🎧 루시우의 비트가 조금 모자랐어요',GAME[lp.key]+' · '+lp.team],gainsTitle:'🎉 점수를 얻은 사람',gains:lp.members.map(function(n){return {name:n,d:d};}),after:yes?'🎧 루시우 본인 추가 보너스 +1점':''},'');
+  announce('announce',yes?'🎧 무대 대성공!':'🎧 분위기 전환!',{useBy:lp.by,useHero:'lucio',compact:true,lines:[yes?'🎧 루시우의 무대가 대성공!':'🎧 루시우의 비트가 조금 모자랐어요',GAME[lp.key]+' · '+lp.team],gainsTitle:'🎉 점수를 얻은 사람',gains:lp.members.map(function(n){return {name:n,d:d};}),after:yes?'🎧 루시우 본인 추가 보너스 +1점':''},'');
   lp.members.forEach(function(n){dealNote(n,'🎧 루시우 덕분에 '+d+'점을 얻었다.');});
   render(true);
 }
@@ -4941,7 +4970,7 @@ function hackJudge(yes){
 function sombraVoteStart(target){
   var vid=uuid(),ex=revealedNames();
   var cands=PLAYERS.filter(function(n){return ex.indexOf(n)<0;});
-  A().state.svote={vid:vid,ts:Date.now()};saveState();
+  A().state.svote={vid:vid,ts:Date.now(),votes:{}};saveState();
   {var pfs=clone(S.pub.flags)||{};pfs.svote={vid:vid,cands:cands,target:target||''};S.pub.flags=pfs;saveFlags();}      // 모두의 화면 아래에 투표 패널이 끝날 때까지 떠요
   announce('hackres','💜 솜브라 해킹 결과',{ok:false,target:target||'',vid:vid,cands:cands,swooshHero:'sombra',noTitle:true},'');   // 시간 제한 없이, 관리자가 [투표 마감]을 눌러야 진행돼요
 }
@@ -4949,8 +4978,10 @@ function sombraVoteClose(vid){
   var sv=A().state.svote;if(!sv||sv.vid!==vid)return;
   delete A().state.svote;
   {var pfc=clone(S.pub.flags)||{};delete pfc.svote;S.pub.flags=pfc;saveFlags();}
-  var holder=holderOf('sombra'),cnt=0,st=sombraSt(),need=((((A().content||{}).params)||{}).sombraExposeVotes)||4;
-  Object.keys(S.players).forEach(function(uid){var p=S.players[uid];if(!p||p.name===holder)return;if(p.sv&&p.sv.id===vid&&p.sv.pick===holder)cnt++;});   // 솜브라 본인 표는 더미
+  var holder=holderOf('sombra'),cnt=0,st=sombraSt(),need=((((A().content||{}).params)||{}).sombraExposeVotes)||3;
+  var vts=Object.assign({},sv.votes||{});      // 투표가 들어오는 순간 기록해 둔 표 + 지금 남아 있는 표 (다시 접속해서 사라진 표도 세요)
+  Object.keys(S.players).forEach(function(uid){var p=S.players[uid];if(p&&p.sv&&p.sv.id===vid)vts[p.name]=p.sv.pick;});
+  Object.keys(vts).forEach(function(n){if(n!==holder&&vts[n]===holder)cnt++;});   // 솜브라 본인 표는 더미
   if(cnt>=need){
     st.exposed=true;
     var rv=clone(S.pub.reveal)||{};rv.sombra={by:holder,detail:PUB_DETAIL.sombra};S.pub.reveal=rv;put('public/reveal',rv);
@@ -4984,7 +5015,7 @@ function widowResolve(id,pick,why){
     var fakeAt=(cur.ts||Date.now())+60000,fakeDelay=Math.max(0,fakeAt-Date.now());
     setTimeout(function(){      // 내가 1등이라 저격할 수 없어도, 1분 뒤 똑같이 "성공" 팝업이 떠서 들키지 않아요
       sysChat('🎯 위도우메이커가 '+GAME[cur.key]+' 승리팀 1등을 저격해서 성공했다. 점수를 빼앗았다.');
-      announce('announce','🎯 저격 성공!',{useBy:'?',useAnon:true,useHero:'widowmaker',fx:'snipe',lines:['🎯 위도우메이커가 '+GAME[cur.key]+' 승리팀 1등을 저격했다!','✅ 성공! 점수를 빼앗았다','누구인지는 아직 비밀이에요 🤫']},'');
+      announce('announce','🎯 저격 성공!',{face:'widowmaker',swooshHero:'widowmaker',useAnon:true,useHero:'widowmaker',fx:'snipe',alert:'🎯 위도우메이커가 적외선 투시를 성공했습니다!',alertCls:'ok',lines:['승리팀 1등을 저격해서 점수를 빼앗았다','누구인지는 아직 비밀이에요 🤫']},'');
     },fakeDelay);
   }
   else if(why==='timeout')msg='⏱️ 시간 초과! 저격에 실패했다. 이번 라운드 기회가 끝났다.';
@@ -4998,7 +5029,7 @@ function widowResolve(id,pick,why){
   }else{
     msg='🎯 승리팀 1등을 저격했으나 빗나갔다.'+(pick?' ('+pick+' 님은 1등이 아니었다)':'');
     sysChat('🎯 위도우메이커가 '+GAME[cur.key]+' 승리팀 1등을 저격했으나 빗나갔다.');
-    announce('announce','🎯 저격 실패',{useBy:'?',useAnon:true,useHero:'widowmaker',fx:'snipe',lines:['🎯 위도우메이커가 '+GAME[cur.key]+' 승리팀 1등을 저격했으나','❌ 빗나갔다…']},'');
+    announce('announce','🎯 저격 실패',{face:'widowmaker',swooshHero:'widowmaker',useAnon:true,useHero:'widowmaker',fx:'snipe',alert:'❌ 위도우메이커가 적외선 투시를 실패했습니다!',alertCls:'fail',lines:['승리팀 1등을 저격했으나 빗나갔다']},'');
   }
   saveState();
   dealPatch(holder,{snipe:{id:id,done:true}});
@@ -5297,12 +5328,13 @@ async function handle(act,v,t){
     case 'echoLast':if(S.admin)ask('🪞 마지막 호명을 시작할까요? 열려 있는 예측 창은 닫히고 되돌릴 수 없어요.',function(){echoLastCall();});return;
     case 'reinSwearGo':{var trg=(S.ui.use||{}).target;if(!trg)return toast('지킬 사람을 고르세요');ask('🛡️ '+trg+' 님을 지키겠다고 서약할까요?\n서약은 비밀이고 한 번 정하면 바꿀 수 없어요.',function(){sendUse('reinhardt',{mode:'swear',target:trg});});return;}
     case 'cassGo':ask('🤠 도전장을 낼까요? 전원에게 알림이 가고, 한 번 내면 취소할 수 없어요.',function(){sendUse('cassidy',{});});return;
-    case 'duelAnswer':{var pdu=S.pop&&S.pop.ev&&S.pop.ev.payload;if(!pdu||!S.uid)return;S.pop.ans=v;S.db.doc('players/'+S.uid).update({da:{id:pdu.id,v:v,ts:Date.now()}}).catch(function(){});renderPop();return;}
-    case 'duelPickT':{var uc=S.ui.use=S.ui.use||{},pl2=(uc.picks||[]).slice(),jx=pl2.indexOf(v);if(jx>=0)pl2.splice(jx,1);else if(pl2.length<2)pl2.push(v);uc.picks=pl2;break;}
-    case 'duelPickGo':{var dd=S.deal&&S.deal.duel,pk3=(S.ui.use||{}).picks||[];if(!dd||!pk3.length||!S.uid)return;S.db.doc('players/'+S.uid).update({dp:{id:dd.id,picks:pk3,ts:Date.now()}}).catch(function(){});S.ui.use.picks=[];toast('🎯 지목했어요');return;}
+    case 'duelSel':{if(S.pop){S.pop.sel=v;renderPop();}return;}
+    case 'duelAnswer':{var pdu=S.pop&&S.pop.ev&&S.pop.ev.payload;if(!pdu||!S.uid||!v)return;S.pop.ans=v;S.db.doc('players/'+S.uid).update({da:{id:pdu.id,v:v,ts:Date.now()}}).catch(function(){});renderPop();return;}
+    case 'duelPickT':{var uc=S.ui.use=S.ui.use||{},pl2=(uc.picks||[]).slice(),jx=pl2.indexOf(v);if(jx>=0)pl2.splice(jx,1);else if(pl2.length<2)pl2.push(v);uc.picks=pl2;renderPP();break;}
+    case 'duelPickGo':{var dd=(S.deal&&S.deal.hero==='cassidy')?((S.pub.flags||{}).duelPick||(S.deal.duel&&S.deal.duel.stage==='pick'?S.deal.duel:null)):null,pk3=(S.ui.use||{}).picks||[];if(!dd||!S.uid)return;if(pk3.length!==Math.min(2,dd.cands.length))return toast('수락자가 2명 이상이면 반드시 '+Math.min(2,dd.cands.length)+'명을 골라야 해요');S.db.doc('players/'+S.uid).update({dp:{id:dd.id,picks:pk3,ts:Date.now()}}).catch(function(){});S.ui.use.picks=[];toast('🎯 지목했어요');return;}
     case 'duelCloseNow':{var d1=A().state.duel2;if(S.admin&&d1)duelClose(d1.id);return;}
     case 'duelAutoPick':{var d2=A().state.duel2;if(S.admin&&d2)duelPick(d2.id,null);return;}
-    case 'duelRes':{if(!S.admin)return;var sp=String(v).split(':');duelResult(sp[0],sp[1]==='1');return;}
+    case 'duelRes':{if(!S.admin)return;var sp=String(v).split(':');ask('🤠 이 결투의 결과를 확정할까요?\n'+(sp[1]==='1'?'캐서디 승':sp[0]+' 승')+' — 한 번 확정하면 점수가 바로 반영돼요.',function(){duelResult(sp[0],sp[1]==='1');});return;}
     case 'lucioGame':S.ui.use=S.ui.use||{};S.ui.use.lkey=v;break;
     case 'lucioGo':{var ul=S.ui.use||{},lk=ul.lkey||lucioLost(S.me)[0];if(!lk)return toast('진 경기가 없어요');var md=v;ask('🎧 '+GAME[lk]+'에서 진 팀의 분위기를 '+(md==='active'?'춤이나 노래로 적극적으로 (+2, 성공 시 루시우 +1 추가)':'소극적으로 (+1)')+' 전환할까요?\n모두에게 공개되고, 한 번 쓰면 취소할 수 없어요.',function(){sendUse('lucio',{key:lk,mode:md});});return;}
     case 'lucioYes':if(S.admin)lucioJudge(true);return;
