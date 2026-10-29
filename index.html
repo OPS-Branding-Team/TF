@@ -777,6 +777,12 @@ details.pl .bd{padding:0 12px 12px}
 .predrow.up{color:#2fd3a3}.predrow.dn{color:#ff6b6b}.predrow.ok{color:var(--gold)}
 .predrow b{font-size:17px}
 
+/* v47 */
+.callout.big{font-family:var(--f-d);font-size:30px;line-height:1.3;text-align:center;padding:18px 12px;color:var(--gold);animation:dak .7s cubic-bezier(.2,2,.4,1) both}
+.box.hasbg{position:relative}
+.box.hasbg>*:not(.bgchar){position:relative;z-index:1}
+.bgchar{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat;opacity:.16;pointer-events:none;z-index:0;border-radius:inherit;filter:saturate(1.1)}
+
 .card input[type=file]{margin-top:8px;width:100%}
 </style>
 </head>
@@ -1543,14 +1549,24 @@ function evtPoints(id){return L().entries.filter(function(e){return e.evt===id;}
 /* =============== 팀 / 초능력 상태 =============== */
 function team(key){var t=S.pub.teams;return t&&t.sets&&t.sets[key]||null;}
 function teamOf(key,name){var t=team(key);if(!t)return -1;for(var i=0;i<t.groups.length;i++)if(t.groups[i].m.indexOf(name)>=0)return i;return -1;}
+var TEAM_TITLES={'심승선':'승선시대','김세환':'세환과 아이들','박온':'에스파온','임세호':'조세호 아닙니다','이수민':'수민 엔터테인먼트(SM)','하지인':'지인격의 거인','최우재':'우재는 못 말려','김미송':'미송임파서블'};
+function nameTeams(groups){      // 팀원 중 한 명의 팀명을 랜덤으로 골라 "○○ 팀"으로 (이미 쓴 팀명은 웬만하면 피해요)
+  var st=A().state||{},used=(st.teamNamesUsed=st.teamNamesUsed||[]);
+  groups.forEach(function(g){
+    var cand=g.m.filter(function(n){return TEAM_TITLES[n];}),fresh=cand.filter(function(n){return used.indexOf(TEAM_TITLES[n])<0;}),pool=fresh.length?fresh:cand;
+    if(pool.length){var pk=pool[rnd(pool.length)];g.n=TEAM_TITLES[pk]+' 팀';used.push(TEAM_TITLES[pk]);}
+  });
+  return groups;
+}
 function setTeams(key,groups,note,title,extra){
+  nameTeams(groups);
   var T=clone(S.pub.teams)||{sets:{},current:null};
   T.sets=T.sets||{};
   T.sets[key]={groups:groups};T.current=key;
   S.pub.teams=T;saveTeams();
   var p={groups:groups,note:note};
   if(key.indexOf('bowl')===0)p.closeGo='bowl';else if(key.indexOf('ow')===0)p.closeGo='ow';
-  else if(key==='lunch'){p.closeGo='lunch';p.note=(p.note?p.note+'\n':'')+'👉 닫으면 점심 룰(이구동성 · 릴레이)로 이동해요';}
+  else if(key==='lunch'){p.closeGo='lunch';p.note='';p.callout='🍽️ 점심 팀 게임을 진행합니다!';p.noIcon=true;p.calloutBig=true;}
   if(key==='bowl1'||key==='bowl2'){p.note='';p.callout='각 팀별로 뉴비 2명 · 미들 2명 · 고수 1명을 정해주세요!';}   // 볼링 팀 공개 때는 조 편성 안내를 크게
   if(extra)Object.assign(p,extra);
   announce('teams',title,p,(p.via?'⏪ '+p.via+' ':'')+title+' — '+groups.map(function(g){return g.n+' ('+g.m.join(', ')+')';}).join(' / '));
@@ -1575,7 +1591,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v46';
+var BUILD_ID='v47';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:0;        // 0 = 시간 제한 없음 (관리자가 준비되면 직접 눌러요)
 var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -1650,9 +1666,10 @@ function todoItems(){
     else it.push({k:'duel',t:'🤠 결투 결과 입력 — 실제 하나빼기를 한 뒤 눌러요',s:'',b:d.picks.map(function(n){var r=d.res[n];return r===undefined?[{l:esc(d.holder)+' 승 vs '+esc(n),a:'duelRes',v:n+':1',hot:1},{l:esc(n)+' 승',a:'duelRes',v:n+':0'}]:[{l:'✔ '+esc(n)+' 입력됨',a:'',dis:1}];}).reduce(function(x,y){return x.concat(y);},[])});
   }
   if(s.lucioPending){var lp=s.lucioPending;it.push({k:'lucio',t:'🎧 루시우['+esc(lp.by)+'] 적극적 무대 — '+esc(GM(lp.key))+' '+esc(lp.team),s:'춤·노래가 끝나면 판정해요 (60초 안에 안 누르면 성공)',b:[{l:'✅ 성공',a:'lucioYes',hot:1},{l:'❌ 실패',a:'lucioNo'}]});}
-  [['rein',s.rein&&s.rein.pend,'🛡️ 라인하르트가 방벽을 쓸지 고르는 중'],['widow',s.widow&&s.widow.cur,'🎯 위도우메이커 저격 대기 중'],['echo',s.echo2&&s.echo2.pop,'🪞 에코 지목 대기 중']].forEach(function(x){
+  [['rein',s.rein&&s.rein.pend,'🛡️ 라인하르트가 방벽을 쓸지 고르는 중'],['widow',(s.widow&&s.widow.cur&&!s.widow.cur.self)?s.widow.cur:null,'🎯 위도우메이커 저격 대기 중'],['echo',s.echo2&&s.echo2.pop,'🪞 에코 지목 대기 중']].forEach(function(x){
     if(x[1])it.push({k:x[0],t:x[2],s:'60초 안에 응답이 없으면 기본값으로 처리돼요',b:[{l:'기다리지 않고 기본값 처리',a:'forceGo'}]});
   });
+  if(s.widow&&s.widow.cur&&s.widow.cur.self)it.push({k:'widowself',t:'🎯 위도우메이커 본인이 1등이에요 — 30초 뒤에 저격 성공 팝업이 자동으로 나가요',s:'',b:[]});
   return it;
 }
 function renderOpenFab(){
@@ -2413,7 +2430,7 @@ function cassidyPanel(){
 function reinPanel(x){
   var d=(S.deal&&S.deal.rein3)||{},uo=S.ui.use||{};
   var h='<div class="card">';
-  if(d.sworn)return h+'<p class="win">🛡️ 서약자: <b>'+esc(d.sworn)+'</b> (비밀) · 서약자 방어 '+(d.swornUsed?'사용':'대기')+' · 내 방어 '+(d.selfUsed?'사용':'대기')+'</p></div>';
+  if(d.sworn)return h+'<p class="win">🛡️ 서약한 사람 : <b>'+esc(d.sworn)+'</b></p></div>';
   return h+'<p class="small">서약할 사람</p>'+chipsSel(PLAYERS,'ui.use.target',uo.target,S.me)+'<button class="btn hot block" style="margin-top:10px" data-act="reinSwearGo">🛡️ 서약</button></div>';
 }
 function adminCardBtns(x,hd){
@@ -2856,7 +2873,7 @@ function renderPop(){
         return '<div class="pt"><h4>'+esc(g.n)+'</h4>'+g.m.map(function(n,i){
           return '<span class="pn2'+(n===S.me?' me':'')+((p.hl||[]).indexOf(n)>=0?' hl':'')+'" style="animation-delay:'+((base+i)*0.28+0.2)+'s">'+((p.cap||[]).indexOf(n)>=0?'⭐ ':'')+esc(n)+'</span>';
         }).join('')+'</div>';
-      }).join('')+'</div>'+(p.callout?'<div class="callout">🎳 '+esc(p.callout)+'</div>':'')+(p.note?'<p class="pop-note">'+esc(p.note)+'</p>':'');break;
+      }).join('')+'</div>'+(p.callout?'<div class="callout'+(p.calloutBig?' big':'')+'">'+(p.noIcon?'':'🎳 ')+esc(p.callout)+'</div>':'')+(p.note?'<p class="pop-note">'+esc(p.note)+'</p>':'');break;
     case 'pick':
       var wonMe=(p.names||[]).indexOf(S.me)>=0,lostMe=(p.loseNames||[]).indexOf(S.me)>=0;
       if(wonMe||lostMe)p.noTitle=true;
@@ -3012,7 +3029,8 @@ function renderPop(){
         (p.bubble?'<div class="bubble"><b>'+esc(p.bubble.who)+'</b> : “'+esc(p.bubble.text)+'”</div>':'')+
         (p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'')+funnyLucky(ev);
   }
-  el.innerHTML='<div class="ov'+(ev.kind==='mydeal'?' opq':'')+'" data-act="popClose"><div class="box'+(big?' big':'')+'" data-stop="1">'+((p.useBy&&p.useHero)?useHead(p):(p.noTitle?'':'<h3>'+esc(ev.title||'')+'</h3>'))+(p.fx?'<div class="fxwrap fx-'+esc(p.fx)+'"><i></i><i></i><i></i></div>':'')+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+(noFoot?'':(NEXT_ON&&p.needNext)?'<button class="btn block hot" id="nextBtn" data-act="popNext" style="margin-top:14px'+(p.nextHidden?';display:none':'')+'">다음 ▶</button>':(S.admin&&p.adminGo)?'<button class="btn block hot" style="margin-top:14px" data-act="popAdminGo">'+esc(p.adminGo.label||'입력하러 가기')+'</button><button class="btn block ghost" style="margin-top:8px" data-act="popClose">닫기</button>':p.go?'<button class="btn block hot" style="margin-top:14px" data-act="popGo" data-v="'+esc(p.go)+'">'+esc(p.goLabel||'이동')+'</button>':(p.wait?'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 기다려 주세요… 곧 이어서 진행돼요</button>':(P.hold?'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 봉투를 여는 중…</button>':'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button>')))+'</div></div>';
+  var BGH=p.useHero||p.swooshHero||p.face||p.heroId,BG=(BGH&&typeof HERO_IMG!=='undefined'&&HERO_IMG[BGH]&&ev.kind!=='mydeal')?'<div class="bgchar" style="background-image:url('+HERO_IMG[BGH]+')"></div>':'';
+  el.innerHTML='<div class="ov'+(ev.kind==='mydeal'?' opq':'')+'" data-act="popClose"><div class="box'+(big?' big':'')+(BG?' hasbg':'')+'" data-stop="1">'+BG+((p.useBy&&p.useHero)?useHead(p):(p.noTitle?'':'<h3>'+esc(ev.title||'')+'</h3>'))+(p.fx?'<div class="fxwrap fx-'+esc(p.fx)+'"><i></i><i></i><i></i></div>':'')+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+(noFoot?'':(NEXT_ON&&p.needNext)?'<button class="btn block hot" id="nextBtn" data-act="popNext" style="margin-top:14px'+(p.nextHidden?';display:none':'')+'">다음 ▶</button>':(S.admin&&p.adminGo)?'<button class="btn block hot" style="margin-top:14px" data-act="popAdminGo">'+esc(p.adminGo.label||'입력하러 가기')+'</button><button class="btn block ghost" style="margin-top:8px" data-act="popClose">닫기</button>':p.go?'<button class="btn block hot" style="margin-top:14px" data-act="popGo" data-v="'+esc(p.go)+'">'+esc(p.goLabel||'이동')+'</button>':(p.wait?'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 기다려 주세요… 곧 이어서 진행돼요</button>':(P.hold?'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 봉투를 여는 중…</button>':'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button>')))+'</div></div>';
   var heroId=(!p.noSwoosh)?((p.useBy&&p.useHero)?p.useHero:(p.swooshHero||null)):null;
   var nn=!!(NEXT_ON&&p.needNext);
   P.locked=!!(p.wait&&!p.go)||nn||!!P.hold;
@@ -3454,7 +3472,7 @@ function capsTeams(){
 function ltSave(){
   var lt=S.ui.lt;
   if(!['A','B','C'].every(function(k){return lt[k].length===3;}))return toast('A·B·C팀에 3명씩 선택하세요');
-  setTeams('lunch',['A','B','C'].map(function(k){return {n:k+'팀',m:lt[k].slice()};}),'앉은 자리대로 팀이 정해졌어요! '+HOST+' 님이 진행해요','🍽️ 점심 팀 발표');
+  setTeams('lunch',['A','B','C'].map(function(k){return {n:k+'팀',m:lt[k].slice()};}),'','🍽️ 점심 팀 발표');
 }
 function setTeamsQuiet(key,groups){
   var T=clone(S.pub.teams)||{sets:{},current:null};T.sets=T.sets||{};
@@ -4405,7 +4423,7 @@ function rearmAll(){
   if(d&&d.stage==='pick')at('dp'+d.id,d.pts||d.ts,60000,function(){duelPick(d.id,null);});
   if(s.lucioPending)at('lu'+s.lucioPending.id,s.lucioPending.ts,60000,function(){lucioJudge(true,s.lucioPending&&s.lucioPending.id);});
   if(s.rein&&s.rein.pend)at('rp'+s.rein.pend.id,s.rein.pend.ts,60000,function(){reinAnswer(s.rein.pend&&s.rein.pend.id,'pass');});
-  if(s.widow&&s.widow.cur)at('wd'+s.widow.cur.id,s.widow.cur.ts,60000,function(){widowResolve(s.widow.cur&&s.widow.cur.id,null,'timeout');});
+  if(s.widow&&s.widow.cur)at('wd'+s.widow.cur.id,s.widow.cur.ts,(s.widow.cur.self?30000:60000),function(){widowResolve(s.widow.cur&&s.widow.cur.id,null,'timeout');});
   var e=s.echo2&&s.echo2.pop;
   if(e&&e.kind==='last')at('el'+e.id,e.ts,60000,function(){echoLastTimeout(e.id);});
   if(e&&e.kind==='final')at('ef'+e.id,e.ts,60000,function(){echoFinalResolve(null,e.id);});
@@ -4434,7 +4452,7 @@ function deputyLogCard(){
 function pendingCount(){
   var s=A().state||{},n=0;
   if(s.svote)n++;if(s.sombra&&s.sombra.pending)n++;if(s.duel2)n++;
-  if(s.rein&&s.rein.pend)n++;if(s.widow&&s.widow.cur)n++;if(s.lucioPending)n++;if(s.echo2&&s.echo2.pop)n++;
+  if(s.rein&&s.rein.pend)n++;if(s.widow&&s.widow.cur&&!s.widow.cur.self)n++;if(s.lucioPending)n++;if(s.echo2&&s.echo2.pop)n++;
   return n;
 }
 function forceProgress(quiet){
@@ -4559,7 +4577,7 @@ function reinDo(att,kind){
     sysChat('🛡️ 라인하르트['+h+']가 마지막 방벽을 펼쳤다! '+att.target+josaPick(att.target,'을','를')+' 노린 '+att.label+josaPick(att.label,'은','는')+' 무효가 되었다. 방벽은 제가 막겠습니다!');
     var rv=clone(S.pub.reveal)||{};rv.reinhardt={by:h,detail:((((A().content||{}).powers||{}).reinhardt||{}).detail)||[]};S.pub.reveal=rv;put('public/reveal',rv);
   }else sysChat('라인하르트의 방벽이 '+att.target+josaEulReul(att.target)+' 노린 '+eulReul(att.label)+' 막아냈다.');
-  setTimeout(function(){announce('announce','🛡️ 방벽!',{face:'reinhardt',swooshHero:'reinhardt',fx:'barrier',queue:true,alert:'🛡️ 내 뒤에 숨어!',lines:[att.target+' 님을 노린 '+eulReul(att.label)+' 라인하르트'+(r.blocks>=2?'['+h+']':'')+'가 막아냈다!']},'');},2600);      // 다른 초능력 팝업이 먼저 보이고, 끝나면 이어서
+  setTimeout(function(){announce('announce','🛡️ 방벽!',{face:'reinhardt',swooshHero:'reinhardt',fx:'barrier',queue:true,alert:(kind==='sworn'?'🛡️ 내 뒤에 숨어!':'🛡️ 방벽을 펼쳤다!'),lines:[att.target+' 님을 노린 '+eulReul(att.label)+' 라인하르트'+(r.blocks>=2?'['+h+']':'')+'가 막아냈다!']},'');},2600);      // 다른 초능력 팝업이 먼저 보이고, 끝나면 이어서
   dealNote(h,'방어 성공. +'+pts+'점');
   if(att.attacker)dealNote(att.attacker,'🛡️ 라인하르트의 방벽에 막혀 공격이 무효가 되었다.');
   if(att.type==='sym')dealNote(att.attacker,'순간이동기가 파괴되었어요! 🌀 다른 사람을 지목해 주세요.');
@@ -5004,15 +5022,15 @@ function widowOpen(key,assign,delay){
   var vals=win.map(function(n){return assign[n]||0;}),mx=Math.max.apply(null,vals.concat([0]));
   var top=win.filter(function(n){return assign[n]===mx;})[0]||'',self=(top===holder),id=uuid();
   var showAt=Date.now()+delay;w.cur={id:id,key:key,top:top,self:self,ts:showAt};saveState();
-  dealPatch(holder,{snipe:{id:id,label:GAME[key],cands:win.filter(function(n){return n!==holder;}),self:self,show:showAt,until:showAt+60000,n:w.n,total:4}});
-  setTimeout(function(){widowResolve(id,null,'timeout');},delay+60000);
+  dealPatch(holder,{snipe:{id:id,label:GAME[key],cands:win.filter(function(n){return n!==holder;}),self:self,show:showAt,until:showAt+(self?30000:60000),n:w.n,total:4}});
+  setTimeout(function(){widowResolve(id,null,'timeout');},delay+(self?30000:60000));
 }
 function widowResolve(id,pick,why){
   var w=widowSt(),cur=w.cur;if(!cur||cur.id!==id)return;
   var holder=holderOf('widowmaker'),msg='';w.cur=null;
   if(cur.self){
     msg='';
-    var fakeAt=(cur.ts||Date.now())+60000,fakeDelay=Math.max(0,fakeAt-Date.now());
+    var fakeAt=(cur.ts||Date.now())+30000,fakeDelay=Math.max(0,fakeAt-Date.now());
     setTimeout(function(){      // 내가 1등이라 저격할 수 없어도, 1분 뒤 똑같이 "성공" 팝업이 떠서 들키지 않아요
       sysChat('🎯 위도우메이커가 '+GAME[cur.key]+' 승리팀 1등을 저격해서 성공했다. 점수를 빼앗았다.');
       announce('announce','🎯 저격 성공!',{face:'widowmaker',swooshHero:'widowmaker',useAnon:true,useHero:'widowmaker',fx:'snipe',alert:'🎯 위도우메이커가 적외선 투시를 성공했습니다!',alertCls:'ok',lines:['승리팀 1등을 저격해서 점수를 빼앗았다','누구인지는 아직 비밀이에요 🤫']},'');
@@ -5067,7 +5085,7 @@ async function sampleAssign(){
 function sampleTeams(){
   var T=clone(S.pub.teams)||{sets:{},current:null};T.sets=T.sets||{};
   var o=shuffle(lunchOthers());
-  T.sets.lunch={groups:[0,1,2].map(function(i){return {n:'ABC'[i]+'팀',m:o.slice(i*3,i*3+3)};})};
+  T.sets.lunch={groups:nameTeams([0,1,2].map(function(i){return {n:'ABC'[i]+'팀',m:o.slice(i*3,i*3+3)};}))};
   var b=balancedBowl();
   T.sets.bowl1={groups:[{n:'A팀',m:b[0]},{n:'B팀',m:b[1]}]};
   T.sets.ow1={groups:capsTeams()};
