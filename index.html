@@ -815,6 +815,7 @@ html,body{touch-action:manipulation}
 .nrow.skilln{border-color:var(--gold);box-shadow:0 0 10px rgba(255,210,63,.35)}
 .todopill{pointer-events:auto;display:inline-block;margin:0 0 6px;padding:4px 12px;border-radius:14px;background:rgba(20,22,48,.92);border:2px solid var(--hot);font-size:12px;font-weight:900;color:#fff}
 .openfab{max-height:34vh}
+.hb.on{background:rgba(255,255,255,.14);border-radius:10px}
 </style>
 </head>
 <body>
@@ -1623,7 +1624,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v51';
+var BUILD_ID='v52';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:0;        // 0 = 시간 제한 없음 (관리자가 준비되면 직접 눌러요)
 var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -2065,6 +2066,7 @@ function layout(){
   var needLogin=S.ready&&S.db&&S.uid&&!S.me&&!S.guest&&!S.setup;
   var un=chatUnread();
   return '<header class="top">'+
+    '<button class="hb'+(S.view==='home'?' on':'')+'" data-act="go" data-v="home" aria-label="홈">🏠</button>'+
     '<button class="hb" data-act="go" data-v="chat" aria-label="채팅">💬'+(un?'<span class="bdg">'+(un>9?'9+':un)+'</span>':'')+'</button>'+(S.me?'<button class="hb" data-act="missedList" aria-label="못 본 알림">🔔<span class="bdg" id="bellbdg" style="display:none"></span></button>':'')+
     '<div class="brand">TF 원데이 워크숍 <small class="verchip">'+BUILD_ID+'</small>'+(S.admin?' <span class="tag hot">관리자</span>':'')+'</div>'+
     '<button class="hb" data-act="menu" aria-label="메뉴">☰</button></header>'+
