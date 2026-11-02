@@ -835,6 +835,7 @@ img,video,canvas,svg{max-width:100%;height:auto}
 #pp,#snipe,#openfab,.openfab{max-width:calc(100vw - 12px)}
 .sstat{margin:6px 0;padding:6px 8px;border-radius:10px;background:rgba(0,0,0,.25);font-size:12px;line-height:1.4}
 .tag.bad{background:#ff4b4b;color:#fff}
+.teamback{margin:10px 0;padding:10px;border-radius:12px;background:rgba(111,231,168,.12);border:2px dashed #6fe7a8;text-align:left}.teamback b{display:block;margin-bottom:4px;color:#6fe7a8}
 </style>
 </head>
 <body>
@@ -1643,7 +1644,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v54';
+var BUILD_ID='v55';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:0;        // 0 = 시간 제한 없음 (관리자가 준비되면 직접 눌러요)
 var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -2537,7 +2538,7 @@ function pxModal(){
       b='<p class="small">① 해킹할 사람</p>'+sel1(others.filter(function(n){return ex.indexOf(n)<0;}),'target')+'<p class="small" style="margin-top:8px">② 추리한 영웅</p>'+sel1(HEROES.filter(function(y){return y.id!=='sombra'&&rh.indexOf(y.id)<0;}).map(function(y){return {id:y.id,t:y.hero};}),'guess')+'<p class="small mut">실행하면 판정 대기 상태가 돼요 (지금 할 일에서 맞았다/틀렸다)</p>';break;}
     case 'moira':b='<p class="small">흡수할 사람 3명 (선택 '+((m.targets||[]).length)+'/3)</p><div class="chips">'+others.map(function(n){return '<button class="chip'+((m.targets||[]).indexOf(n)>=0?' on':'')+'" data-act="pxTg" data-v="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div>';break;
     case 'symmetra':{var cur=(S.pub.teams||{}).current,t=cur&&team(cur),ti=t?teamOf(cur,holder):-1;
-      b=t&&ti>=0?'<p class="small">'+esc(GAME[cur]||cur)+' · 바꿀 상대 팀 사람</p>'+sel1(t.groups[1-ti].m,'target'):'<p class="warn small">지금 팀이 정해진 경기가 없어요.</p>';if(!(t&&ti>=0))run=false;break;}
+      b=t&&ti>=0?'<p class="small">'+esc(GAME[cur]||cur)+' · 바꿀 상대 팀 사람</p>'+sel1(t.groups[1-ti].m.filter(function(n){var sb=A().state.symBan;return !(sb&&sb.key===cur&&sb.names.indexOf(n)>=0);}),'target'):'<p class="warn small">지금 팀이 정해진 경기가 없어요.</p>';if(!(t&&ti>=0))run=false;break;}
     case 'lucio':{var lost=lucioLost(holder);
       b=lost.length?'<p class="small">① 분위기를 전환할 경기</p>'+sel1(lost.map(function(k){return {id:k,t:GAME[k]};}),'key')+'<p class="small" style="margin-top:8px">② 방식</p>'+sel1([{id:'passive',t:'🙂 소극적 (+1)'},{id:'active',t:'🕺 적극적 (+2)'}],'mode'):'<p class="warn small">아직 진 경기가 없어요.</p>';if(!lost.length)run=false;break;}
     case 'reinhardt':{var r=reinSt();
@@ -2569,9 +2570,9 @@ function usePanel(x){
   if(id==='symmetra'){
     var Ts=S.pub.teams||{},cur=Ts.current,st=Ts.sets&&Ts.sets[cur],ti=(cur&&GAMES.indexOf(cur)>=0)?teamOf(cur,S.me):-1;
     if(st&&ti>=0){
-      var ot=st.groups[1-ti];
-      if(uo.target&&ot.m.indexOf(uo.target)<0)uo.target=null;
-      h+='<div class="small"><b>👥 우리 팀 ('+esc(st.groups[ti].n)+')</b> '+st.groups[ti].m.map(function(n){return n===S.me?'<b>'+esc(n)+'(나)</b>':esc(n);}).join(' · ')+'</div><div class="small" style="margin-bottom:6px"><b>⚔️ 상대 팀 ('+esc(ot.n)+')</b> '+ot.m.map(esc).join(' · ')+'</div><p class="small">바꿀 상대 팀 사람을 고르세요</p>'+chipsSel(ot.m,'ui.use.target',uo.target,S.me);
+      var ot=st.groups[1-ti],ban=(S.deal&&S.deal.symBan&&S.deal.symBan.key===cur)?S.deal.symBan.names:[];
+      if(uo.target&&(ot.m.indexOf(uo.target)<0||ban.indexOf(uo.target)>=0))uo.target=null;
+      h+='<div class="small"><b>👥 우리 팀 ('+esc(st.groups[ti].n)+')</b> '+st.groups[ti].m.map(function(n){return n===S.me?'<b>'+esc(n)+'(나)</b>':esc(n);}).join(' · ')+'</div><div class="small" style="margin-bottom:6px"><b>⚔️ 상대 팀 ('+esc(ot.n)+')</b> '+ot.m.map(esc).join(' · ')+'</div><p class="small">바꿀 상대 팀 사람을 고르세요</p>'+(ban.length?'<p class="small warn">🚫 방벽에 막힌 '+ban.map(esc).join(', ')+' 님은 다시 고를 수 없어요</p>':'')+chipsSel(ot.m.filter(function(n){return ban.indexOf(n)<0;}),'ui.use.target',uo.target,S.me);
     }
     return h+'<button class="btn hot block" style="margin-top:10px" data-act="useGo"'+(cu.ok&&uo.target?'':' disabled')+'>🌀 순간이동기</button></div>';
   }
@@ -3113,7 +3114,7 @@ function renderPop(){
       break;}
     default:
       big=true;
-      inner=(p.consult&&p.consult.lose.indexOf(S.me)>=0?'<div class="consult"><b>💬 이번 라운드 영입할 선수를 의논하세요!</b><div class="small" style="margin-top:6px">영입 후보 — '+esc(p.consult.winName)+'</div><div class="chips" style="justify-content:center">'+p.consult.win.map(function(n){return '<span class="chip">'+esc(n)+'</span>';}).join('')+'</div></div>':'')+(p.alert?'<div class="shout2'+(p.alertCls?' '+p.alertCls:'')+(String(p.alert).length>14?' long':'')+'">'+esc(p.alert)+'</div>':'')+(p.face?'<div class="emo">'+heroImg(p.face,'cimg')+'</div>':'')+(p.emoji?'<div class="emo">'+p.emoji+'</div>':'')+'<div class="lines">'+(p.lines||[]).map(function(l){return '<p>'+esc(l)+'</p>';}).join('')+'</div>'+(p.score?'<div class="scorebox '+(String(p.score).charAt(0)==='-'?'neg':'pos')+'">'+esc(p.score)+'</div>':'')+(p.gains&&p.gains.length?(p.gainsTitle?'<p class="small mut" style="margin:8px 0 0">'+esc(p.gainsTitle)+'</p>':'')+'<div class="gains'+(p.compact?' compact':'')+'">'+p.gains.map(function(g,i){return '<div class="gain'+(g.name===S.me?' me':'')+'" style="animation-delay:'+(i*0.4+0.2)+'s"><span class="gn">'+esc(g.name)+'</span><b class="'+(g.d>0?'plus':'minus')+'">'+fmt(g.d)+'점</b></div>';}).join('')+'</div>':'')+
+      inner=(p.teamBack?'<div class="teamback"><b>↩ '+esc(p.teamBack.title)+' 팀이 원래대로 돌아왔어요</b>'+p.teamBack.groups.map(function(g){return '<div class="small"><b>'+esc(g.n)+'</b> '+g.m.map(esc).join(' · ')+'</div>';}).join('')+'</div>':'')+(p.consult&&p.consult.lose.indexOf(S.me)>=0?'<div class="consult"><b>💬 이번 라운드 영입할 선수를 의논하세요!</b><div class="small" style="margin-top:6px">영입 후보 — '+esc(p.consult.winName)+'</div><div class="chips" style="justify-content:center">'+p.consult.win.map(function(n){return '<span class="chip">'+esc(n)+'</span>';}).join('')+'</div></div>':'')+(p.alert?'<div class="shout2'+(p.alertCls?' '+p.alertCls:'')+(String(p.alert).length>14?' long':'')+'">'+esc(p.alert)+'</div>':'')+(p.face?'<div class="emo">'+heroImg(p.face,'cimg')+'</div>':'')+(p.emoji?'<div class="emo">'+p.emoji+'</div>':'')+'<div class="lines">'+(p.lines||[]).map(function(l){return '<p>'+esc(l)+'</p>';}).join('')+'</div>'+(p.score?'<div class="scorebox '+(String(p.score).charAt(0)==='-'?'neg':'pos')+'">'+esc(p.score)+'</div>':'')+(p.gains&&p.gains.length?(p.gainsTitle?'<p class="small mut" style="margin:8px 0 0">'+esc(p.gainsTitle)+'</p>':'')+'<div class="gains'+(p.compact?' compact':'')+'">'+p.gains.map(function(g,i){return '<div class="gain'+(g.name===S.me?' me':'')+'" style="animation-delay:'+(i*0.4+0.2)+'s"><span class="gn">'+esc(g.name)+'</span><b class="'+(g.d>0?'plus':'minus')+'">'+fmt(g.d)+'점</b></div>';}).join('')+'</div>':'')+
         (p.swap?'<div class="swapbox">'+p.swap.map(function(s){return '<div class="swaprow"><b>'+esc(s.n)+'</b><span>'+s.from+'점 → <b class="to">'+s.to+'점</b></span></div>';}).join('')+'</div>':'')+(p.after?'<p class="afterline">'+esc(p.after)+'</p>':'')+(p.star?'<div class="starbox'+(p.star.name===S.me?' me':'')+'"><div class="stl">'+esc(p.star.label||'')+'</div><div class="stn">'+esc(p.star.name)+(p.star.name===S.me?' (나!)':'')+'</div>'+(p.star.pts!=null?'<div class="stp">+'+p.star.pts+'점</div>':'')+'</div>':'')+
         (p.bubble?'<div class="bubble"><b>'+esc(p.bubble.who)+'</b> : “'+esc(p.bubble.text)+'”</div>':'')+
         (p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'')+funnyLucky(ev);
@@ -4451,6 +4452,7 @@ function runUse(uid,p,u){
       var cu=canUseNow(hero,p.name);
       if(!cu.ok)res=fail(cu.why);
       else if(hero==='cassidy')res=cassidyCall(p.name);
+      else if(hero==='symmetra'&&((A().state.symBan&&A().state.symBan.key===((S.pub.teams||{}).current)&&A().state.symBan.names.indexOf(o.target)>=0))){res=fail('방벽에 막힌 상대는 다시 고를 수 없어요');}
       else{res=execPower(hero,o);if(hero==='symmetra'&&res.ok){var lsy=A().state.lastSym;if(lsy)afterAttack({type:'sym',label:'시메트라의 순간이동기',attacker:p.name,target:o.target,key:lsy.key});}}
     }
   }catch(e){console.error(e);res=fail('처리 중 오류가 났어요: '+(e&&e.message||e));}
@@ -4667,7 +4669,15 @@ function undoAttack(att){
 function reinDo(att,kind){
   var r=reinSt(),h=holderOf('reinhardt');
   var T0=calc();
+  var _ls=(att.type==='sym')?(A().state.lastSym||{}):null;
   undoAttack(att);
+  var teamBack=null;
+  if(att.type==='sym'&&_ls&&_ls.key&&team(_ls.key)){      // 팀이 원래대로 돌아간 모습을 팝업에 같이 보여줘요
+    teamBack={title:GAME[_ls.key]||'',groups:team(_ls.key).groups.map(function(g){return {n:g.n,m:g.m.slice()};})};
+    var sb=A().state.symBan;if(!sb||sb.key!==_ls.key)sb=A().state.symBan={key:_ls.key,names:[]};
+    if(sb.names.indexOf(att.target)<0)sb.names.push(att.target);      // 막힌 상대는 다시 고를 수 없어요
+    if(att.attacker)dealPatch(att.attacker,{symBan:{key:sb.key,names:sb.names.slice()}});
+  }
   var T1=calc();
   r.blocks=(r.blocks||0)+1;if(kind==='sworn')r.swornUsed=true;else r.selfUsed=true;
   var pts=kind==='sworn'?2:1;
@@ -4676,12 +4686,12 @@ function reinDo(att,kind){
     sysChat('🛡️ 라인하르트['+h+']가 마지막 방벽을 펼쳤다! '+att.target+josaPick(att.target,'을','를')+' 노린 '+att.label+josaPick(att.label,'은','는')+' 무효가 되었다. 방벽은 제가 막겠습니다!');
     var rv=clone(S.pub.reveal)||{};rv.reinhardt={by:h,detail:((((A().content||{}).powers||{}).reinhardt||{}).detail)||[]};S.pub.reveal=rv;put('public/reveal',rv);
   }else sysChat('라인하르트의 방벽이 '+att.target+josaEulReul(att.target)+' 노린 '+eulReul(att.label)+' 막아냈다.');
-  later(function(){announce('announce','🛡️ 방벽!',{face:'reinhardt',swooshHero:'reinhardt',fx:'barrier',queue:true,alert:(kind==='sworn'?'🛡️ 내 뒤에 숨어!':'🛡️ 방벽을 펼쳤다!'),lines:[att.target+' 님을 노린 '+eulReul(att.label)+' 라인하르트'+(r.blocks>=2?'['+h+']':'')+'가 막아냈다!']},'');},2600);      // 다른 초능력 팝업이 먼저 보이고, 끝나면 이어서
+  later(function(){announce('announce','🛡️ 방벽!',{face:'reinhardt',swooshHero:'reinhardt',fx:'barrier',queue:true,alert:(kind==='sworn'?'🛡️ 내 뒤에 숨어!':'🛡️ 방벽을 펼쳤다!'),lines:[att.target+' 님을 노린 '+eulReul(att.label)+' 라인하르트'+(r.blocks>=2?'['+h+']':'')+'가 막아냈다!'].concat(teamBack?['🌀 팀 교환이 취소되어 팀이 원래대로 돌아갔어요']:[]),teamBack:teamBack},'');},2600);      // 다른 초능력 팝업이 먼저 보이고, 끝나면 이어서
   dealNote(h,'방어 성공. +'+pts+'점');
   {var dA=att.attacker?(((T1[att.attacker]||{}).total||0)-((T0[att.attacker]||{}).total||0)):0;
    if(att.attacker&&dA<0)dealNote(att.attacker,'🛡️ 라인하르트의 방벽에 막혀 얻은 점수를 잃었다. '+dA+'점',['🛡️ 라인하르트의 방벽에 막혔다!','“'+att.label+'”으로 얻었던 점수가 취소되었다','점수 변화: '+((T0[att.attacker]||{}).total||0)+'점 → '+((T1[att.attacker]||{}).total||0)+'점'],{score:dA+'점'});
    else if(att.attacker)dealNote(att.attacker,'🛡️ 라인하르트의 방벽에 막혀 공격이 무효가 되었다.');}
-  if(att.type==='sym')dealNote(att.attacker,'순간이동기가 파괴되었어요! 🌀 다른 사람을 지목해 주세요.');
+  if(att.type==='sym')dealNote(att.attacker,'순간이동기가 파괴되었어요! 🌀 다른 사람을 지목해 주세요.',['🛡️ 라인하르트의 방벽에 막혔다!','🌀 팀이 원래대로 돌아갔어요','방금 지목한 '+att.target+' 님을 빼고 다른 사람을 다시 골라 주세요']);
   if(att.type==='echo')echoGain('🪞 에코['+att.attacker+']의 복제가 방벽에 막혔다. +1점');
   saveState();reinSync();render(true);
 }
