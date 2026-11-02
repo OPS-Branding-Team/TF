@@ -837,6 +837,22 @@ img,video,canvas,svg{max-width:100%;height:auto}
 .tag.bad{background:#ff4b4b;color:#fff}
 .teamback{margin:10px 0;padding:10px;border-radius:12px;background:rgba(111,231,168,.12);border:2px dashed #6fe7a8;text-align:left}.teamback b{display:block;margin-bottom:4px;color:#6fe7a8}
 .moirabox{border:2px solid #b66bff}
+
+/* v58 */
+#scorefx{position:fixed;left:0;right:0;top:calc(64px + env(safe-area-inset-top,0px));z-index:99;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
+#scorefx .sfx{font-family:var(--f-d);font-size:46px;line-height:1;padding:6px 20px;border-radius:18px;background:rgba(10,12,28,.88);border:3px solid;animation:sfxin 2.4s ease both;text-shadow:0 3px 0 rgba(0,0,0,.5)}
+#scorefx .sfx.up{color:#2fd3a3;border-color:#2fd3a3;box-shadow:0 0 22px rgba(47,211,163,.55)}
+#scorefx .sfx.down{color:#ff5a5a;border-color:#ff5a5a;box-shadow:0 0 22px rgba(255,90,90,.55)}
+@keyframes sfxin{0%{transform:translateY(-14px) scale(.6);opacity:0}12%{transform:translateY(0) scale(1.12);opacity:1}22%{transform:scale(1)}80%{opacity:1}100%{transform:translateY(-18px);opacity:0}}
+.nextn{margin:10px 0 -4px;text-align:center;font-size:12px;font-weight:900;color:var(--gold)}
+.awr{position:relative;min-height:230px;text-align:center}
+.awr-t{margin:12px 0}.awr-rk{font-family:var(--f-d);font-size:30px}
+.awr-t.r1 .awr-rk{font-size:44px;color:var(--gold);text-shadow:0 0 18px rgba(255,210,63,.6)}
+.awr-nm{font-size:22px;font-weight:900;margin:4px 0}.awr-nm small{font-size:13px;color:var(--mut)}.awr-nm b{color:var(--gold)}
+.awr-nm .hs{width:34px;height:34px;border-radius:50%;object-fit:cover;vertical-align:middle;margin-right:6px}
+.confetti{position:absolute;left:0;right:0;top:-10px;height:100%;pointer-events:none;overflow:visible}
+.confetti i{position:absolute;top:-12px;width:9px;height:14px;opacity:0;border-radius:2px;animation:conf 3s linear both}
+@keyframes conf{0%{transform:translateY(-10px) rotate(0);opacity:0}10%{opacity:1}100%{transform:translateY(340px) rotate(540deg);opacity:0}}
 </style>
 </head>
 <body>
@@ -1128,7 +1144,10 @@ function startSubs(){
 
   /* (카드 구독은 이름이 정해지면 subDeal()이 해요) */
   db.doc('myscore/'+S.uid).onSnapshot(function(s){
-    S.myscoreErr=null;S.myscore=s.exists?clone(s.data()):null;render();
+    S.myscoreErr=null;S.myscore=s.exists?clone(s.data()):null;
+    {var _cur=S.myscore?(Number(S.myscore.total)||0):null;
+     if(_cur!==null){if(S.myscorePrev!=null&&_cur!==S.myscorePrev&&(Date.now()-(resetAtOf()||0))>20000)scoreFx(_cur-S.myscorePrev);S.myscorePrev=_cur;}}
+    render();
   },function(e){S.myscoreErr=(e&&e.code)||'error';render();});
   db.collection('chat').recent(150,function(s){
     var prevLast=S.chat.length?S.chat[S.chat.length-1].ts:0,first=!S.chatLoaded;
@@ -1147,7 +1166,7 @@ function startSubs(){
 var GAMES=['bowl1','bowl2','ow1','ow2'];
 var TAGLINE={sombra:'은밀하게 해킹! 맞히면 대상의 초능력이 공개돼요',widowmaker:'표정을 읽고 최고 득점자를 저격해요!',cassidy:'도전장을 내고 하나빼기 결투! 이기면 +2점',moira:'나보다 점수 높은 3명에게서 1점씩 흡수!',symmetra:'경기 시작 전, 상대 팀 1명과 자리 바꾸기! (이기면 +3점)',tracer:'나와 관련된 일을 되돌려요 (2회 · 안 쓰면 +1점)',echo:'예측에 성공하면 복제 발동! 최종 1등과 점수 교환',reinhardt:'서약자와 나를 지키는 방벽! (못 막아도 +1점)',lucio:'팀이 정해진 뒤 분위기 전환! 팀 전원 +1점 (춤·노래 성공 시 루시우 +2점 추가)',kiriko:'하위권 2명에게 부적을 날려요 (자동)'};
 function tagline(id){return TAGLINE[id]||'';}
-var TIMING={moira:'🎯 특정 타이밍 — 볼링 종료 ~ 오버워치 1경기 시작 전',tracer:'🎯 특정 타이밍 — 나와 관련된 일이 생긴 직후 (팝업)',reinhardt:'🎯 특정 타이밍 — 공격받은 직후 (팝업) · 서약은 마지막 호명 전까지',echo:'⏳ 볼링 후 · 오버워치 후 예측 → 최종 정산 전 1등 지목',lucio:'🎯 특정 타이밍 — 우리 팀이 진 경기 뒤',sombra:'⚡ 원하는 타이밍에 발동',widowmaker:'🎯 특정 타이밍 — 저격 타임(봉투 개봉 직후 1분)',kiriko:'🤖 자동 발동 — 볼링 후 · 오버워치 후',symmetra:'🎯 특정 타이밍 — 팀이 정해진 직후 ~ 경기 결과 전',lucio:'🎯 특정 타이밍 — 우리 팀이 정해진 뒤',tracer:'🎯 특정 타이밍 — 되돌릴 일이 생긴 직후',reinhardt:'🎯 특정 타이밍 — 공격받은 직후',echo:'⏳ 마지막에 발동'};
+var TIMING={tracer:'🎯 특정 타이밍 — 나와 관련된 일이 생기거나 랜덤 추첨이 끝난 직후 (팝업)',reinhardt:'🎯 서약은 최대한 빨리 · 공격받은 직후 (팝업에서 선택)',echo:'⏳ 볼링 후 · 오버워치 후 예측 → 마지막 호명 때 1등 지목',lucio:'🎯 특정 타이밍 — 팀이 정해진 뒤 (점심 제외)',sombra:'⚡ 원하는 타이밍에 발동',widowmaker:'🎯 특정 타이밍 — 저격 타임(봉투 개봉 직후 1분)',kiriko:'🤖 자동 발동 — 볼링 후 · 오버워치 후',symmetra:'🎯 특정 타이밍 — 팀이 정해진 직후 ~ 경기 결과 전',moira:'🎯 특정 타이밍 — 볼링 종료 ~ 오버워치 1경기 시작 전'};
 function timingLabel(x){return TIMING[x.id]||'⚡ 원하는 타이밍에 발동';}
 function heroImg(id,cls){return (typeof HERO_IMG!=='undefined'&&HERO_IMG[id])?'<img class="himg '+(cls||'')+'" src="'+HERO_IMG[id]+'" alt="">':'';}
 var BLOCKABLE=['moira','echo','symmetra','widowmaker'];     // 라인하르트 방벽으로 막을 수 있는 (나에게 불리한) 초능력
@@ -1208,7 +1227,7 @@ function chanceHTML(x){
 }
 /* 라인하르트·트레이서: 쓸 수 있는 순간이 오면 "지금 쓰시겠어요?" 하고 본인에게만 물어봐요 (나중에 쓰기 가능) */
 function showPrompt(ev){
-  if(S.pop){(S.promptQs=S.promptQs||[]).push(ev);return;}
+  if(S.pop){(S.promptQs=S.promptQs||[]).push(ev);try{renderPop();}catch(e){}return;}
   showPop(ev);
 }
 function promptFor(h,c){
@@ -1646,7 +1665,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v57';
+var BUILD_ID='v58';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:0;        // 0 = 시간 제한 없음 (관리자가 준비되면 직접 눌러요)
 var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -1720,7 +1739,7 @@ function todoItems(){
     else if(d.stage==='pick')it.push({k:'duel',t:'🤠 캐서디가 상대를 고르는 중 (수락자 '+d.cands.map(esc).join(', ')+')',s:'60초 안에 안 고르면 먼저 수락한 2명이 자동 지목돼요',b:[{l:'결투 거절로 처리',a:'duelAutoPick'}]});
     else it.push({k:'duel',t:'🤠 결투 결과 입력 — 실제 하나빼기를 한 뒤 눌러요',s:'',b:d.picks.map(function(n){var r=d.res[n];return r===undefined?[{l:esc(d.holder)+' 승 vs '+esc(n),a:'duelRes',v:n+':1',hot:1},{l:esc(n)+' 승',a:'duelRes',v:n+':0'}]:[{l:'✔ '+esc(n)+' 입력됨',a:'',dis:1}];}).reduce(function(x,y){return x.concat(y);},[])});
   }
-  if(s.lucioPending){var lp=s.lucioPending;it.push({k:'lucio',t:'🎧 루시우['+esc(lp.by)+'] 적극적 무대 — '+esc(GM(lp.key))+' '+esc(lp.team),s:'춤·노래가 끝나면 판정해요 (60초 안에 안 누르면 성공)',b:[{l:'✅ 성공',a:'lucioYes',hot:1},{l:'❌ 실패',a:'lucioNo'}]});}
+  if(s.lucioPending){var lp=s.lucioPending;it.push({k:'lucio',t:'🎧 루시우['+esc(lp.by)+'] 적극적 무대 — '+esc(GM(lp.key))+' '+esc(lp.team),s:'춤·노래가 끝나면 판정해 주세요 (누를 때까지 기다려요)',b:[{l:'✅ 성공',a:'lucioYes',hot:1},{l:'❌ 실패',a:'lucioNo'}]});}
   [['rein',s.rein&&s.rein.pend,'🛡️ 라인하르트가 방벽을 쓸지 고르는 중'],['widow',(s.widow&&s.widow.cur&&!s.widow.cur.self)?s.widow.cur:null,'🎯 위도우메이커 저격 대기 중'],['echo',s.echo2&&s.echo2.pop,'🪞 에코 지목 대기 중']].forEach(function(x){
     if(x[1])it.push({k:x[0],t:x[2],s:'60초 안에 응답이 없으면 기본값으로 처리돼요',wait:true,b:[]});
   });
@@ -1812,7 +1831,7 @@ function showLive(ev){
   if(ev&&ev.payload&&ev.payload.skipFor&&ev.payload.skipFor.indexOf(S.me)>=0)return;      // 이 팝업 대신 자세한 개인 팝업을 받는 사람
   if(ev&&ev.payload&&ev.payload.chime&&ev.payload.go==='power'&&(S.admin||S.me===HOST))return;      // 관리자는 "카드 뽑으러 가기" 안내를 받지 않아요                      // 로그인 전에는 팝업을 띄우지 않아요
   var pl0=ev&&ev.payload;
-  if(pl0&&pl0.queue&&S.pop){(S.promptQs=S.promptQs||[]).push(ev);return;}      // 앞 팝업이 끝난 뒤 이어서 보여줘요
+  if(pl0&&pl0.queue&&S.pop){(S.promptQs=S.promptQs||[]).push(ev);try{renderPop();}catch(e){}return;}      // 앞 팝업이 끝난 뒤 이어서 보여줘요
   if(pl0&&pl0.useAnon&&S.deal&&S.deal.hero===pl0.useHero)return;      // 내 초능력의 익명 공개 팝업은 나에게 안 띄워요 (내 결과 팝업만 떠요)
   var cur=S.pop&&S.pop.ev&&S.pop.ev.payload;
   if(NEXT_ON&&cur&&cur.needNext&&!S.pop.nextOk&&(ev.kind==='pick'||ev.kind==='private')){      // 결과 다음에 이어지는 승리팀·봉투 팝업만 대기시켜요 (다른 팝업은 바로 떠요)        // 결과를 끝까지 보도록: "다음" 버튼을 누를 때까지 다음 팝업은 대기
@@ -1836,6 +1855,8 @@ function ownUseFallback(ud){
 }
 function showPop(ev){if(S.pop&&S.pop.ev&&ev&&S.pop.ev.id!==ev.id&&/^(note|open|scout|own)/.test(String(S.pop.ev.id)))(S.promptQs=S.promptQs||[]).unshift(S.pop.ev);   // 내 알림 팝업이 다른 팝업에 덮여도 사라지지 않고 다시 떠요
   if(ev&&ev.payload&&ev.payload.useHero)S.lastUsePop={hero:ev.payload.useHero,at:Date.now()};S.pop={ev:ev,open:false,t0:Date.now()};
+  {var _pl=(ev&&ev.payload)||{},_neg=!!(_pl.score&&String(_pl.score).charAt(0)==='-');
+   if(_neg||_pl.swap||_pl.fx==='snipe'||_pl.fx==='echo'||_pl.alertCls==='fail'||_pl.alertCls==='ok'||(ev&&(ev.kind==='duelres'||ev.kind==='awardreveal')))fxAlert((_neg||_pl.alertCls==='fail')?'bad':'good');}
   if(ev&&ev.kind==='duelcall'&&ev.payload&&ev.payload.holder!==S.me&&!S.admin){S.pop.hold=true;S.pop.locked=true;setTimeout(function(){if(S.pop&&S.pop.ev&&S.pop.ev.id===ev.id){S.pop.hold=false;S.pop.locked=false;renderPop();}},65000);}      /* 수락/도주를 고르고 확인을 눌러야 닫혀요 */
   if(ev&&ev.kind==='private'&&ev.payload&&ev.payload.countdown){S.pop.hold=true;var hid0=ev.id;setTimeout(function(){if(S.pop&&S.pop.ev&&S.pop.ev.id===hid0){S.pop.hold=false;S.pop.locked=false;renderPop();}},ev.payload.countdown*1000+7600);}   /* 카운트다운과 봉투 뽑기가 끝나기 전에는 닫을 수 없어요 */
 if(ev&&ev.id&&ev.kind!=='prompt')markSeen(ev.id);renderPop();renderMissed();}
@@ -1851,13 +1872,37 @@ function scoutPrompt(){
   var key='sc'+R1.team+'_'+(R1.win||[]).join(',');S.scoutPrompted=S.scoutPrompted||{};if(S.scoutPrompted[key])return;S.scoutPrompted[key]=1;
   showPrompt({id:'scout'+key,ts:Date.now(),kind:'prompt',title:'🔥 2세트 스카우트 타이밍!',payload:{emoji:'🔥',lines:['1세트 결과와 봉투 뽑기가 끝났어요','패배팀이 승리팀에서 1명을 영입할 차례예요','준비되면 [스카우트 시작]을 눌러요'],actions:[{label:'🔥 스카우트 시작',act:'scoutStart',hot:true},{label:'조금 있다가 누를게요',act:'popClose'}]}});
 }
+function fxOn(){try{return localStorage.getItem('tf_fx')!=='0';}catch(e){return true;}}
+var _ac=null;
+function beep(kind){      // 짧은 효과음 (켜 둔 사람만)
+  if(!fxOn())return;
+  try{
+    var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;_ac=_ac||new AC();if(_ac.state==='suspended')_ac.resume();
+    var t=_ac.currentTime,seq=kind==='bad'?[[330,0],[220,.16]]:kind==='good'?[[660,0],[880,.12]]:[[520,0],[520,.16]];
+    seq.forEach(function(s){var o=_ac.createOscillator(),g=_ac.createGain();o.type='sine';o.frequency.value=s[0];g.gain.setValueAtTime(.0001,t+s[1]);g.gain.exponentialRampToValueAtTime(.18,t+s[1]+.02);g.gain.exponentialRampToValueAtTime(.0001,t+s[1]+.14);o.connect(g);g.connect(_ac.destination);o.start(t+s[1]);o.stop(t+s[1]+.16);});
+  }catch(e){}
+}
+function buzz(p){if(!fxOn())return;try{if(navigator.vibrate)navigator.vibrate(p||[120,60,120]);}catch(e){}}
+function fxAlert(kind){buzz(kind==='bad'?[220,80,220]:[100,50,100]);beep(kind);}
+document.addEventListener('click',function(){try{if(_ac&&_ac.state==='suspended')_ac.resume();}catch(e){}},true);
+function scoreFx(d){      // 내 점수가 바뀌면 화면 위에 잠깐 +N / -N
+  if(!d)return;
+  var box=document.getElementById('scorefx');
+  if(!box){box=document.createElement('div');box.id='scorefx';document.body.appendChild(box);}
+  var el=document.createElement('div');el.className='sfx '+(d>0?'up':'down');el.textContent=(d>0?'+':'')+d+'점';
+  box.appendChild(el);setTimeout(function(){try{box.removeChild(el);}catch(e){}},2600);
+  if(d<0)fxAlert('bad');else beep('good');
+}
+function confettiPieces(base){
+  var cs=['#ffd23f','#ff5a5a','#2fd3a3','#5cc0ff','#ff6bd6','#b66bff'],o='';
+  for(var i=0;i<42;i++){o+='<i style="left:'+((i*37)%100)+'%;background:'+cs[i%cs.length]+';animation-delay:'+(base+((i*13)%10)/10).toFixed(1)+'s;animation-duration:'+(2.4+(i%5)*0.3).toFixed(1)+'s"></i>';}
+  return o;
+}
 function hackVerdict(pd){      // 솜브라가 추리한 영웅이 맞았는지는 코드가 알아요
   var th=(A().state.assign||{})[pd.target],gh=(heroOf(pd.guess)||{}).hero||'?',ah=th&&heroOf(th);
   return th===pd.guess?'솜브라는 '+gh+josaEulReul(gh)+' 맞췄습니다 ✅':'솜브라의 추리('+gh+')는 틀렸습니다 ❌'+(ah?' — 실제는 '+ah.hero:'');
 }
 (function(){      /* 더블 탭 · 핀치로 화면이 확대되지 않게 */
-  var lt=0;
-  document.addEventListener('touchend',function(e){var n=Date.now();if(n-lt<350&&!/^(INPUT|TEXTAREA|SELECT)$/.test((e.target||{}).tagName||''))e.preventDefault();lt=n;},{passive:false});
   ['gesturestart','gesturechange','gestureend'].forEach(function(t){document.addEventListener(t,function(e){e.preventDefault();});});
 })();
 function sombraStatusLine(){      // 솜브라가 들켰는지 / 은신에 성공했는지
@@ -1877,13 +1922,13 @@ function judgePrompts(){      // 솜브라 해킹 · 루시우 무대: 판정할
   var s=A().state||{};S.judgeP=S.judgeP||{};
   var pd=s.sombra&&s.sombra.pending;
   if(pd&&!S.judgeP['h'+pd.ts]){
-    S.judgeP['h'+pd.ts]=1;
+    S.judgeP['h'+pd.ts]=1;fxAlert('good');
     var th=(s.assign||{})[pd.target],hx=th&&heroOf(th),dt=th&&(((A().content||{}).powers||{})[th]||{}).detail||[];
     showPrompt({id:'open-hack'+pd.ts,ts:pd.ts,kind:'prompt',title:'💜 솜브라 해킹 판정',payload:{emoji:'💜',lines:['솜브라['+(holderOf('sombra')||'?')+'] → 대상 '+pd.target,'🔎 실제 영웅: '+(hx?hx.hero+' — '+hx.power:'?'),(dt[0]?'📖 '+dt[0]:''),'💭 '+hackVerdict(pd),'✍️ 솜브라가 적은 정답: “'+(pd.ans||'(없음)')+'”'].filter(Boolean),actions:[{label:'✅ 맞았다',act:'hackYes',hot:true},{label:'❌ 틀렸다',act:'hackNo'}]}});
   }
   var lp=s.lucioPending;
   if(lp&&!S.judgeP['l'+lp.id]){
-    S.judgeP['l'+lp.id]=1;
+    S.judgeP['l'+lp.id]=1;fxAlert('good');
     showPrompt({id:'open-lucio'+lp.id,ts:lp.ts,kind:'prompt',title:'🎧 루시우 무대 판정',payload:{emoji:'🎧',lines:['루시우['+lp.by+'] · '+(GAME[lp.key]||'')+' '+lp.team,'춤이나 노래가 끝나면 판정해 주세요','(아직 다른 사람에게는 알리지 않았어요)'],actions:[{label:'✅ 성공',act:'lucioYes',hot:true},{label:'❌ 실패',act:'lucioNo'}]}});
   }
 }
@@ -2118,6 +2163,7 @@ function menuItems(){
 function drawer(){
   return '<div class="scrim" data-act="menuClose"></div><nav class="drawer">'+
     menuItems().map(function(m){return '<button class="mi'+(S.view===m.id?' on':'')+(m.adm?' adm':'')+'" data-act="go" data-v="'+m.id+'"><span>'+m.i+'</span>'+m.t+(m.adm?' <span class="tag hot">관리자</span>':'')+'</button>';}).join('')+
+    '<button class="mi" data-act="fxToggle"><span>'+(fxOn()?'🔔':'🔕')+'</span>진동·효과음 '+(fxOn()?'켜짐':'꺼짐')+'</button>'+
     '<div class="who">'+(S.me?'<div><b>'+esc(S.me)+'</b> 님으로 접속 중'+(S.admin?' <span class="tag hot">관리자</span>':'')+'</div><button class="btn ghost block" style="margin-top:8px" data-act="logout">로그아웃</button>':'<div class="mut small">로그인하지 않았어요</div><button class="btn ghost block" style="margin-top:8px" data-act="relogin">로그인하기</button>')+'</div></nav>';
 }
 function body(){
@@ -2829,9 +2875,9 @@ function viewAward(){
   return h;
 }
 function settleTool(hid,num){
-  var holder=holderOf(hid),x=heroOf(hid),st=settledOf(hid),n=hid==='lucio'?((!isUsed('lucio')&&holderOf('lucio'))?0:1):hid==='reinhardt'?((A().state.rein||{}).blocks||0):hid==='sombra'?((((A().state.sombra||{}).exposed)||((A().state.sombra||{}).n||0)<1)?1:0):((A().state.tr||{}).uses||0);
+  var holder=holderOf(hid),x=heroOf(hid),st=settledOf(hid),n=hid==='lucio'?((!isUsed('lucio')&&!A().state.lucioPending&&holderOf('lucio'))?0:1):hid==='reinhardt'?((A().state.rein||{}).blocks||0):hid==='sombra'?((((A().state.sombra||{}).exposed)||((A().state.sombra||{}).n||0)<1)?1:0):((A().state.tr||{}).uses||0);
   var title=num+' '+x.em+' '+x.hero+' 정산 '+(st?'<span class="tag good">완료</span>':'');
-  var desc=hid==='lucio'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+((!isUsed('lucio')&&holder)?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'이미 사용했어요 (보너스 없음)')):hid==='sombra'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+((A().state.sombra||{}).exposed?'정체가 들통났어요 (보너스 없음)':(((A().state.sombra||{}).n||0)>=1?'<b>해킹 후 끝까지 들키지 않았어요 (은닉 보너스 +1점 지급 대상)</b>':'해킹을 한 번도 안 했어요 (보너스 없음)'))):'보유자: '+(holder?esc(holder):'미추첨')+' · 지금까지 사용 '+n+'회 → '+(n===0?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'사용했어요 (보너스 없음)');
+  var desc=hid==='lucio'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+((!isUsed('lucio')&&!A().state.lucioPending&&holder)?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':(A().state.lucioPending?'판정 대기 중이에요 (먼저 판정해 주세요)':'이미 사용했어요 (보너스 없음)'))):hid==='sombra'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+((A().state.sombra||{}).exposed?'정체가 들통났어요 (보너스 없음)':(((A().state.sombra||{}).n||0)>=1?'<b>해킹 후 끝까지 들키지 않았어요 (은닉 보너스 +1점 지급 대상)</b>':'해킹을 한 번도 안 했어요 (보너스 없음)'))):'보유자: '+(holder?esc(holder):'미추첨')+' · 지금까지 사용 '+n+'회 → '+(n===0?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'사용했어요 (보너스 없음)');
   var btn=st?'<div class="small">'+(st.unused?'✅ +'+st.pts+'점 지급 완료':'ℹ️ 사용했어서 보너스 없음 · 정산 완료')+'</div><button class="btn ghost block" style="margin-top:6px" data-act="unsettleHero" data-v="'+hid+'">↩ 정산 취소</button>':
     '<button class="btn block" data-act="settleHero" data-v="'+hid+'"'+(holder?'':' disabled')+'>'+x.hero+' 정산 (한 번도 안 썼으면 +1점)</button>';
   return tool(title,desc,btn);
@@ -3035,6 +3081,11 @@ function renderPop(){
       else inner+='<div class="stg s3"'+dl(2.7)+'><div class="hbig failc shake">❌ 솜브라가 해킹을 실패했습니다!</div><div class="hsub">🔍 솜브라를 추리할 수 있어요 — 누구일까요?</div>'+(own?'<p class="mut" style="margin-top:10px">당신은 투표하지 않아요 😏 표정 관리!</p>':'<div class="chips" style="justify-content:center;margin-top:10px">'+(p.cands||[]).map(function(n){return '<button class="chip'+(vo===n?' on':'')+'" data-act="svPick" data-v="'+esc(n)+'"'+(n===S.me?' disabled':'')+'>'+esc(n)+'</button>';}).join('')+'</div>'+(vo?'<p class="win" style="margin-top:8px">✅ '+esc(vo)+' 님에게 투표했어요 (마감 전엔 바꿀 수 있어요)</p>':'<p class="small mut" style="margin-top:8px">이유정이 마감할 때까지 고를 수 있어요</p>'))+'</div>';
       inner+='</div>';
       break;}
+    case 'awardreveal':{
+      big=true;
+      var AR=p.tiers||[];
+      inner='<div class="awr">'+AR.map(function(t,i){var d0=(0.6+i*2.3).toFixed(1);return '<div class="stg awr-t r'+t.rank+'" style="animation-delay:'+d0+'s"><div class="awr-rk">'+(t.rank===1?'🥇 1위':t.rank===2?'🥈 2위':t.rank===3?'🥉 3위':t.rank+'위')+(t.items.length>1?' (공동)':'')+'</div>'+t.items.map(function(x){return '<div class="awr-nm">'+(x.hero?heroImg(x.hero,'hs'):'')+esc(x.n)+(x.hero&&heroOf(x.hero)?' <small>'+esc(heroOf(x.hero).hero)+'</small>':'')+' <b>'+x.total+'점</b></div>';}).join('')+'</div>';}).join('')+(AR.length?'<div class="confetti">'+confettiPieces(0.6+(AR.length-1)*2.3)+'</div>':'')+'</div><p class="small mut" style="margin-top:8px">닫으면 전체 순위 화면으로 이동해요</p>';
+      break;}
     case 'duelres':{
       big=true;
       inner='<div class="hres">'+(p.rows||[]).map(function(r,i){return '<div class="stg vsrow" style="animation-delay:'+(1.7+i*1.1).toFixed(1)+'s"><span class="vl '+(r.cw?'w':'l')+'">🤠 캐서디</span><span class="vsx">VS</span><span class="vr '+(r.cw?'l':'w')+'">'+esc(r.n)+'</span></div>';}).join('')+
@@ -3125,7 +3176,7 @@ function renderPop(){
         (p.quote?'<p class="quote">“'+esc(p.quote)+'”</p>':'')+funnyLucky(ev);
   }
   var BGH=p.useHero||p.swooshHero||p.face||p.heroId,BG=(BGH&&typeof HERO_IMG!=='undefined'&&HERO_IMG[BGH]&&ev.kind!=='mydeal')?'<div class="bgchar" style="background-image:url('+HERO_IMG[BGH]+')"></div>':'';
-  el.innerHTML='<div class="ov'+(ev.kind==='mydeal'?' opq':'')+'" data-act="popClose"><div class="box'+(big?' big':'')+(BG?' hasbg':'')+'" data-stop="1">'+BG+((p.useBy&&p.useHero)?useHead(p):(p.noTitle?'':'<h3>'+esc(ev.title||'')+'</h3>'))+(p.fx?'<div class="fxwrap fx-'+esc(p.fx)+'"><i></i><i></i><i></i></div>':'')+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+(noFoot?'':(NEXT_ON&&p.needNext)?'<button class="btn block hot" id="nextBtn" data-act="popNext" style="margin-top:14px'+(p.nextHidden?';display:none':'')+'">다음 ▶</button>':(S.admin&&p.adminGo)?'<button class="btn block hot" style="margin-top:14px" data-act="popAdminGo">'+esc(p.adminGo.label||'입력하러 가기')+'</button><button class="btn block ghost" style="margin-top:8px" data-act="popClose">닫기</button>':p.go?'<button class="btn block hot" style="margin-top:14px" data-act="popGo" data-v="'+esc(p.go)+'">'+esc(p.goLabel||'이동')+'</button>':(p.wait?'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 기다려 주세요… 곧 이어서 진행돼요</button>':(P.hold?(ev.kind==='duelcall'?'':'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 봉투를 여는 중…</button>'):'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button>')))+'</div></div>';
+  el.innerHTML='<div class="ov'+(ev.kind==='mydeal'?' opq':'')+'" data-act="popClose"><div class="box'+(big?' big':'')+(BG?' hasbg':'')+'" data-stop="1">'+BG+((p.useBy&&p.useHero)?useHead(p):(p.noTitle?'':'<h3>'+esc(ev.title||'')+'</h3>'))+(p.fx?'<div class="fxwrap fx-'+esc(p.fx)+'"><i></i><i></i><i></i></div>':'')+(p.via?'<div class="via">⏪ '+esc(p.via)+'</div>':'')+inner+((S.promptQs&&S.promptQs.length)?'<div class="nextn">⏭ 다음 알림 '+S.promptQs.length+'개</div>':'')+(noFoot?'':(NEXT_ON&&p.needNext)?'<button class="btn block hot" id="nextBtn" data-act="popNext" style="margin-top:14px'+(p.nextHidden?';display:none':'')+'">다음 ▶</button>':(S.admin&&p.adminGo)?'<button class="btn block hot" style="margin-top:14px" data-act="popAdminGo">'+esc(p.adminGo.label||'입력하러 가기')+'</button><button class="btn block ghost" style="margin-top:8px" data-act="popClose">닫기</button>':p.go?'<button class="btn block hot" style="margin-top:14px" data-act="popGo" data-v="'+esc(p.go)+'">'+esc(p.goLabel||'이동')+'</button>':(p.wait?'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 기다려 주세요… 곧 이어서 진행돼요</button>':(P.hold?(ev.kind==='duelcall'?'':'<button class="btn block ghost waitbtn" style="margin-top:14px" disabled>⏳ 봉투를 여는 중…</button>'):'<button class="btn block ghost" style="margin-top:14px" data-act="popClose">닫기</button>')))+'</div></div>';
   var heroId=(!p.noSwoosh)?((p.useBy&&p.useHero)?p.useHero:(p.swooshHero||null)):null;
   var nn=!!(NEXT_ON&&p.needNext);
   P.locked=!!(p.wait&&!p.go)||nn||!!P.hold;
@@ -4524,7 +4575,6 @@ function rearmAll(){
   var d=s.duel2;
   if(d&&d.stage==='accept')at('da'+d.id,d.ts,60000,function(){duelClose(d.id);});
   if(d&&d.stage==='pick')at('dp'+d.id,d.pts||d.ts,60000,function(){duelPick(d.id,null);});
-  if(s.lucioPending)at('lu'+s.lucioPending.id,s.lucioPending.ts,60000,function(){lucioJudge(true,s.lucioPending&&s.lucioPending.id);});
   if(s.rein&&s.rein.pend)at('rp'+s.rein.pend.id,s.rein.pend.ts,60000,function(){reinAnswer(s.rein.pend&&s.rein.pend.id,'pass');});
   if(s.widow&&s.widow.cur)at('wd'+s.widow.cur.id,s.widow.cur.ts,(s.widow.cur.self?30000:60000),function(){widowResolve(s.widow.cur&&s.widow.cur.id,null,'timeout');});
   var e=s.echo2&&s.echo2.pop;
@@ -4572,7 +4622,6 @@ function forceProgress(quiet){
   }
   if(s.rein&&s.rein.pend){reinAnswer(s.rein.pend.id,'pass');done.push('라인하르트 패스');}
   if(s.widow&&s.widow.cur){widowResolve(s.widow.cur.id,null,'timeout');done.push('위도우메이커 저격 실패');}
-  if(s.lucioPending){lucioJudge(true);done.push('루시우 적극적 → 성공');}
   var e=s.echo2;
   if(e&&e.pop){if(e.pop.kind==='last'){echoLastTimeout(e.pop.id);done.push('에코 마지막 기회 → 틀림');}else if(e.pop.kind==='final'){echoFinalResolve(null,e.pop.id);done.push('에코 최종 1등 지목 → 틀림(+1점)');}else{echoPopFail(e.pop.id);done.push('에코 예측 → 실패(조용히)');}}
   if(done.length&&!quiet){sysChat('⏭️ 진행이 지연되어 기본값으로 처리했어요.');toast('⏭️ 처리: '+done.join(' · '));}
@@ -5272,7 +5321,7 @@ function settleHero(h){
   var st=A().state;st.settled=st.settled||{};
   if(st.settled[h])return toast('이미 정산했어요');
   var P=(A().content||{}).params||{},x=heroOf(h);
-  var unused=h==='tracer'?((A().state.tr||{}).uses||0)===0:h==='sombra'?(!((A().state.sombra||{}).exposed)&&((A().state.sombra||{}).n||0)>=1):h==='lucio'?!isUsed('lucio'):((A().state.rein||{}).blocks||0)===0;
+  var unused=h==='tracer'?((A().state.tr||{}).uses||0)===0:h==='sombra'?(!((A().state.sombra||{}).exposed)&&((A().state.sombra||{}).n||0)>=1):h==='lucio'?(!isUsed('lucio')&&!A().state.lucioPending):((A().state.rein||{}).blocks||0)===0;
   var pts=h==='tracer'?(P.tracer!=null?P.tracer:1):h==='sombra'?(P.sombraHideBonus!=null?P.sombraHideBonus:1):h==='lucio'?1:(P.reinhardt!=null?P.reinhardt:1);
   if(unused)addEvt(x.hero+(h==='sombra'?' — 끝까지 들키지 않은 은닉 보너스':' — 끝까지 사용하지 않아 보너스'),'power',[{name:holder,d:pts,note:x.hero+(h==='sombra'?' 끝까지 들키지 않은 은닉 보너스':' 끝까지 사용하지 않은 보너스')}],{id:'bonus:'+h});
   if(unused&&h==='reinhardt')sysChat('🛡️ 라인하르트['+holder+']가 있어 세상이 평화로웠다. +1점');
@@ -5304,7 +5353,9 @@ function buildFinal(){
 function refreshFinal(){S.pub.final=buildFinal();put('public/final',S.pub.final);}
 function publishFinal(){
   S.pub.final=buildFinal();put('public/final',S.pub.final);
-  announce('announce','🏆 점수 발표!',{emoji:'🏆',lines:['최종 순위를 확인하세요!','닫으면 시상식 점수 화면으로 이동해요'],closeGo:'award'},'🏆 점수 발표!!!! 최종 순위를 확인하세요 — 시상식 메뉴에서 전체 점수와 순위를 볼 수 있어요');
+  var _rows=S.pub.final.rows||[],_rk=[];_rows.forEach(function(r){if(r.rank<=3&&_rk.indexOf(r.rank)<0)_rk.push(r.rank);});_rk.sort(function(a,b){return b-a;});
+  var _tiers=_rk.map(function(rk){return {rank:rk,items:_rows.filter(function(r){return r.rank===rk;}).map(function(r){return {n:r.name,hero:r.hero,total:r.total};})};});
+  announce('awardreveal','🏆 시상식',{tiers:_tiers,closeGo:'award'},'🏆 점수 발표!!!! 최종 순위를 확인하세요 — 시상식 메뉴에서 전체 점수와 순위를 볼 수 있어요');
 }
 async function resetAll(){
   S.resetting=true;S.epoch=(S.epoch||0)+1;S.busy++;
@@ -5467,6 +5518,7 @@ async function handle(act,v,t){
       break;
     case 'replay':if(S.pub.live)showPop(S.pub.live);return;
     case 'openEnv':closePop();openEnvelopes(false);return;
+    case 'fxToggle':try{localStorage.setItem('tf_fx',fxOn()?'0':'1');}catch(e){}toast(fxOn()?'🔔 진동·효과음을 켰어요':'🔕 진동·효과음을 껐어요');if(fxOn())fxAlert('good');render(true);return;
     case 'todoHide':S.todoHide=true;renderOpenFab();return;
     case 'todoShow':S.todoHide=false;if(S.pop)closePop();renderOpenFab();return;
     case 'proxyOpen':if(S.admin){S.modal={type:'px',hero:v};renderModal();}return;
