@@ -816,6 +816,25 @@ html,body{touch-action:manipulation}
 .todopill{pointer-events:auto;display:inline-block;margin:0 0 6px;padding:4px 12px;border-radius:14px;background:rgba(20,22,48,.92);border:2px solid var(--hot);font-size:12px;font-weight:900;color:#fff}
 .openfab{max-height:34vh}
 .hb.on{background:rgba(255,255,255,.14);border-radius:10px}
+
+/* v54: 폰 화면 폭에 맞춰 잘리지 않게 */
+*,*::before,*::after{box-sizing:border-box}
+html,body{max-width:100%;overflow-x:hidden}
+body{overflow-wrap:anywhere}
+img,video,canvas,svg{max-width:100%;height:auto}
+.main{max-width:100%;overflow-x:hidden}
+.card,.note,.box,.snipebox,.openfab{max-width:100%}
+.card.scroll,.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tbl{max-width:100%}
+.box{max-width:calc(100vw - 16px)}
+.top{max-width:100vw}
+.top .brand{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brandlink{cursor:pointer}
+.pgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.chips{flex-wrap:wrap}
+#pp,#snipe,#openfab,.openfab{max-width:calc(100vw - 12px)}
+.sstat{margin:6px 0;padding:6px 8px;border-radius:10px;background:rgba(0,0,0,.25);font-size:12px;line-height:1.4}
+.tag.bad{background:#ff4b4b;color:#fff}
 </style>
 </head>
 <body>
@@ -1624,7 +1643,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v53';
+var BUILD_ID='v54';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:0;        // 0 = 시간 제한 없음 (관리자가 준비되면 직접 눌러요)
 var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -1768,7 +1787,7 @@ function renderPP(){
     if(S.ppSent===e.id)h+='<div class="snipebox"><p>🪞 예측 접수. 결과를 확인하는 중…</p></div>';
     else{
       var cs=PLAYERS.filter(function(n){return n!==e.exclude&&n!==S.me;});
-      h+='<div class="snipebox"><button class="btn ghost" style="float:right;padding:4px 10px" data-act="ppHide">접기 ▾</button><b>🪞 '+(e.kind==='final'?'복제 준비 완료!':e.kind==='last'?'마지막 기회!':'예측 창이 열렸어요.')+'</b><p>'+(e.kind==='final'?'최종 1등은 누구일까요? (본인은 제외) — 꼭 지목해야 해요':e.kind==='last'?'현재 3위 안에 있는 사람은 누구일까요? (본인은 제외)':'지금 3위 안에 있는 사람은 누구일까요? (본인은 제외)')+'</p><div class="chips">'+cs.map(function(n){return '<button class="chip'+(S.epPick===n?' on':'')+'" data-act="ppEchoPick" data-v="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div><button class="btn hot block" style="margin-top:8px" data-act="ppEchoGo"'+(S.epPick?'':' disabled')+'>🪞 제출</button></div>';
+      h+='<div class="snipebox"><button class="btn ghost" style="float:right;padding:4px 10px" data-act="ppHide">접기 ▾</button><b>🪞 '+(e.kind==='final'?'복제 준비 완료!':e.kind==='last'?'마지막 기회!':'예측 창이 열렸어요.')+'</b><p>'+(e.kind==='final'?'나를 뺀 1등은 누구일까요? 꼭 지목해야 해요'+(e.firstNow?'<br><b style="color:#ffd23f">⚠️ 지금 내가 1등이에요! 2등을 지목해 맞히면 점수가 서로 바뀌어요.</b>':''):e.kind==='last'?'현재 3위 안에 있는 사람은 누구일까요? (본인은 제외)':'지금 3위 안에 있는 사람은 누구일까요? (본인은 제외)')+'</p><div class="chips">'+cs.map(function(n){return '<button class="chip'+(S.epPick===n?' on':'')+'" data-act="ppEchoPick" data-v="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div><button class="btn hot block" style="margin-top:8px" data-act="ppEchoGo"'+(S.epPick?'':' disabled')+'>🪞 제출</button></div>';
     }
   }
   if(h&&S.ppHide)h='<button class="chip" style="pointer-events:auto;align-self:flex-end" data-act="ppShow">📋 열린 창 보기</button>';
@@ -1835,6 +1854,18 @@ function hackVerdict(pd){      // 솜브라가 추리한 영웅이 맞았는지�
   document.addEventListener('touchend',function(e){var n=Date.now();if(n-lt<350&&!/^(INPUT|TEXTAREA|SELECT)$/.test((e.target||{}).tagName||''))e.preventDefault();lt=n;},{passive:false});
   ['gesturestart','gesturechange','gestureend'].forEach(function(t){document.addEventListener(t,function(e){e.preventDefault();});});
 })();
+function sombraStatusLine(){      // 솜브라가 들켰는지 / 은신에 성공했는지
+  var d=A().state.sombra||{n:0,succ:0};
+  if(d.exposed)return '🚨 검거됨 — 정체가 모두에게 공개됐어요 (해킹 '+(d.n||0)+'/2 사용 · 성공 '+(d.succ||0)+'회)';
+  if((d.n||0)>=2)return '😏 은신 성공 — 해킹을 모두 쓰고도 안 들켰어요 (성공 '+(d.succ||0)+'회)';
+  return '🕵️ 은신 중 — 해킹 '+(d.n||0)+'/2 사용 · 성공 '+(d.succ||0)+'회'+(d.pending?' · 판정 대기 중':'');
+}
+function sombraSelfStatus(){
+  var d=(S.deal&&S.deal.sombra)||{n:0};
+  if(d.exposed)return '🚨 검거됨 — 정체가 모두에게 공개됐어요';
+  if((d.n||0)>=2)return '😏 은신 성공 — 해킹을 모두 쓰고도 안 들켰어요';
+  return '🤫 은신 중 (해킹 '+(d.n||0)+'/2 사용)';
+}
 function judgePrompts(){      // 솜브라 해킹 · 루시우 무대: 판정할 일이 생기면 관리자에게만 팝업이 떠요
   if(!S.admin)return;
   var s=A().state||{};S.judgeP=S.judgeP||{};
@@ -2066,9 +2097,8 @@ function layout(){
   var needLogin=S.ready&&S.db&&S.uid&&!S.me&&!S.guest&&!S.setup;
   var un=chatUnread();
   return '<header class="top">'+
-    '<button class="hb'+(S.view==='home'?' on':'')+'" data-act="go" data-v="home" aria-label="홈">🏠</button>'+
     '<button class="hb" data-act="go" data-v="chat" aria-label="채팅">💬'+(un?'<span class="bdg">'+(un>9?'9+':un)+'</span>':'')+'</button>'+(S.me?'<button class="hb" data-act="missedList" aria-label="못 본 알림">🔔<span class="bdg" id="bellbdg" style="display:none"></span></button>':'')+
-    '<div class="brand">TF 원데이 워크숍 <small class="verchip">'+BUILD_ID+'</small>'+(S.admin?' <span class="tag hot">관리자</span>':'')+'</div>'+
+    '<div class="brand brandlink" data-act="go" data-v="home" role="button" aria-label="홈으로">TF 원데이 워크숍 <small class="verchip">'+BUILD_ID+'</small>'+(S.admin?' <span class="tag hot">관리자</span>':'')+'</div>'+
     '<button class="hb" data-act="menu" aria-label="메뉴">☰</button></header>'+
     (S.menu?drawer():'')+
     '<main class="main">'+(!S.ready?'<p class="mut" style="text-align:center;margin-top:60px">연결 중…</p>':S.setup?viewSetup():needLogin?viewLogin():body())+'</main>';
@@ -2386,7 +2416,7 @@ function viewPower(){
   if(!S.me){mine='<div class="card">로그인하면 내 초능력 카드를 뽑을 수 있어요.<br><button class="btn hot" style="margin-top:8px" data-act="relogin">로그인하기</button></div>';}
   else if(S.deal&&revealed()){
     var x0=heroOf(S.deal.hero);
-    var stag=(x0.id==='reinhardt'?'<p style="margin-top:10px"><span class="tag good">🛡️ 방벽 '+reinUses()+'/'+REIN_MAX+'회 사용</span></p>':used[x0.id]?'<p style="margin-top:10px"><span class="tag good">✅ 사용 완료 · 모두에게 공개됨</span></p>':'<p style="margin-top:10px"><span class="tag">🤫 아직 비공개</span></p>');
+    var stag=(x0.id==='reinhardt'?'<p style="margin-top:10px"><span class="tag good">🛡️ 방벽 '+reinUses()+'/'+REIN_MAX+'회 사용</span></p>':used[x0.id]?'<p style="margin-top:10px"><span class="tag good">✅ 사용 완료 · 모두에게 공개됨</span></p>':x0.id==='sombra'?'<p style="margin-top:10px"><span class="tag'+((S.deal&&S.deal.sombra&&S.deal.sombra.exposed)?' bad':'')+'">'+sombraSelfStatus()+'</span></p>':(S.pub.reveal||{})[x0.id]?'<p style="margin-top:10px"><span class="tag good">🔓 정체가 모두에게 공개됐어요</span></p>':'<p style="margin-top:10px"><span class="tag">🤫 아직 비공개</span></p>');
     var cardH='<div class="mycard" style="--c:'+x0.c+'"><div class="em">'+(heroImg(x0.id,'mimg')||x0.em)+'</div><div class="tagl big">'+esc(tagline(x0.id))+'</div><div class="usesb big">🔢 '+maxUses(x0.id)+'회 사용 가능</div><h3>'+x0.hero+'</h3><div class="pn">'+heroIcon(x0.id)+x0.power+'</div>'+
       '<ul>'+(S.deal.detail||[]).map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+stag+
       '<div class="guide"><b>⏱ 사용 타이밍 가이드</b><div class="gl">'+esc(S.deal.guide||GUIDE_DEFAULT).replace(/\n/g,'<br>')+'</div></div></div>';
@@ -2409,13 +2439,13 @@ function viewPower(){
    '<div class="pgrid" style="margin-top:12px">'+HEROES.map(function(x){
       var u=used[x.id],adm=S.admin&&c&&c.powers&&c.powers[x.id],open=!!u||!!adm||!!(S.pub.reveal||{})[x.id]||detailPublic(x.id);
       var hd0=adm?holderOf(x.id):null;
-      var rvl=(S.pub.reveal||{})[x.id],pubD=detailPublic(x.id),rev=!!u||!!rvl||!!adm||pubD;
+      var rvl=(S.pub.reveal||{})[x.id],pubD=detailPublic(x.id),rev=!!u||!!rvl||!!adm||pubD,pubNow=!!u||!!rvl||pubD;
       var s='<div class="pcard'+(open?' open':'')+(adm&&!hd0?' off':'')+'" style="--c:'+x.c+'"><div class="em">'+(heroImg(x.id,'cimg')||x.em)+'</div><div class="hn">'+x.hero+'</div><div class="pn">'+heroIcon(x.id)+x.power+'</div><div class="usesb">🔢 '+maxUses(x.id)+'회 사용 가능</div>';
-      s+=rev?'<div class="tagl">'+esc(tagline(x.id))+'</div><span class="last">'+timingLabel(x)+'</span><span class="lockb open">'+(pubD?'📢 처음부터 공개':'🔓 공개됨')+'</span>':'<span class="lockb">🔒 상세는 공개 전까지 비밀</span>';
+      s+=rev?'<div class="tagl">'+esc(tagline(x.id))+'</div><span class="last">'+timingLabel(x)+'</span><span class="lockb'+(pubNow?' open':'')+'">'+(pubD?'📢 처음부터 공개':(rvl&&rvl.hacked?'🚨 검거됨 · 공개':(pubNow?'🔓 공개됨':'🔒 아직 비공개 (관리자에게만 보여요)')))+'</span>':'<span class="lockb">🔒 상세는 공개 전까지 비밀</span>';
       if(adm){
         var hd=holderOf(x.id);
         s+='<ul class="dt">'+c.powers[x.id].detail.map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ul>'+
-          '<div class="holder'+(hd?'':' none')+'"><small>보유자</small><b>'+(hd?esc(hd):'미배정')+'</b></div><span class="by">'+(u?'✅ 사용 공개됨':'🔒 비공개')+'</span>'+(u?resBox(u):'')+
+          '<div class="holder'+(hd?'':' none')+'"><small>보유자</small><b>'+(hd?esc(hd):'미배정')+'</b></div><span class="by">'+(u?'✅ 사용 공개됨':rvl?(rvl.hacked?'🚨 검거됨 · 해킹으로 정체 공개':'🔓 정체 공개됨'):pubD?'📢 상세만 공개 · 보유자는 비밀':'🔒 비공개')+'</span>'+(x.id==='sombra'?'<div class="sstat">'+sombraStatusLine()+'</div>':'')+(u?resBox(u):'')+
           '<div class="crow">'+(u?'<button class="cb" data-act="pwUndo" data-v="'+x.id+'">↩ 사용 취소 (점수도 취소)</button>'+((x.id==='cassidy'&&A().state.duel)?'<button class="cb" data-act="pwOpen" data-v="'+x.id+'">⚔️ 결과 입력</button>':'')+((x.id==='echo'&&A().state.echo)?'<button class="cb" data-act="pwOpen" data-v="echo">🪞 호명한 대상 입력</button>':'')+((x.id==='reinhardt'&&reinUses()<REIN_MAX)?'<button class="cb" data-act="pwOpen" data-v="reinhardt">🛡️ 방어/보너스 대신 처리 (관리자) · '+reinUses()+'/'+REIN_MAX+'회 사용</button>':''):
             adminCardBtns(x,hd))+'</div>';
       }else if(u){
@@ -2793,9 +2823,9 @@ function viewAward(){
   return h;
 }
 function settleTool(hid,num){
-  var holder=holderOf(hid),x=heroOf(hid),st=settledOf(hid),n=hid==='lucio'?((!isUsed('lucio')&&holderOf('lucio')&&lucioNoLoss(holderOf('lucio')))?0:1):hid==='reinhardt'?((A().state.rein||{}).blocks||0):hid==='sombra'?(((A().state.sombra||{}).exposed)?1:0):((A().state.tr||{}).uses||0);
+  var holder=holderOf(hid),x=heroOf(hid),st=settledOf(hid),n=hid==='lucio'?((!isUsed('lucio')&&holderOf('lucio'))?0:1):hid==='reinhardt'?((A().state.rein||{}).blocks||0):hid==='sombra'?(((A().state.sombra||{}).exposed)?1:0):((A().state.tr||{}).uses||0);
   var title=num+' '+x.em+' '+x.hero+' 정산 '+(st?'<span class="tag good">완료</span>':'');
-  var desc=hid==='lucio'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+((!isUsed('lucio')&&holder&&lucioNoLoss(holder))?'<b>한 번도 안 졌어요 (+1점 지급 대상)</b>':'졌거나 이미 사용했어요 (보너스 없음)')):hid==='sombra'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+(n===0?'<b>끝까지 들키지 않았어요 (은닉 보너스 +1점 지급 대상)</b>':'정체가 들통났어요 (보너스 없음)')):'보유자: '+(holder?esc(holder):'미추첨')+' · 지금까지 사용 '+n+'회 → '+(n===0?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'사용했어요 (보너스 없음)');
+  var desc=hid==='lucio'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+((!isUsed('lucio')&&holder)?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'이미 사용했어요 (보너스 없음)')):hid==='sombra'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+(n===0?'<b>끝까지 들키지 않았어요 (은닉 보너스 +1점 지급 대상)</b>':'정체가 들통났어요 (보너스 없음)')):'보유자: '+(holder?esc(holder):'미추첨')+' · 지금까지 사용 '+n+'회 → '+(n===0?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'사용했어요 (보너스 없음)');
   var btn=st?'<div class="small">'+(st.unused?'✅ +'+st.pts+'점 지급 완료':'ℹ️ 사용했어서 보너스 없음 · 정산 완료')+'</div><button class="btn ghost block" style="margin-top:6px" data-act="unsettleHero" data-v="'+hid+'">↩ 정산 취소</button>':
     '<button class="btn block" data-act="settleHero" data-v="'+hid+'"'+(holder?'':' disabled')+'>'+x.hero+' 정산 (한 번도 안 썼으면 +1점)</button>';
   return tool(title,desc,btn);
@@ -3684,6 +3714,7 @@ function openEnvelopes(auto){
   var pl=Object.assign({},po.payload,{countdown:OPEN_SEC,sniper:true});
   S.winKey=po.key||S.winKey||'';
   announce('private',po.title,pl,po.chat||'');
+  {var en=(okey==='bowl2')?1:(okey==='ow2')?2:0;if(en&&st.echoWait&&st.echoWait[en]){delete st.echoWait[en];st.echoDue={n:en,at:Date.now()+OPEN_SEC*1000+9500};saveState();}}
   {var kn=(okey==='bowl2')?1:(okey==='ow2')?2:0;if(kn&&st.kirikoWait&&st.kirikoWait[kn]){delete st.kirikoWait[kn];st.kirikoDue={n:kn,at:Date.now()+OPEN_SEC*1000+9000,max:Date.now()+OPEN_SEC*1000+85000};saveState();}}
   if(auto)toast('⏱ 90초가 지나 봉투를 자동으로 열었어요');
   render(true);
@@ -3700,7 +3731,7 @@ function bowlResult(key,gi,via){
   var R=clone(S.pub.results)||{};R[key]={win:win,team:gi};S.pub.results=R;saveResults();
   var pool={};addPools(pool,win,assign,BOWL_WIN,'win');addPools(pool,lose,assign,BOWL_LOSE,'lose');
   symmetraBonus(key,gi);
-  if(key==='bowl2'){kirikoAfter(1);echoPopOpen(1);moiraReady();}
+  if(key==='bowl2'){kirikoAfter(1);echoAfter(1);moiraReady();}
   var wn=t.groups[gi].n;
   winThenPriv(wn,win,GAME[key],function(){
     announce('private','✉️ '+GAME[key]+' 점수 봉투'+(via?' (다시 뽑기)':''),{assign:assign,pool:pool,unit:'점',fmt:'plain',label:'기본 점수',via:via||'',winName:t.groups[gi].n,loseName:t.groups[1-gi].n},'');
@@ -3911,7 +3942,7 @@ function owResult(key,gi,via){
   var R=clone(S.pub.results)||{};R[key]={win:win,team:gi,pred:predNames};S.pub.results=R;saveResults();
   var pool={};addPools(pool,win,assign,OW_WIN,'win');addPools(pool,lose,assign,OW_LOSE,'lose');
   symmetraBonus(key,gi);
-  if(key==='ow2'){kirikoAfter(2);echoPopOpen(2);}
+  if(key==='ow2'){kirikoAfter(2);echoAfter(2);}
   winThenPriv(t.groups[gi].n,win,GAME[key],function(){
     announce('private','✉️ '+GAME[key]+' 점수 봉투'+(via?' (다시 뽑기)':''),{assign:assign,bonus:bonus,pool:pool,unit:'점',fmt:'plain',label:'기본 점수',via:via||'',winName:t.groups[gi].n,loseName:t.groups[1-gi].n,predWinners:predNames,predView:predView},'');
   },(via?'⏪ '+via+' ':'')+'🎮 '+GAME[key]+' 결과! '+t.groups[gi].n+' 승리!!!! '+(pi.length?'예측 성공: '+pi.map(function(x){return x.name;}).join(', ')+' (+1점)':'예측 성공자 없음'));
@@ -4491,6 +4522,7 @@ function rearmAll(){
   var e=s.echo2&&s.echo2.pop;
   if(e&&e.kind==='last')at('el'+e.id,e.ts,60000,function(){echoLastTimeout(e.id);});
   if(e&&e.kind==='final')at('ef'+e.id,e.ts,60000,function(){echoFinalResolve(null,e.id);});
+  if(s.echoDue)at('ed'+s.echoDue.n+'_'+s.echoDue.at,s.echoDue.at,0,function(){var d=A().state.echoDue;if(d){delete A().state.echoDue;saveState();echoPopOpen(d.n);}});
   if(s.kirikoDue)at('kd'+s.kirikoDue.n+'_'+s.kirikoDue.at,s.kirikoDue.at,0,function(){kirikoTry(s.kirikoDue);});
   if(s.pendingOpen){if(OPEN_AUTO_MS)at('po'+s.pendingOpen.ts,s.pendingOpen.ts,OPEN_AUTO_MS,function(){openEnvelopes(true);});openPrompt();}
 }
@@ -4801,27 +4833,28 @@ function echoApply(att){
   addEvt('에코 복제 — 점수 교환','power',swapItems(h,att.target,T,'에코 복제'),{id:'pw:echo'});
   echoMark(h,[h+' ↔ '+att.target+' 점수 교환']);
   sysChat(att.target+' 님, 점수 맞바꿈 완료! 🪞');
-  announce('announce','🪞 점수 교환!',{useBy:h,useHero:'echo',fx:'echo',alert:'🪞 점수가 교환되었다!',lines:['에코['+h+']가 최종 1등 '+att.target+' 님과 점수를 맞바꿨다!'],swap:[{n:h,from:ta,to:tb},{n:att.target,from:tb,to:ta}]},'');
+  announce('announce','🪞 점수 교환!',{useBy:h,useHero:'echo',fx:'echo',alert:'🪞 점수가 교환되었다!',lines:['에코['+h+']가 '+att.target+' 님과 점수를 맞바꿨다!','(나를 뺀 1등을 정확히 맞혔다)'],swap:[{n:h,from:ta,to:tb},{n:att.target,from:tb,to:ta}]},'');
   render(true);
 }
-function echoMiss(h,pick){
+function echoMiss(h,pick,R){
+  var rp=pick&&R?R.filter(function(x){return x.name===pick;})[0]:null,fact=rp?pick+' 님은 '+rp.rank+'등 ('+rp.total+'점)이었다':'';
   addEvt('에코 복제 (+1)','power',[{name:h,d:1,note:'에코 최종 지목 실패 보너스'}],{id:'pw:echo:gain'});
-  echoMark(h,['🪞 최종 1등을 찾지 못했어요 (+1점)']);
-  sysChat('🪞 에코['+h+']는 '+(pick?pick+' 님을 지목했지만 아쉽게도 1등이 아니었다.':'1등을 지목하지 못했다.'));
+  echoMark(h,['🪞 나를 뺀 1등을 찾지 못했어요 (+1점)']);
+  sysChat('🪞 에코['+h+']는 '+(pick?pick+' 님을 지목했지만 '+fact.replace(pick+' 님은 ','')+'. 아쉽게도 1등이 아니었다.':'1등을 지목하지 못했다.'));
   dealNote(h,'🪞 1등을 찾지 못했어요. +1점');
-  announce('announce','🪞 에코의 최종 지목',{face:'echo',swooshHero:'echo',useHero:'echo',fx:'echo',alert:'🪞 아쉽다! 1등이 아니었다',lines:['에코['+h+']는 '+(pick?pick+' 님을 지목했지만':'1등을 지목하지 못했고'),'아쉽게도 1등이 아니었다']},'');
+  announce('announce','🪞 에코의 최종 지목',{face:'echo',swooshHero:'echo',useHero:'echo',fx:'echo',alert:'🪞 아쉽다! 1등이 아니었다',lines:['에코['+h+']는 '+(pick?pick+' 님을 지목했지만':'1등을 지목하지 못했고'),(fact||'시간 안에 고르지 못했다'),'아쉽게도 (나를 뺀) 1등이 아니었다']},'');
 }
 function echoFinalResolve(pick,id){
   var e=echoSt(),h=holderOf('echo');
   if(id){if(!e.pop||e.pop.id!==id)return;e.pop=null;epSet(h,{id:id,done:true});}
-  var firsts=rank(calc()).filter(function(x){return x.rank===1;}).map(function(x){return x.name;});
-  if(firsts.indexOf(h)>=0)return echoGain('🪞 에코['+h+']는 이미 거울 속 1등이었다. +1점');
-  if(pick&&firsts.indexOf(pick)>=0){
+  var R=rank(calc()),others=R.filter(function(x){return x.name!==h;}),bestT=others.length?others[0].total:null;
+  var best=others.filter(function(x){return x.total===bestT;}).map(function(x){return x.name;});      // 나(에코)를 제외한 1등
+  if(pick&&best.indexOf(pick)>=0){
     var att={type:'echo',label:'에코의 복제',attacker:h,target:pick};
     if(afterAttack(att)==='none')echoApply(att);
     return;
   }
-  echoMiss(h,pick);
+  echoMiss(h,pick,R);
 }
 function echoLastCall(){
   var h=holderOf('echo');if(!h)return toast('에코 보유자가 없어요');
@@ -4833,7 +4866,8 @@ function echoLastCall(){
   if(e.active){
     sysChat('복제 준비 완료! 🪞 에코['+h+']가 최종 1등을 추리한다.');
     e.pop={id:id,kind:'final',ts:Date.now()};saveState();
-    epSet(h,{id:id,round:4,kind:'final',exclude:''});
+    var _me=rank(calc()).filter(function(x){return x.name===h;})[0];
+    epSet(h,{id:id,round:4,kind:'final',exclude:'',firstNow:!!(_me&&_me.rank===1)});
     setTimeout(function(){echoFinalResolve(null,id);},60000);      // 60초 안에 안 고르면 틀림 처리 (+1점)
   }else{
     sysChat('에코['+h+']가 두 번의 기회를 실패하여 복제 기능을 잃었습니다. 마지막 포인트 획득 기회. 현재 3위 안에 있는 사람을 지목해주세요.');
@@ -5147,6 +5181,10 @@ function moiraReady(){      // 볼링이 끝나 생체 흡수를 쓸 수 있게 
   var h=holderOf('moira');if(!h||isUsed('moira'))return;
   dealNote(h,'🧪 생체 흡수를 쓸 수 있어요!',['🧪 이제 생체 흡수를 쓸 수 있어요!','초능력 마감(에코 마지막 호명) 전까지 1회 쓸 수 있어요','확인을 누르면 초능력 페이지로 이동해요'],{closeGo:'power'});
 }
+function echoAfter(n){      // 봉투 연출이 모두 끝난 뒤에 에코 예측창이 떠요 (자동 개봉 모드에서는 바로)
+  if(!OPEN_MANUAL){echoPopOpen(n);return;}
+  var st=A().state;st.echoWait=st.echoWait||{};st.echoWait[n]=true;saveState();
+}
 function kirikoAfter(n){      // 봉투 개봉 + 저격까지 끝난 뒤에 날아가요 (자동 개봉 모드에서는 바로)
   if(!OPEN_MANUAL){kirikoFire(n);return;}
   var st=A().state;st.kirikoWait=st.kirikoWait||{};st.kirikoWait[n]=true;saveState();
@@ -5213,7 +5251,7 @@ function settleHero(h){
   var st=A().state;st.settled=st.settled||{};
   if(st.settled[h])return toast('이미 정산했어요');
   var P=(A().content||{}).params||{},x=heroOf(h);
-  var unused=h==='tracer'?((A().state.tr||{}).uses||0)===0:h==='sombra'?!((A().state.sombra||{}).exposed):h==='lucio'?(!isUsed('lucio')&&lucioNoLoss(holder)):((A().state.rein||{}).blocks||0)===0;
+  var unused=h==='tracer'?((A().state.tr||{}).uses||0)===0:h==='sombra'?!((A().state.sombra||{}).exposed):h==='lucio'?!isUsed('lucio'):((A().state.rein||{}).blocks||0)===0;
   var pts=h==='tracer'?(P.tracer!=null?P.tracer:1):h==='sombra'?(P.sombraHideBonus!=null?P.sombraHideBonus:1):h==='lucio'?1:(P.reinhardt!=null?P.reinhardt:1);
   if(unused)addEvt(x.hero+(h==='sombra'?' — 끝까지 들키지 않은 은닉 보너스':' — 끝까지 사용하지 않아 보너스'),'power',[{name:holder,d:pts,note:x.hero+(h==='sombra'?' 끝까지 들키지 않은 은닉 보너스':' 끝까지 사용하지 않은 보너스')}],{id:'bonus:'+h});
   if(unused&&h==='reinhardt')sysChat('🛡️ 라인하르트['+holder+']가 있어 세상이 평화로웠다. +1점');
