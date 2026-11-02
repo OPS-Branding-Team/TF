@@ -836,6 +836,7 @@ img,video,canvas,svg{max-width:100%;height:auto}
 .sstat{margin:6px 0;padding:6px 8px;border-radius:10px;background:rgba(0,0,0,.25);font-size:12px;line-height:1.4}
 .tag.bad{background:#ff4b4b;color:#fff}
 .teamback{margin:10px 0;padding:10px;border-radius:12px;background:rgba(111,231,168,.12);border:2px dashed #6fe7a8;text-align:left}.teamback b{display:block;margin-bottom:4px;color:#6fe7a8}
+.moirabox{border:2px solid #b66bff}
 </style>
 </head>
 <body>
@@ -923,7 +924,7 @@ var HEROES=[
   {id:'kiriko',hero:'키리코',power:'치유의 부적',em:'🍃',c:'#e8607a'}
 ];
 /* 상세가 처음부터 모두에게 공개되는 영웅 (보유자만 비밀, 키리코는 보유자도 공개) */
-var PUB_DETAIL={"sombra": ["대상 1명의 영웅을 추리해 제출 (총 2회)", "해킹 성공: 대상의 초능력 공개, 첫 성공 +2점 / 두 번째 성공 +1점", "해킹 실패: 전원 솜브라 정체 투표 진행 검거 시 초능력 상실", "끝까지 정체를 들키지 않으면 은닉 보너스 +1점", "🚩정체를 숨기고 상대의 초능력을 밝혀내세요!"], "widowmaker": ["승리팀 점수 봉투 공개 직후, 5점 획득자 1명 저격", "볼링·오버워치 각 라운드 1회씩, 총 4회 기회", "저격 성공: 상대 -1점 / 첫 성공 +2점, 이후 성공마다 +1점", "본인이 5점 획득자라면 저격하는 척만 가능", "4번째 저격 기회 사용 시 정체 공개", "🚩승리팀 봉투가 열리는 순간, 표정을 주시하세요!!"], "kiriko": ["볼링·오버워치 종료 후 각각 1회 자동 발동", "이유정을 포함한 점수 하위 4명 중 랜덤 2명에게 +1점씩 지급", "🚩점수가 낮아도 포기하지 마세요! 행운의 부적이 찾아갑니다!"]};
+var PUB_DETAIL={"sombra": ["대상 1명의 영웅을 추리해 제출 (총 2회)", "해킹 성공: 대상의 초능력 공개, 첫 성공 +2점 / 두 번째 성공 +1점", "해킹 실패: 전원 솜브라 정체 투표 진행 검거 시 초능력 상실", "해킹을 1회 이상 사용하고 끝까지 정체를 들키지 않으면 은닉 보너스 +1점", "🚩정체를 숨기고 상대의 초능력을 밝혀내세요!"], "widowmaker": ["승리팀 점수 봉투 공개 직후, 5점 획득자 1명 저격", "볼링·오버워치 각 라운드 1회씩, 총 4회 기회", "저격 성공: 상대 -1점 / 첫 성공 +2점, 이후 성공마다 +1점", "본인이 5점 획득자라면 저격하는 척만 가능", "4번째 저격 기회 사용 시 정체 공개", "🚩승리팀 봉투가 열리는 순간, 표정을 주시하세요!!"], "kiriko": ["볼링·오버워치 종료 후 각각 1회 자동 발동", "이유정을 포함한 점수 하위 4명 중 랜덤 2명에게 +1점씩 지급", "🚩점수가 낮아도 포기하지 마세요! 행운의 부적이 찾아갑니다!"]};
 function revealedNames(){
   var n={},u=(S.pub.used&&S.pub.used.used)||{},rv=S.pub.reveal||{};
   Object.keys(u).forEach(function(k){if(u[k]&&u[k].by)n[u[k].by]=1;});
@@ -1144,9 +1145,9 @@ function startSubs(){
 /* 카드는 뽑기를 열 때 이미 배정돼 있고, 플레이어가 "카드 뽑기"를 누르는 순간 내 카드가 공개돼요 */
 /* ===== 경기 진행 상황 + "지금 쓰는 게 좋아요" 추천 ===== */
 var GAMES=['bowl1','bowl2','ow1','ow2'];
-var TAGLINE={sombra:'은밀하게 해킹! 맞히면 대상의 초능력이 공개돼요',widowmaker:'표정을 읽고 최고 득점자를 저격해요!',cassidy:'도전장을 내고 하나빼기 결투! 이기면 +2점',moira:'나보다 점수 높은 3명에게서 1점씩 흡수!',symmetra:'경기 시작 전, 상대 팀 1명과 자리 바꾸기! (이기면 +3점)',tracer:'나와 관련된 일을 되돌려요 (2회 · 안 쓰면 +1점)',echo:'예측에 성공하면 복제 발동! 최종 1등과 점수 교환',reinhardt:'서약자와 나를 지키는 방벽! (못 막아도 +1점)',lucio:'진 경기 뒤 분위기 전환! 팀 전원 +1점 (춤·노래 성공 시 +2점)',kiriko:'하위권 2명에게 부적을 날려요 (자동)'};
+var TAGLINE={sombra:'은밀하게 해킹! 맞히면 대상의 초능력이 공개돼요',widowmaker:'표정을 읽고 최고 득점자를 저격해요!',cassidy:'도전장을 내고 하나빼기 결투! 이기면 +2점',moira:'나보다 점수 높은 3명에게서 1점씩 흡수!',symmetra:'경기 시작 전, 상대 팀 1명과 자리 바꾸기! (이기면 +3점)',tracer:'나와 관련된 일을 되돌려요 (2회 · 안 쓰면 +1점)',echo:'예측에 성공하면 복제 발동! 최종 1등과 점수 교환',reinhardt:'서약자와 나를 지키는 방벽! (못 막아도 +1점)',lucio:'팀이 정해진 뒤 분위기 전환! 팀 전원 +1점 (춤·노래 성공 시 루시우 +2점 추가)',kiriko:'하위권 2명에게 부적을 날려요 (자동)'};
 function tagline(id){return TAGLINE[id]||'';}
-var TIMING={tracer:'🎯 특정 타이밍 — 나와 관련된 일이 생긴 직후 (팝업)',reinhardt:'🎯 특정 타이밍 — 공격받은 직후 (팝업) · 서약은 마지막 호명 전까지',echo:'⏳ 볼링 후 · 오버워치 후 예측 → 최종 정산 전 1등 지목',lucio:'🎯 특정 타이밍 — 우리 팀이 진 경기 뒤',sombra:'⚡ 원하는 타이밍에 발동',widowmaker:'🎯 특정 타이밍 — 저격 타임(봉투 개봉 직후 1분)',kiriko:'🤖 자동 발동 — 볼링 후 · 오버워치 후',symmetra:'🎯 특정 타이밍 — 팀이 정해진 직후 ~ 경기 결과 전',lucio:'🎯 특정 타이밍 — 우리 팀이 정해진 뒤',tracer:'🎯 특정 타이밍 — 되돌릴 일이 생긴 직후',reinhardt:'🎯 특정 타이밍 — 공격받은 직후',echo:'⏳ 마지막에 발동'};
+var TIMING={moira:'🎯 특정 타이밍 — 볼링 종료 ~ 오버워치 1경기 시작 전',tracer:'🎯 특정 타이밍 — 나와 관련된 일이 생긴 직후 (팝업)',reinhardt:'🎯 특정 타이밍 — 공격받은 직후 (팝업) · 서약은 마지막 호명 전까지',echo:'⏳ 볼링 후 · 오버워치 후 예측 → 최종 정산 전 1등 지목',lucio:'🎯 특정 타이밍 — 우리 팀이 진 경기 뒤',sombra:'⚡ 원하는 타이밍에 발동',widowmaker:'🎯 특정 타이밍 — 저격 타임(봉투 개봉 직후 1분)',kiriko:'🤖 자동 발동 — 볼링 후 · 오버워치 후',symmetra:'🎯 특정 타이밍 — 팀이 정해진 직후 ~ 경기 결과 전',lucio:'🎯 특정 타이밍 — 우리 팀이 정해진 뒤',tracer:'🎯 특정 타이밍 — 되돌릴 일이 생긴 직후',reinhardt:'🎯 특정 타이밍 — 공격받은 직후',echo:'⏳ 마지막에 발동'};
 function timingLabel(x){return TIMING[x.id]||'⚡ 원하는 타이밍에 발동';}
 function heroImg(id,cls){return (typeof HERO_IMG!=='undefined'&&HERO_IMG[id])?'<img class="himg '+(cls||'')+'" src="'+HERO_IMG[id]+'" alt="">':'';}
 var BLOCKABLE=['moira','echo','symmetra','widowmaker'];     // 라인하르트 방벽으로 막을 수 있는 (나에게 불리한) 초능력
@@ -1283,6 +1284,7 @@ function canUseNow(hero,who){
   if(f.powerClosed)return {ok:false,why:'관리자가 초능력 사용을 마감했어요'};
   if(hero==='cassidy'&&!f.lunchDone)return {ok:false,why:'점심 결과가 나온 뒤부터 사용할 수 있어요'};
   if(hero==='moira'&&!R.bowl2)return {ok:false,why:'볼링이 끝난 뒤(2세트 결과 후)부터 사용할 수 있어요'};
+  if(hero==='moira'&&team('ow1'))return {ok:false,why:'오버워치 1경기가 시작돼서 사용 기간이 끝났어요 (볼링 종료 ~ 오버워치 1경기 시작 전까지)'};
   if(hero==='symmetra'){
     if(GAMES.indexOf(cur)<0||!sets[cur]||teamOf(cur,who)<0)return {ok:false,why:'팀이 정해진 직후 ~ 경기 결과 전에만 사용할 수 있어요 (볼링·오버워치 때만, 점심 때는 못 써요)'};
     if(R[cur])return {ok:false,why:'이 경기는 이미 끝났어요. 다음 경기 팀이 정해진 뒤 사용할 수 있어요'};
@@ -1644,7 +1646,7 @@ function announce(kind,title,payload,chat){
   }else{showPop(ev);toast('📴 폰 공개 OFF — 이 화면에만 표시했어요');}
 }
 /* ---- 못 본 팝업 보관함: 폰을 안 보는 사이 떴던 팝업을 나중에 다시 볼 수 있어요 ---- */
-var BUILD_ID='v55';
+var BUILD_ID='v57';
 var OPEN_MANUAL=!(typeof window!=='undefined'&&window.__TF_OPENAUTO);     // 봉투 일괄 개봉: 관리자가 버튼으로 열어요 (테스트에서는 자동)
 var OPEN_SEC=3,OPEN_AUTO_MS=(typeof window!=='undefined'&&window.__TF_OPENMS!=null)?+window.__TF_OPENMS:0;        // 0 = 시간 제한 없음 (관리자가 준비되면 직접 눌러요)
 var DETAIL_PUBLIC=['sombra','kiriko'];                                      // 처음부터 상세가 공개되는 영웅 (위도우메이커는 4번을 다 쓴 뒤에 공개돼요)                       // 상세가 처음부터 공개되는 영웅 (해당 영웅이 있을 때만 적용)
@@ -1782,6 +1784,9 @@ function renderPP(){
     if(S.trSeenV!==tq.v){S.trSeenV=tq.v;S.trHide=false;}
     if(S.trHide)h+='<button class="chip" style="pointer-events:auto;align-self:center" data-act="trShow">⏪ 되돌릴 일 '+tq.items.length+'건 (눌러서 열기)</button>';
     else h+='<div class="snipebox"><b>⏪ 방금 일어난 일을 되돌리시겠습니까?</b><div class="small mut">남은 '+tq.left+'회 · 다음 경기가 시작되기 전까지 자유롭게 고를 수 있어요</div>'+tq.items.map(function(it){return '<div class="todo" style="text-align:left"><b>'+esc(it.label)+'</b><div class="row" style="margin-top:6px"><button class="btn hot" data-act="ppTr" data-v="'+it.id+':undo">되돌리기</button><button class="btn ghost" data-act="ppTr" data-v="'+it.id+':skip">넘기기</button></div></div>';}).join('')+'<button class="btn ghost" style="margin-top:6px" data-act="trHide">나중에 정할게요 (접기)</button></div>';
+  }
+  if(S.me&&S.deal&&S.deal.hero==='moira'&&S.view!=='power'&&!isUsed('moira')&&canUseNow('moira',S.me).ok){      // 쓸 수 있는 동안은 아래에 계속 떠 있어요
+    h+='<div class="snipebox moirabox"><button class="btn ghost" style="float:right;padding:4px 10px" data-act="ppHide">접기 ▾</button><b>🧪 생체 흡수를 쓸 수 있어요!</b><p>오버워치 1경기가 시작되기 전까지 1회 · 나보다 점수가 높을 것 같은 사람 3명을 골라요</p><button class="btn hot block" data-act="go" data-v="power">🧪 지금 사용하러 가기</button></div>';
   }
   var e=curEp();
   if(S.me&&e&&!e.done){
@@ -2578,7 +2583,7 @@ function usePanel(x){
   }
   if(id==='moira'){
     var mt=(uo.targets||[]);
-    return h+'<p class="small" style="margin-bottom:6px">⏳ '+(cu.ok?'지금부터 초능력 마감(에코 마지막 호명) 전까지 쓸 수 있어요 · 남은 기회 1회':'볼링 2세트가 끝난 뒤부터 쓸 수 있어요 (마감 전까지 1회)')+'</p><p class="small">점수가 나보다 높을 것 같은 사람 3명 ('+mt.length+'/3)</p><div class="chips">'+PLAYERS.filter(function(n){return n!==S.me;}).map(function(n){return '<button class="chip'+(mt.indexOf(n)>=0?' on':'')+'" data-act="tgToggle" data-v="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div><button class="btn hot block" style="margin-top:10px" data-act="moiraGo"'+(mt.length===3&&cu.ok?'':' disabled')+'>🧪 생체 흡수</button></div>';
+    return h+'<p class="small" style="margin-bottom:6px">⏳ '+(cu.ok?'지금부터 오버워치 1경기가 시작되기 전까지 쓸 수 있어요 · 남은 기회 1회':(cu.why||'볼링 2세트가 끝난 뒤부터 쓸 수 있어요 (오버워치 1경기 시작 전까지 1회)'))+'</p><p class="small">점수가 나보다 높을 것 같은 사람 3명 ('+mt.length+'/3)</p><div class="chips">'+PLAYERS.filter(function(n){return n!==S.me;}).map(function(n){return '<button class="chip'+(mt.indexOf(n)>=0?' on':'')+'" data-act="tgToggle" data-v="'+esc(n)+'">'+esc(n)+'</button>';}).join('')+'</div><button class="btn hot block" style="margin-top:10px" data-act="moiraGo"'+(mt.length===3&&cu.ok?'':' disabled')+'>🧪 생체 흡수</button></div>';
   }
   if(id==='lucio'){
     var lost=lucioLost(S.me),lk=uo.lkey&&lost.indexOf(uo.lkey)>=0?uo.lkey:lost[0];
@@ -2824,9 +2829,9 @@ function viewAward(){
   return h;
 }
 function settleTool(hid,num){
-  var holder=holderOf(hid),x=heroOf(hid),st=settledOf(hid),n=hid==='lucio'?((!isUsed('lucio')&&holderOf('lucio'))?0:1):hid==='reinhardt'?((A().state.rein||{}).blocks||0):hid==='sombra'?(((A().state.sombra||{}).exposed)?1:0):((A().state.tr||{}).uses||0);
+  var holder=holderOf(hid),x=heroOf(hid),st=settledOf(hid),n=hid==='lucio'?((!isUsed('lucio')&&holderOf('lucio'))?0:1):hid==='reinhardt'?((A().state.rein||{}).blocks||0):hid==='sombra'?((((A().state.sombra||{}).exposed)||((A().state.sombra||{}).n||0)<1)?1:0):((A().state.tr||{}).uses||0);
   var title=num+' '+x.em+' '+x.hero+' 정산 '+(st?'<span class="tag good">완료</span>':'');
-  var desc=hid==='lucio'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+((!isUsed('lucio')&&holder)?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'이미 사용했어요 (보너스 없음)')):hid==='sombra'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+(n===0?'<b>끝까지 들키지 않았어요 (은닉 보너스 +1점 지급 대상)</b>':'정체가 들통났어요 (보너스 없음)')):'보유자: '+(holder?esc(holder):'미추첨')+' · 지금까지 사용 '+n+'회 → '+(n===0?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'사용했어요 (보너스 없음)');
+  var desc=hid==='lucio'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+((!isUsed('lucio')&&holder)?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'이미 사용했어요 (보너스 없음)')):hid==='sombra'?('보유자: '+(holder?esc(holder):'미추첨')+' → '+((A().state.sombra||{}).exposed?'정체가 들통났어요 (보너스 없음)':(((A().state.sombra||{}).n||0)>=1?'<b>해킹 후 끝까지 들키지 않았어요 (은닉 보너스 +1점 지급 대상)</b>':'해킹을 한 번도 안 했어요 (보너스 없음)'))):'보유자: '+(holder?esc(holder):'미추첨')+' · 지금까지 사용 '+n+'회 → '+(n===0?'<b>한 번도 안 썼어요 (+1점 지급 대상)</b>':'사용했어요 (보너스 없음)');
   var btn=st?'<div class="small">'+(st.unused?'✅ +'+st.pts+'점 지급 완료':'ℹ️ 사용했어서 보너스 없음 · 정산 완료')+'</div><button class="btn ghost block" style="margin-top:6px" data-act="unsettleHero" data-v="'+hid+'">↩ 정산 취소</button>':
     '<button class="btn block" data-act="settleHero" data-v="'+hid+'"'+(holder?'':' disabled')+'>'+x.hero+' 정산 (한 번도 안 썼으면 +1점)</button>';
   return tool(title,desc,btn);
@@ -3894,6 +3899,7 @@ function owDraw(key,via){
   var ex={};if(via)ex.via=via;
   setTeams(key,capsTeams(),'5:5 랜덤 팀! 곧 승부 예측 투표가 시작돼요','🎮 '+GAME[key]+' 팀 추첨!'+(via?' (다시 뽑기)':''),ex);
   if(!via)trOfferRedraw('owTeams',key);
+  if(key==='ow1'&&!via)moiraExpire();
 }
 function owBet(key,n,v){
   if(!S.ui.owbet[key])S.ui.owbet[key]={};
@@ -4680,7 +4686,7 @@ function reinDo(att,kind){
   }
   var T1=calc();
   r.blocks=(r.blocks||0)+1;if(kind==='sworn')r.swornUsed=true;else r.selfUsed=true;
-  var pts=kind==='sworn'?2:1;
+  var pts=2;      // 서약자 방어도 본인 방어도 +2점
   addEvt('라인하르트 방벽 ('+(kind==='sworn'?'서약자':'본인')+')','power',[{name:h,d:pts,note:'라인하르트 방어 성공(+'+pts+')'}],{id:'pw:rein:'+kind});
   if(r.blocks>=2){
     sysChat('🛡️ 라인하르트['+h+']가 마지막 방벽을 펼쳤다! '+att.target+josaPick(att.target,'을','를')+' 노린 '+att.label+josaPick(att.label,'은','는')+' 무효가 되었다. 방벽은 제가 막겠습니다!');
@@ -4814,8 +4820,8 @@ function echoAnswer(id,pick){
   }
   if(okk){
     e.active=true;
-    addEvt('에코 예측 성공','power',[{name:h,d:2,note:'에코 예측 성공(+2) — 복제 발동'}],{id:'pw:echo:predict'});
-    dealNote(h,'🪞 '+pick+'은 지금 3위 안이었다. 복제 기능이 발동했다! +2점');
+    addEvt('에코 예측 성공','power',[{name:h,d:1,note:'에코 예측 성공(+1) — 복제 발동'}],{id:'pw:echo:predict'});
+    dealNote(h,'🪞 '+pick+'은 지금 3위 안이었다. 복제 기능이 발동했다! +1점');
     announce('announce','🪞 에코의 예측 성공',{useBy:'?',useAnon:true,useHero:'echo',fx:'echo',lines:['🪞 에코가 상위권 한 명을 찾았다!']},'');
   }else{
     e.fails++;e.last=pick;                           // 정체는 마지막에 공개돼요 — 지금은 "누군가 예측했지만 실패했다"만 알려요
@@ -4840,10 +4846,11 @@ function echoGain(text){
 }
 function echoApply(att){
   var h=att.attacker,T=calc(),ta=(T[h]&&T[h].total)||0,tb=(T[att.target]&&T[att.target].total)||0;
-  addEvt('에코 복제 — 점수 교환','power',swapItems(h,att.target,T,'에코 복제'),{id:'pw:echo'});
-  echoMark(h,[h+' ↔ '+att.target+' 점수 교환']);
-  sysChat(att.target+' 님, 점수 맞바꿈 완료! 🪞');
-  announce('announce','🪞 점수 교환!',{useBy:h,useHero:'echo',fx:'echo',alert:'🪞 점수가 교환되었다!',lines:['에코['+h+']가 '+att.target+' 님과 점수를 맞바꿨다!','(나를 뺀 1등을 정확히 맞혔다)'],swap:[{n:h,from:ta,to:tb},{n:att.target,from:tb,to:ta}]},'');
+  var diff=tb-ta,mv=Math.max(-5,Math.min(5,diff)),capped=Math.abs(diff)>5;      // 교환으로 이동하는 점수는 최대 5점
+  addEvt('에코 복제 — 점수 교환'+(capped?' (최대 5점 이동)':''),'power',[{name:h,d:mv,note:'에코 복제 (점수 교환'+(capped?', 최대 5점 이동':'')+')'},{name:att.target,d:-mv,note:'에코 복제 (점수 교환'+(capped?', 최대 5점 이동':'')+')'}],{id:'pw:echo'});
+  echoMark(h,[h+' ↔ '+att.target+' 점수 교환'+(capped?' (최대 5점)':'')]);
+  sysChat(att.target+' 님, 점수 맞바꿈 완료! 🪞'+(capped?' (점수 차이가 커서 5점만 이동)':''));
+  announce('announce','🪞 점수 교환!',{useBy:h,useHero:'echo',fx:'echo',alert:'🪞 점수가 교환되었다!',lines:['에코['+h+']가 '+att.target+' 님과 점수를 맞바꿨다!','(나를 뺀 1등을 정확히 맞혔다)'].concat(capped?['⚠️ 점수 차이가 커서 최대 5점만 이동했어요']:[]),swap:[{n:h,from:ta,to:ta+mv},{n:att.target,from:tb,to:tb-mv}]},'');
   render(true);
 }
 function echoMiss(h,pick,R){
@@ -5016,14 +5023,14 @@ function lucioRun(name,o){
 }
 function lucioJudge(yes,pid){
   var st=A().state,lp=st.lucioPending;if(!lp||(pid&&lp.id!==pid))return;
-  var d=yes?2:1,items=lp.members.map(function(n){return {name:n,d:d,note:'루시우 분위기 전환(적극적 '+(yes?'성공':'실패')+') +'+d};});
-  if(yes)items.push({name:lp.by,d:1,note:'루시우 적극적 성공 추가 보너스'});
+  var d=1,items=lp.members.map(function(n){return {name:n,d:d,note:'루시우 분위기 전환(적극적 '+(yes?'성공':'실패')+') +'+d};});
+  if(yes)items.push({name:lp.by,d:2,note:'루시우 적극적 성공 추가 보너스(+2)'});
   addEvt('루시우 분위기 전환 (적극적)','power',items,{id:'pw:lucio'});
-  markUsed('lucio',lp.by,[GAME[lp.key]+' · '+lp.team+' 전원 +'+d+'점 (적극적 '+(yes?'성공':'실패')+(yes?' · 루시우 +1':'')+')'],lp.members.slice());
+  markUsed('lucio',lp.by,[GAME[lp.key]+' · '+lp.team+' 전원 +'+d+'점 (적극적 '+(yes?'성공':'실패')+(yes?' · 루시우 +2 추가':'')+')'],lp.members.slice());
   delete st.lucioPending;saveState();
-  if(yes)sysChat('🎧 무대 성공적! 루시우['+lp.by+']가 '+lp.team+' 전원을 일으켜 세웠다. 전원 +2점, 루시우 추가 보너스 +1점');
+  if(yes)sysChat('🎧 무대 성공적! 루시우['+lp.by+']가 '+lp.team+' 전원을 일으켜 세웠다. 전원 +1점, 루시우 추가 보너스 +2점');
   else sysChat('🎧 루시우['+lp.by+']의 비트가 조금 모자랐다. '+lp.team+' 전원 +1점');
-  announce('announce',yes?'🎧 무대 대성공!':'🎧 분위기 전환!',{useBy:lp.by,useHero:'lucio',compact:true,lines:[yes?'🎧 루시우의 무대가 대성공!':'🎧 루시우의 비트가 조금 모자랐어요',GAME[lp.key]+' · '+lp.team],gainsTitle:'🎉 점수를 얻은 사람',gains:lp.members.map(function(n){return {name:n,d:d};}),after:yes?'🎧 루시우 본인 추가 보너스 +1점':''},'');
+  announce('announce',yes?'🎧 무대 대성공!':'🎧 분위기 전환!',{useBy:lp.by,useHero:'lucio',compact:true,lines:[yes?'🎧 루시우의 무대가 대성공!':'🎧 루시우의 비트가 조금 모자랐어요',GAME[lp.key]+' · '+lp.team],gainsTitle:'🎉 점수를 얻은 사람',gains:lp.members.map(function(n){return {name:n,d:d};}),after:yes?'🎧 루시우 본인 추가 보너스 +2점':''},'');
   lp.members.forEach(function(n){dealNote(n,'🎧 루시우 덕분에 '+d+'점을 얻었다.');});
   render(true);
 }
@@ -5187,9 +5194,13 @@ function widowResolve(id,pick,why){
   }
 }
 /* 키리코: 볼링 2세트 / 오버워치 2경기 결과가 입력되는 순간 자동 발동 */
+function moiraExpire(){
+  var h=holderOf('moira');if(!h||isUsed('moira'))return;
+  dealNote(h,'🧪 생체 흡수 사용 기간이 끝났어요',['🧪 모이라의 사용 기간이 끝났어요','오버워치 1경기가 시작돼서 생체 흡수를 더 이상 쓸 수 없어요']);
+}
 function moiraReady(){      // 볼링이 끝나 생체 흡수를 쓸 수 있게 되면: 알림 → 초능력 페이지로 이동
   var h=holderOf('moira');if(!h||isUsed('moira'))return;
-  dealNote(h,'🧪 생체 흡수를 쓸 수 있어요!',['🧪 이제 생체 흡수를 쓸 수 있어요!','초능력 마감(에코 마지막 호명) 전까지 1회 쓸 수 있어요','확인을 누르면 초능력 페이지로 이동해요'],{closeGo:'power'});
+  dealNote(h,'🧪 생체 흡수를 쓸 수 있어요!',['🧪 이제 생체 흡수를 쓸 수 있어요!','오버워치 1경기가 시작되기 전까지 1회 쓸 수 있어요','확인을 누르면 초능력 페이지로 이동해요'],{closeGo:'power'});
 }
 function echoAfter(n){      // 봉투 연출이 모두 끝난 뒤에 에코 예측창이 떠요 (자동 개봉 모드에서는 바로)
   if(!OPEN_MANUAL){echoPopOpen(n);return;}
@@ -5261,7 +5272,7 @@ function settleHero(h){
   var st=A().state;st.settled=st.settled||{};
   if(st.settled[h])return toast('이미 정산했어요');
   var P=(A().content||{}).params||{},x=heroOf(h);
-  var unused=h==='tracer'?((A().state.tr||{}).uses||0)===0:h==='sombra'?!((A().state.sombra||{}).exposed):h==='lucio'?!isUsed('lucio'):((A().state.rein||{}).blocks||0)===0;
+  var unused=h==='tracer'?((A().state.tr||{}).uses||0)===0:h==='sombra'?(!((A().state.sombra||{}).exposed)&&((A().state.sombra||{}).n||0)>=1):h==='lucio'?!isUsed('lucio'):((A().state.rein||{}).blocks||0)===0;
   var pts=h==='tracer'?(P.tracer!=null?P.tracer:1):h==='sombra'?(P.sombraHideBonus!=null?P.sombraHideBonus:1):h==='lucio'?1:(P.reinhardt!=null?P.reinhardt:1);
   if(unused)addEvt(x.hero+(h==='sombra'?' — 끝까지 들키지 않은 은닉 보너스':' — 끝까지 사용하지 않아 보너스'),'power',[{name:holder,d:pts,note:x.hero+(h==='sombra'?' 끝까지 들키지 않은 은닉 보너스':' 끝까지 사용하지 않은 보너스')}],{id:'bonus:'+h});
   if(unused&&h==='reinhardt')sysChat('🛡️ 라인하르트['+holder+']가 있어 세상이 평화로웠다. +1점');
@@ -5269,7 +5280,7 @@ function settleHero(h){
   if(unused&&h==='lucio')sysChat('🎧 루시우['+holder+']가 있어서 팀 분위기가 고조되었다. +1점');
   if(unused&&h==='sombra')dealNote(holder,'💜 끝까지 들키지 않았다. 은닉 보너스 +'+pts+'점');
   st.settled[h]={unused:unused,pts:unused?pts:0,ts:Date.now()};saveState();
-  toast(unused?'✅ '+x.hero+'('+holder+') 한 번도 안 써서 +'+pts+'점 지급':'ℹ️ '+x.hero+'('+holder+')는 사용했어서 보너스 없음 · 정산 완료');
+  toast(unused?'✅ '+x.hero+'('+holder+') 한 번도 안 써서 +'+pts+'점 지급':'ℹ️ '+x.hero+'('+holder+')'+(h==='sombra'&&!((A().state.sombra||{}).exposed)?'는 해킹을 한 번도 안 해서':'는 사용했어서')+' 보너스 없음 · 정산 완료');
   render(true);
 }
 function unsettleHero(h){
